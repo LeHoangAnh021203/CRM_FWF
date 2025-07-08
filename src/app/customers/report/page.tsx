@@ -342,7 +342,7 @@ export default function CustomerReportPage() {
               animationDuration={1500}
             />
             <Line
-              type="monotone"
+              type="natural"
               dataKey="KHThanhVien"
               name="KH Thành Viên"
               stroke="#eb94cf"
@@ -357,7 +357,7 @@ export default function CustomerReportPage() {
               animationDuration={1500}
             />
             <Line
-              type="monotone"
+              type="natural"
               dataKey="KHDong"
               name="KH Đồng"
               stroke="#9ee347"
@@ -372,7 +372,7 @@ export default function CustomerReportPage() {
               animationDuration={1500}
             />
             <Line
-              type="monotone"
+              type="natural"
               dataKey="KHBac"
               name="KH Bạc"
               stroke="#f59794"
@@ -387,7 +387,7 @@ export default function CustomerReportPage() {
               animationDuration={1500}
             />
             <Line
-              type="monotone"
+              type="natural"
               dataKey="KHVang"
               name="KH Vàng"
               stroke="#f0bf4c"
@@ -402,7 +402,7 @@ export default function CustomerReportPage() {
               animationDuration={1500}
             />
             <Line
-              type="monotone"
+              type="natural"
               dataKey="KHKimcuong"
               name="KH Kim Cuơng"
               stroke="#bccefb"
