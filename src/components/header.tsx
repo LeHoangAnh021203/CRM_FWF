@@ -28,8 +28,8 @@ export function Header() {
 
         <div className="flex items-center space-x-4">
           <Button variant="ghost" size="sm" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+            <Bell className="h-5 w-5 text-[#d04d65]" />
+            <span className="absolute -top-1 -right-1 bg-[#d04d65] text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
               3
             </span>
           </Button>
@@ -37,10 +37,10 @@ export function Header() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-[#61c9d7] rounded-full flex items-center justify-center">
                   <User className="h-4 w-4 text-white" />
                 </div>
-                <span className="text-sm font-medium">John Doe</span>
+                <span className="text-sm font-medium">FB Network</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
