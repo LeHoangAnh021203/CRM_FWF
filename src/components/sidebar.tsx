@@ -85,10 +85,10 @@ export function Sidebar() {
   }
 
   return (
-    <div className="w-64 bg-slate-800 text-white flex flex-col">
-      <div className="p-6 border-b border-slate-700">
+    <div className="w-64 bg-[#f66035] text-white flex flex-col">
+      <div className="p-6 border-b border-[#fdec40]">
         <h2 className="text-xl font-bold">Master Report</h2>
-        <p className="text-slate-400 text-sm mt-1">Admin Panel</p>
+        <p className="text-white text-sm mt-1">FB Network</p>
       </div>
 
       <nav className="flex-1 p-4">
@@ -100,7 +100,7 @@ export function Sidebar() {
                   onClick={() => toggleExpanded(item.label)}
                   className={cn(
                     "w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors",
-                    "text-slate-300 hover:bg-slate-700 hover:text-white",
+                    "text-white hover:bg-slate-700 hover:text-white",
                   )}
                 >
                   <div className="flex items-center space-x-3">
@@ -108,7 +108,7 @@ export function Sidebar() {
                     <span>{item.label}</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {item.count && <span className="bg-slate-600 text-xs px-2 py-1 rounded-full">{item.count}</span>}
+                    {item.count && <span className="bg-white text-xs text-black px-2 py-1 rounded-full">{item.count}</span>}
                     {expandedItems.includes(item.label) ? (
                       <ChevronDown className="h-4 w-4" />
                     ) : (
@@ -121,14 +121,14 @@ export function Sidebar() {
                   href={item.href}
                   className={cn(
                     "w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors",
-                    item.active ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-slate-700 hover:text-white",
+                    item.active ? "bg-white text-black" : "text-white hover:bg-slate-700 hover:text-white",
                   )}
                 >
                   <div className="flex items-center space-x-3">
                     <item.icon className="h-5 w-5" />
                     <span>{item.label}</span>
                   </div>
-                  {item.count && <span className="bg-slate-600 text-xs px-2 py-1 rounded-full">{item.count}</span>}
+                  {item.count && <span className="bg-white text-xs text-black px-2 py-1 rounded-full">{item.count}</span>}
                 </Link>
               )}
               {expandedItems.includes(item.label) && item.subItems && (
@@ -137,7 +137,7 @@ export function Sidebar() {
                     <li key={subItem.label}>
                       <Link
                         href={subItem.href}
-                        className="w-full text-left px-3 py-1 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded block"
+                        className="w-full text-left px-3 py-1 text-sm text-white hover:text-white hover:bg-slate-700 rounded block"
                       >
                         {subItem.label}
                       </Link>
@@ -150,14 +150,14 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      <div className="p-4 border-t border-slate-700">
+      <div className="p-4 border-t border-[#fdec40]">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-            <span className="text-sm font-medium">JD</span>
+          <div className="w-8 h-8 bg-[#61c9d7] rounded-full flex items-center justify-center">
+            <span className="text-sm font-medium">FB</span>
           </div>
-          <div>
-            <p className="text-sm font-medium">John Doe</p>
-            <p className="text-xs text-slate-400">Administrator</p>
+          <div className="h-full">
+            <p className="text-sm font-medium">FB Network</p>
+            <p className="text-xs text-white">Administrator</p>
           </div>
         </div>
       </div>
