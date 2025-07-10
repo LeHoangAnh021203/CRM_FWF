@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "demo": "node scripts/demo-info.js"
+    "demo": "node scripts/demo-info.js",
+    "update-links": "node scripts/update-demo-links.js",
+    "deploy": "vercel --prod && npm run update-links"
   },
   "dependencies": {
     "@heroui/react": "^2.7.11",

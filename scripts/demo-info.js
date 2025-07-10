@@ -7,7 +7,7 @@ console.log(chalk.cyan.bold('🚀 FB Network CRM Dashboard'));
 console.log('='.repeat(60));
 
 console.log(chalk.yellow('\n📱 Demo Links:'));
-console.log(chalk.green('   Production: ') + chalk.blue.underline('https://fb-network-demo-dkhy0at0b-hoanganhle0203-7387s-projects.vercel.app'));
+console.log(chalk.green('   Production: ') + chalk.blue.underline('https://fb-network-demo-3bundghv9-hoanganhle0203-7387s-projects.vercel.app'));
 console.log(chalk.green('   Local:      ') + chalk.blue.underline('http://localhost:3000'));
 
 console.log(chalk.yellow('\n🔧 Available Commands:'));

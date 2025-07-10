@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, Bell, User, Menu, Settings, LogOut, HelpCircle, ExternalLink, Globe } from "lucide-react"
+import { Search, Bell, User, Menu, Settings, LogOut, HelpCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -13,8 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 export function Header() {
-  const demoUrl = "https://fb-network-demo-dkhy0at0b-hoanganhle0203-7387s-projects.vercel.app"
-  
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
@@ -29,18 +27,6 @@ export function Header() {
         </div>
 
         <div className="flex items-center space-x-4">
-          {/* Demo Link */}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-            onClick={() => window.open(demoUrl, '_blank')}
-          >
-            <Globe className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Live Demo</span>
-            <ExternalLink className="h-3 w-3 ml-1" />
-          </Button>
-
           <Button variant="ghost" size="sm" className="relative">
             <Bell className="h-5 w-5 text-[#d04d65]" />
             <span className="absolute -top-1 -right-1 bg-[#d04d65] text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
