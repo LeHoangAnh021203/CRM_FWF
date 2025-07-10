@@ -87,7 +87,7 @@ export function Sidebar() {
   return (
     <div className="w-64 bg-slate-800 text-white flex flex-col">
       <div className="p-6 border-b border-slate-700">
-        <h2 className="text-xl font-bold">CRM Dashboard</h2>
+        <h2 className="text-xl font-bold">Master Report</h2>
         <p className="text-slate-400 text-sm mt-1">Admin Panel</p>
       </div>
 
