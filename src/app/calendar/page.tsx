@@ -74,7 +74,7 @@ const upcomingEvents = [
 ]
 
 export default function CalendarPage() {
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const [currentDate] = useState(new Date())
 
   const getEventTypeColor = (type: string) => {
     switch (type) {

@@ -57,3 +57,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Fix DatePicker popup z-index */
+[data-rac-popover] {
+  z-index: 9999 !important;
+  background: #fff !important;
+  pointer-events: auto !important;
+}
+[data-rac-popover] ~ .recharts-wrapper {
+  pointer-events: none !important;
+}
