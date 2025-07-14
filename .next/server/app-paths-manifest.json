@@ -1,3 +1,7 @@
 {
+  "/orders/page": "app/orders/page.js",
+  "/customers/report/page": "app/customers/report/page.js",
+  "/calendar/page": "app/calendar/page.js",
+  "/messages/page": "app/messages/page.js",
   "/page": "app/page.js"
 }
