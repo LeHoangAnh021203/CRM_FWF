@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/demo-info.js && next dev",
+    "dev": "node scripts/auto-update-demo.js && node scripts/demo-info.js && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "demo": "node scripts/demo-info.js",
     "update-links": "node scripts/update-demo-links.js",
-    "deploy": "vercel --prod && npm run update-links"
+    "auto-update": "node scripts/auto-update-demo.js",
+    "deploy": "vercel --prod && npm run auto-update"
   },
   "dependencies": {
     "@heroui/react": "^2.7.11",
@@ -28,6 +29,7 @@
     "next": "15.3.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-table": "^7.8.0",
     "recharts": "^3.0.2",
     "tailwind-merge": "^3.3.1"
   },
