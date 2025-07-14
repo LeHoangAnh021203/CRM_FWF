@@ -20,7 +20,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/", active: true },
   {
     icon: Users,
-    label: "Customers",
+    label: "Customer",
     href: "/customers",
     count: 1.2,
     subItems: [
