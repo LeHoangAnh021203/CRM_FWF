@@ -34,20 +34,6 @@ interface DataPoint {
   branch?: string;
 }
 
-interface PieDataPoint {
-  name: string;
-  value: number;
-  type: string;
-  status: string;
-  date: string;
-}
-
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: unknown[];
-  label?: string | number;
-}
-
 interface MultiTypeCustomerDataPoint {
   date: string;
   KHTraiNghiem: number;
@@ -56,19 +42,6 @@ interface MultiTypeCustomerDataPoint {
   KHVang: number;
   KHDong: number;
   KHKimcuong: number;
-  type: string;
-  status: string;
-}
-
-interface OriginOfOrderDataPoint {
-  date: string;
-  vangLai: number;
-  fanpage: number;
-  chuaXacDinh: number;
-  facebook: number;
-  app: number;
-  web: number;
-  tiktok: number;
   type: string;
   status: string;
 }
@@ -95,43 +68,14 @@ interface TotalSaleOfStores {
   status: string;
 }
 
-interface AppCustomerDataPoint {
-  date: string;
-  type: string;
-  status: string;
-  chuaTai: number;
-  daTai: number;
-}
-
-const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
-        <p className=" text-sm font-semibold text-gray-700">{`Ngày: ${label}`}</p>
-        {(payload as Array<{ color: string; name: string; value: number }>).map(
-          (entry, index) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {`${entry.name}: ${entry.value}`}
-            </p>
-          )
-        )}
-      </div>
-    );
-  }
-  return null;
-};
-
 export default function CustomerReportPage() {
-  const [selectedType, setSelectedType] = useState<string[]>([]);
-  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [startDate, setStartDate] = useState<CalendarDate>(
     today(getLocalTimeZone()).subtract({ days: 7 })
   );
   const [endDate, setEndDate] = useState<CalendarDate>(
     today(getLocalTimeZone())
   );
+  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
 
   // Thêm state cho Region và Branch
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
@@ -141,38 +85,109 @@ export default function CustomerReportPage() {
   const [locationSearch, setLocationSearch] = useState("");
   const regionDropdownRef = useRef<HTMLDivElement>(null);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
-  const allRegions = ["Đã đóng cửa", "Đà Nẵng", "Nha Trang", "Hà Nội", "HCM"];
-
-  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
-  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
-  const allBranches = ["Branch 1", "Branch 2", "Branch 3"];
-
-  // State for managing shop types
-  const [shopTypes, setShopTypes] = useState<string[]>([
-    "Trong Mall",
-    "Shophouse",
-    "Nhà phố",
-    "Đã đóng cửa",
-    "Khác",
-  ]);
-  const [showAddShopType, setShowAddShopType] = useState(false);
-  const [newShopType, setNewShopType] = useState("");
-
-  const customerTypes = [
-    "KH trải nghiệm",
-    "Khách hàng Thành viên",
-    "Khách hàng Bạc",
-    "Khách hàng Vàng",
-    "Khách hàng Bạch Kim",
-    "Khách hàng Kim cương",
-  ];
-
-  const customerStatus = ["New", "Old"];
-
+  const locationOptions = React.useMemo(
+    () => [
+      "Crescent Mall Q7",
+      "Vincom Thảo Điền",
+      "Vista Verde",
+      "Aeon Mall Tân Phú Celadon",
+      "Westpoint Phạm Hùng",
+      "Aeon Mall Bình Tân",
+      "Vincom Phan Văn Trị",
+      "Vincom Landmark 81",
+      "TTTM Estella Place",
+      "Võ Thị Sáu Q.1",
+      "The Sun Avenue",
+      "Trương Định Q.3",
+      "Hoa Lan Q.PN",
+      "Nowzone Q.1",
+      "Everrich Infinity Q.5",
+      "SC VivoCity",
+      "Đảo Ngọc Ngũ Xã HN",
+      "Vincom Lê Văn Việt",
+      "The Bonatica Q.TB",
+      "Midtown Q.7",
+      "Trần Phú Đà Nẵng",
+      "Vincom Quang Trung",
+      "Vincom Bà Triệu",
+      "Imperia Sky Garden HN",
+      "Gold Coast Nha Trang",
+      "Riviera Point Q7",
+      "Saigon Ofice",
+      "Millenium Apartment Q.4",
+      "Parc Mall Q.8",
+      "Saigon Mia Trung Sơn",
+    ],
+    []
+  );
+  const locationRegionMap: Record<string, string> = {
+    "Crescent Mall Q7": "HCM",
+    "Vincom Thảo Điền": "HCM",
+    "Vista Verde": "HCM",
+    "Aeon Mall Tân Phú Celadon": "HCM",
+    "Westpoint Phạm Hùng": "HCM",
+    "Aeon Mall Bình Tân": "HCM",
+    "Vincom Phan Văn Trị": "HCM",
+    "Vincom Landmark 81": "HCM",
+    "TTTM Estella Place": "HCM",
+    "Võ Thị Sáu Q.1": "HCM",
+    "The Sun Avenue": "HCM",
+    "Trương Định Q.3": "HCM",
+    "Hoa Lan Q.PN": "HCM",
+    "Nowzone Q.1": "HCM",
+    "Everrich Infinity Q.5": "HCM",
+    "SC VivoCity": "HCM",
+    "Vincom Lê Văn Việt": "HCM",
+    "The Bonatica Q.TB": "HCM",
+    "Midtown Q.7": "HCM",
+    "Riviera Point Q7": "HCM",
+    "Saigon Ofice": "HCM",
+    "Millenium Apartment Q.4": "HCM",
+    "Parc Mall Q.8": "HCM",
+    "Saigon Mia Trung Sơn": "HCM",
+    "Đảo Ngọc Ngũ Xã HN": "Hà Nội",
+    "Imperia Sky Garden HN": "Hà Nội",
+    "Vincom Bà Triệu": "Hà Nội",
+    "Gold Coast Nha Trang": "Nha Trang",
+    "Trần Phú Đà Nẵng": "Đà Nẵng",
+    "Vincom Quang Trung": "HCM",
+  };
   const data: DataPoint[] = [
     ...Array.from({ length: 30 }, (_, i) => {
       const day = i + 1;
       const dateStr = `${day} thg 6`;
+      const allLocations = [
+        "Crescent Mall Q7",
+        "Vincom Thảo Điền",
+        "Vista Verde",
+        "Aeon Mall Tân Phú Celadon",
+        "Westpoint Phạm Hùng",
+        "Aeon Mall Bình Tân",
+        "Vincom Phan Văn Trị",
+        "Vincom Landmark 81",
+        "TTTM Estella Place",
+        "Võ Thị Sáu Q.1",
+        "The Sun Avenue",
+        "Trương Định Q.3",
+        "Hoa Lan Q.PN",
+        "Nowzone Q.1",
+        "Everrich Infinity Q.5",
+        "SC VivoCity",
+        "Đảo Ngọc Ngũ Xã HN",
+        "Vincom Lê Văn Việt",
+        "The Bonatica Q.TB",
+        "Midtown Q.7",
+        "Trần Phú Đà Nẵng",
+        "Vincom Quang Trung",
+        "Vincom Bà Triệu",
+        "Imperia Sky Garden HN",
+        "Gold Coast Nha Trang",
+        "Riviera Point Q7",
+        "Saigon Ofice",
+        "Millenium Apartment Q.4",
+        "Parc Mall Q.8",
+        "Saigon Mia Trung Sơn",
+      ];
       return [
         {
           date: dateStr,
@@ -181,8 +196,8 @@ export default function CustomerReportPage() {
           type: "KH trải nghiệm",
           status: "New",
           gender: "Nam" as const,
-          region: allRegions[i % allRegions.length],
-          branch: allBranches[i % allBranches.length],
+          region: locationRegionMap[allLocations[i % allLocations.length]],
+          branch: allLocations[i % allLocations.length],
         },
         {
           date: dateStr,
@@ -191,8 +206,9 @@ export default function CustomerReportPage() {
           type: "KH trải nghiệm",
           status: "New",
           gender: "Nữ" as const,
-          region: allRegions[(i + 1) % allRegions.length],
-          branch: allBranches[(i + 1) % allBranches.length],
+          region:
+            locationRegionMap[allLocations[(i + 1) % allLocations.length]],
+          branch: allLocations[(i + 1) % allLocations.length],
         },
         {
           date: dateStr,
@@ -201,8 +217,9 @@ export default function CustomerReportPage() {
           type: "Khách hàng Thành viên",
           status: "New",
           gender: "Nam" as const,
-          region: allRegions[(i + 2) % allRegions.length],
-          branch: allBranches[(i + 2) % allBranches.length],
+          region:
+            locationRegionMap[allLocations[(i + 2) % allLocations.length]],
+          branch: allLocations[(i + 2) % allLocations.length],
         },
         {
           date: dateStr,
@@ -211,8 +228,9 @@ export default function CustomerReportPage() {
           type: "Khách hàng Thành viên",
           status: "New",
           gender: "Nữ" as const,
-          region: allRegions[(i + 3) % allRegions.length],
-          branch: allBranches[(i + 3) % allBranches.length],
+          region:
+            locationRegionMap[allLocations[(i + 3) % allLocations.length]],
+          branch: allLocations[(i + 3) % allLocations.length],
         },
       ];
     }).flat(),
@@ -239,145 +257,6 @@ export default function CustomerReportPage() {
       };
     }
   );
-
-  const pieData: PieDataPoint[] = [
-    {
-      name: "Nữ",
-      value: 69,
-      type: "KH trải nghiệm",
-      status: "New",
-      date: "1 thg 7, 2025",
-    },
-    {
-      name: "Nam",
-      value: 31,
-      type: "KH trải nghiệm",
-      status: "New",
-      date: "1 thg 7, 2025",
-    },
-  ];
-
-  const COLORS = ["#f59794", "#9ee347"];
-
-  const originOfOrder: OriginOfOrderDataPoint[] = [
-    {
-      date: "1 thg 1, 2025",
-      type: "KH trải nghiệm",
-      status: "New",
-      vangLai: 100,
-      fanpage: 56,
-      chuaXacDinh: 44,
-      facebook: 48,
-      app: 11,
-      web: 2,
-      tiktok: 2,
-    },
-    {
-      date: "2 thg 1, 2025",
-      type: "Khách hàng Thành viên",
-      status: "New",
-      vangLai: 56,
-      fanpage: 56,
-      chuaXacDinh: 39,
-      facebook: 35,
-      app: 12,
-      web: 2,
-      tiktok: 2,
-    },
-    {
-      date: "3 thg 1, 2025",
-      type: "Khách hàng Bạc",
-      status: "New",
-      vangLai: 53,
-      fanpage: 47,
-      chuaXacDinh: 41,
-      facebook: 31,
-      app: 10,
-      web: 2,
-      tiktok: 2,
-    },
-    {
-      date: "4 thg 1, 2025",
-      type: "Khách hàng Vàng",
-      status: "New",
-      vangLai: 53,
-      fanpage: 47,
-      chuaXacDinh: 41,
-      facebook: 31,
-      app: 10,
-      web: 2,
-      tiktok: 2,
-    },
-    {
-      date: "5 thg 1, 2025",
-      type: "Khách hàng Bạch Kim",
-      status: "New",
-      vangLai: 53,
-      fanpage: 47,
-      chuaXacDinh: 41,
-      facebook: 31,
-      app: 10,
-      web: 2,
-      tiktok: 2,
-    },
-    {
-      date: "6 thg 1, 2025",
-      type: "Khách hàng Kim cương",
-      status: "New",
-      vangLai: 53,
-      fanpage: 47,
-      chuaXacDinh: 41,
-      facebook: 31,
-      app: 10,
-      web: 2,
-      tiktok: 2,
-    },
-  ];
-
-  const AppCustomer: AppCustomerDataPoint[] = [
-    {
-      date: "1 thg 7, 2025",
-      type: "KH trải nghiệm",
-      status: "New",
-      chuaTai: 10,
-      daTai: 30,
-    },
-    {
-      date: "2 thg 7, 2025",
-      type: "Khách hàng Thành viên",
-      status: "New",
-      chuaTai: 15,
-      daTai: 25,
-    },
-    {
-      date: "3 thg 7, 2025",
-      type: "Khách hàng Bạc",
-      status: "Old",
-      chuaTai: 8,
-      daTai: 22,
-    },
-    {
-      date: "4 thg 7, 2025",
-      type: "Khách hàng Vàng",
-      status: "New",
-      chuaTai: 12,
-      daTai: 28,
-    },
-    {
-      date: "5 thg 7, 2025",
-      type: "Khách hàng Bạch Kim",
-      status: "Old",
-      chuaTai: 7,
-      daTai: 18,
-    },
-    {
-      date: "6 thg 7, 2025",
-      type: "Khách hàng Kim cương",
-      status: "New",
-      chuaTai: 20,
-      daTai: 50,
-    },
-  ];
 
   const TotalRegionalSales: TotalRegionalSales[] = [
     {
@@ -566,36 +445,14 @@ export default function CustomerReportPage() {
       status: "All",
     },
   ];
-  const totalChuaTai = AppCustomer.reduce((sum, item) => sum + item.chuaTai, 0);
-  const totalDaTai = AppCustomer.reduce((sum, item) => sum + item.daTai, 0);
-
-  const appCustomerPieData = [
-    { name: "Đã Tải", value: totalDaTai },
-    { name: "Chưa Tải", value: totalChuaTai },
-  ];
-
-  const APP_CUSTOMER_PIE_COLORS = ["#9ee347", "#f0bf4c"];
-
-  const newOldCustomerData = [
-    { name: "Khách mới", value: 2847, color: "#5bd1d7" },
-    { name: "Khách cũ", value: 1690, color: "#eb94cf" },
-  ];
-
-  const NEW_OLD_COLORS = ["#5bd1d7", "#eb94cf"];
-
-  const pieNewGuestData = [
-    { name: "Normal payment", value: 100, color: "#ff6900" },
-    { name: "Foxie Card Purchase ", value: 200, color: "#cf2e2e" },
-    { name: "Products Purchase payment", value: 100, color: "#00d084" },
-  ];
-
-  const pieOldGuestData = [
-    { name: "Normal payment", value: 100, color: "#9ee347" },
-    { name: "Foxie Card Purchase ", value: 200, color: "#5bd1d7" },
-    { name: "Products Purchase payment", value: 100, color: "#f0bf4c" },
-  ];
-
-  const NEW_GUEST_COLOR = ["#FF6900", "#CF2E2E", "#00D084"];
+  // Định nghĩa lại hàm formatMoneyShort trước khi dùng cho BarChart
+  function formatMoneyShort(val: number) {
+    if (val >= 1_000_000_000_000)
+      return (val / 1_000_000_000_000).toFixed(1) + " T";
+    if (val >= 1_000_000_000) return (val / 1_000_000_000).toFixed(1) + " T";
+    if (val >= 1_000_000) return (val / 1_000_000).toFixed(1) + " Tr";
+    return val.toLocaleString();
+  }
 
   const REGIONS = [
     "HCM",
@@ -619,19 +476,11 @@ export default function CustomerReportPage() {
 
   const weekRevenueData = filterData(
     TotalRegionalSales,
-    selectedType,
-    selectedStatus,
-    weekStart,
-    weekEnd,
     selectedRegions,
     selectedBranches
   );
   const prevWeekRevenueData = filterData(
     TotalRegionalSales,
-    selectedType,
-    selectedStatus,
-    prevWeekStart,
-    prevWeekEnd,
     selectedRegions,
     selectedBranches
   );
@@ -660,29 +509,23 @@ export default function CustomerReportPage() {
     const ordersThisWeek = data.filter(
       (d) => d.region === region && isInWeek(d, weekStart, weekEnd)
     ).length;
-
     const ordersLastWeek = data.filter(
       (d) => d.region === region && isInWeek(d, prevWeekStart, prevWeekEnd)
     ).length;
-
     const deltaOrders = ordersThisWeek - ordersLastWeek;
-
-    const regionKey = getRegionKey(region);
+    const regionKey = getRegionKey(region) as keyof TotalRegionalSales;
     const revenueThisWeek = weekRevenueData.reduce(
-      (sum, item) => sum + ((item as any)[regionKey] || 0),
+      (sum, item) => sum + Number(item[regionKey] ?? 0),
       0
     );
-
     const revenueLastWeek = prevWeekRevenueData.reduce(
-      (sum, item) => sum + ((item as any)[regionKey] || 0),
+      (sum, item) => sum + Number(item[regionKey] ?? 0),
       0
     );
-
     const percentDelta =
       revenueLastWeek === 0
         ? null
         : ((revenueThisWeek - revenueLastWeek) / revenueLastWeek) * 100;
-
     return {
       region,
       ordersThisWeek,
@@ -693,10 +536,164 @@ export default function CustomerReportPage() {
     };
   });
 
-  const totalRevenueThisWeek = regionStats.reduce(
-    (sum, r) => sum + r.revenueThisWeek,
-    0
-  );
+  // --- TÍNH TOÁN SỐ LIỆU TỔNG HỢP ---
+  // 1. Tổng thực thu tuần này và tuần trước
+  const totalRevenueThisWeek = data
+    .filter((d) => isInWeek(d, weekStart, weekEnd))
+    .reduce((sum, d) => sum + d.value, 0);
+  const totalRevenueLastWeek = data
+    .filter((d) => isInWeek(d, prevWeekStart, prevWeekEnd))
+    .reduce((sum, d) => sum + d.value, 0);
+  const percentRevenue =
+    totalRevenueLastWeek === 0
+      ? null
+      : ((totalRevenueThisWeek - totalRevenueLastWeek) / totalRevenueLastWeek) *
+        100;
+
+  // 2. Thực thu của dịch vụ lẻ (giả lập: tổng value2 của type 'KH trải nghiệm')
+  const retailThisWeek = data
+    .filter(
+      (d) => d.type === "KH trải nghiệm" && isInWeek(d, weekStart, weekEnd)
+    )
+    .reduce((sum, d) => sum + d.value2, 0);
+  const retailLastWeek = data
+    .filter(
+      (d) =>
+        d.type === "KH trải nghiệm" && isInWeek(d, prevWeekStart, prevWeekEnd)
+    )
+    .reduce((sum, d) => sum + d.value2, 0);
+  const percentRetail =
+    retailLastWeek === 0
+      ? null
+      : ((retailThisWeek - retailLastWeek) / retailLastWeek) * 100;
+
+  // 3. Thực thu mua sản phẩm (giả lập: tổng value2 của type 'Khách hàng Thành viên')
+  const productThisWeek = data
+    .filter(
+      (d) =>
+        d.type === "Khách hàng Thành viên" && isInWeek(d, weekStart, weekEnd)
+    )
+    .reduce((sum, d) => sum + d.value2, 0);
+  const productLastWeek = data
+    .filter(
+      (d) =>
+        d.type === "Khách hàng Thành viên" &&
+        isInWeek(d, prevWeekStart, prevWeekEnd)
+    )
+    .reduce((sum, d) => sum + d.value2, 0);
+  const percentProduct =
+    productLastWeek === 0
+      ? null
+      : ((productThisWeek - productLastWeek) / productLastWeek) * 100;
+
+  // 4. Thực thu của mua thẻ (giả lập: tổng value của type 'Khách hàng Thành viên')
+  const cardOrdersThisWeek = data.filter(
+    (d) => d.type === "Khách hàng Thành viên" && isInWeek(d, weekStart, weekEnd)
+  ).length;
+  const cardOrdersLastWeek = data.filter(
+    (d) =>
+      d.type === "Khách hàng Thành viên" &&
+      isInWeek(d, prevWeekStart, prevWeekEnd)
+  ).length;
+  const deltaCardOrders = cardOrdersThisWeek - cardOrdersLastWeek;
+  const cardThisWeek = data
+    .filter(
+      (d) =>
+        d.type === "Khách hàng Thành viên" && isInWeek(d, weekStart, weekEnd)
+    )
+    .reduce((sum, d) => sum + d.value, 0);
+  const cardLastWeek = data
+    .filter(
+      (d) =>
+        d.type === "Khách hàng Thành viên" &&
+        isInWeek(d, prevWeekStart, prevWeekEnd)
+    )
+    .reduce((sum, d) => sum + d.value, 0);
+  const percentCard =
+    cardLastWeek === 0
+      ? null
+      : ((cardThisWeek - cardLastWeek) / cardLastWeek) * 100;
+
+  // Move these lines up
+  const totalOrdersThisWeek = data.filter((d) =>
+    isInWeek(d, weekStart, weekEnd)
+  ).length;
+  const totalOrdersLastWeek = data.filter((d) =>
+    isInWeek(d, prevWeekStart, prevWeekEnd)
+  ).length;
+  const deltaOrders = totalOrdersThisWeek - totalOrdersLastWeek;
+
+  // 5. Tổng trả bằng thẻ Foxie (45% tổng revenue)
+  const foxieOrdersThisWeek = Math.round(totalOrdersThisWeek * 0.45);
+  const foxieOrdersLastWeek = Math.round(totalOrdersLastWeek * 0.45);
+  const deltaFoxieOrders = foxieOrdersThisWeek - foxieOrdersLastWeek;
+  const foxieThisWeek = Math.round(totalRevenueThisWeek * 0.45);
+  const foxieLastWeek = Math.round(totalRevenueLastWeek * 0.45);
+  const percentFoxie =
+    foxieLastWeek === 0
+      ? null
+      : ((foxieThisWeek - foxieLastWeek) / foxieLastWeek) * 100;
+
+  // 6. Trung bình thực thu mỗi ngày
+  function daysBetween(start: CalendarDate, end: CalendarDate) {
+    // Trả về số ngày giữa 2 CalendarDate (bao gồm cả ngày đầu và cuối)
+    let count = 1;
+    let d = start;
+    while (d.compare(end) < 0) {
+      d = d.add({ days: 1 });
+      count++;
+    }
+    return count;
+  }
+  const daysThisWeek = daysBetween(weekStart, weekEnd);
+  const avgRevenueThisWeek = Math.round(totalRevenueThisWeek / daysThisWeek);
+  const avgRevenueLastWeek = Math.round(totalRevenueLastWeek / daysThisWeek);
+  const percentAvg =
+    avgRevenueLastWeek === 0
+      ? null
+      : ((avgRevenueThisWeek - avgRevenueLastWeek) / avgRevenueLastWeek) * 100;
+
+  function StatCard({
+    title,
+    value,
+    delta,
+    className,
+    valueColor,
+  }: {
+    title: string;
+    value: number;
+    delta: number | null;
+    className?: string;
+    valueColor?: string;
+  }) {
+    const isUp = delta !== null && delta > 0;
+    const isDown = delta !== null && delta < 0;
+    return (
+      <div
+        className={`bg-white rounded-xl shadow p-6 flex flex-col items-center min-w-[220px] border-4 ${
+          className ?? "border-gray-200"
+        }`}
+      >
+        <div className="text-sm text-gray-700 mb-1 text-center">{title}</div>
+        <div
+          className={`text-4xl font-bold mb-1 text-center ${
+            valueColor ?? "text-black"
+          }`}
+        >
+          {value.toLocaleString()}
+        </div>
+        <div
+          className={`text-lg font-semibold flex items-center gap-1 ${
+            isUp ? "text-green-600" : isDown ? "text-red-500" : "text-gray-500"
+          }`}
+        >
+          {isUp && <span>↑</span>}
+          {isDown && <span>↓</span>}
+          {delta === null ? "N/A" : Math.abs(delta).toLocaleString()}
+        </div>
+      </div>
+    );
+  }
 
   function parseVNDate(str: string): CalendarDate {
     let match = str.match(/^(\d{1,2}) thg (\d{1,2}), (\d{4})$/);
@@ -727,22 +724,8 @@ export default function CustomerReportPage() {
       region?: string;
       branch?: string;
     }
-  >(
-    data: T[],
-    selectedType: string[],
-    selectedStatus: string | null,
-    start: CalendarDate,
-    end: CalendarDate,
-    selectedRegions?: string[],
-    selectedBranches?: string[]
-  ): T[] {
+  >(data: T[], selectedRegions?: string[], selectedBranches?: string[]): T[] {
     return data.filter((item) => {
-      const matchType =
-        selectedType.length === 0 || selectedType.includes(item.type);
-      const matchStatus = !selectedStatus || item.status === selectedStatus;
-      const itemDate = parseVNDate(item.date);
-      const matchDate =
-        itemDate.compare(start) >= 0 && itemDate.compare(end) <= 0;
       const matchRegion =
         !selectedRegions ||
         selectedRegions.length === 0 ||
@@ -753,143 +736,23 @@ export default function CustomerReportPage() {
         selectedBranches.length === 0 ||
         !item.branch ||
         selectedBranches.includes(item.branch);
-      return (
-        matchType && matchStatus && matchDate && matchRegion && matchBranch
-      );
+      return matchRegion && matchBranch;
     });
   }
 
-  const isInRange = (d: DataPoint) => {
-    const dDate = parseVNDate(d.date);
-    return dDate.compare(startDate) >= 0 && dDate.compare(endDate) <= 0;
-  };
-  const maleData = data.filter((d) => d.gender === "Nam" && isInRange(d));
-  const femaleData = data.filter((d) => d.gender === "Nữ" && isInRange(d));
-
-  const maleRevenue =
-    maleData.length > 0
-      ? Math.round(
-          maleData.reduce((sum, d) => sum + d.value, 0) / maleData.length
-        )
-      : 0;
-  const femaleRevenue =
-    femaleData.length > 0
-      ? Math.round(
-          femaleData.reduce((sum, d) => sum + d.value, 0) / femaleData.length
-        )
-      : 0;
-
-  const maleOrderAvg =
-    maleData.length > 0
-      ? Math.round(
-          maleData.reduce((sum, d) => sum + d.value2, 0) / maleData.length
-        )
-      : 0;
-  const femaleOrderAvg =
-    femaleData.length > 0
-      ? Math.round(
-          femaleData.reduce((sum, d) => sum + d.value2, 0) / femaleData.length
-        )
-      : 0;
-
-  // Lấy ngày hiện tại và ngày trước đó từ endDate
-  const currentDateStr = `${endDate.day} thg ${endDate.month}`;
-  const prevDateObj = endDate.subtract({ days: 1 });
-  const prevDateStr = `${prevDateObj.day} thg ${prevDateObj.month}`;
-
-  const maleCurrent = data.filter(
-    (d) => d.gender === "Nam" && d.date === currentDateStr
-  );
-  const malePrev = data.filter(
-    (d) => d.gender === "Nam" && d.date === prevDateStr
-  );
-  const femaleCurrent = data.filter(
-    (d) => d.gender === "Nữ" && d.date === currentDateStr
-  );
-  const femalePrev = data.filter(
-    (d) => d.gender === "Nữ" && d.date === prevDateStr
-  );
-
-  const avg = (arr: DataPoint[]) =>
-    arr.length > 0
-      ? Math.round(arr.reduce((sum, d) => sum + d.value, 0) / arr.length)
-      : 0;
-
-  const maleCurrentAvg = avg(maleCurrent);
-  const malePrevAvg = avg(malePrev);
-  const femaleCurrentAvg = avg(femaleCurrent);
-  const femalePrevAvg = avg(femalePrev);
-
-  const calcChange = (current: number, prev: number) =>
-    prev === 0 ? 0 : +(((current - prev) / prev) * 100).toFixed(1);
-
-  // Helper để lấy icon, màu và text cho phần trăm thay đổi
-  function getChangeIndicator(change: number) {
-    if (isNaN(change) || change === null)
-      return { icon: "→", color: "text-gray-400" };
-    if (change > 0) return { icon: "⇧", color: "text-green-600" };
-    if (change < 0) return { icon: "⇩", color: "text-red-500" };
-    return { icon: "→", color: "text-gray-400" };
-  }
-
-  // Tổng số khách mới trong hệ thống (ví dụ: tổng value của ngày endDate)
-  const totalCurrent = data
-    .filter((d) => d.date === currentDateStr)
-    .reduce((sum, d) => sum + d.value, 0);
-  const totalPrev = data
-    .filter((d) => d.date === prevDateStr)
-    .reduce((sum, d) => sum + d.value, 0);
-  const totalChange =
-    totalPrev === 0
-      ? null
-      : +(((totalCurrent - totalPrev) / totalPrev) * 100).toFixed(1);
-  const totalIndicator = getChangeIndicator(totalChange ?? 0);
-
-  // Tổng số khách mới thực đi (ví dụ: tổng value2 của ngày endDate)
-  const totalCurrent2 = data
-    .filter((d) => d.date === currentDateStr)
-    .reduce((sum, d) => sum + d.value2, 0);
-  const totalPrev2 = data
-    .filter((d) => d.date === prevDateStr)
-    .reduce((sum, d) => sum + d.value2, 0);
-  const totalChange2 =
-    totalPrev2 === 0
-      ? null
-      : +(((totalCurrent2 - totalPrev2) / totalPrev2) * 100).toFixed(1);
-  const totalIndicator2 = getChangeIndicator(totalChange2 ?? 0);
-
-  // --- giữ lại logic cho 4 card đầu (nam/nữ) ---
-  const maleRevenueChange =
-    malePrevAvg === 0 ? null : calcChange(maleCurrentAvg, malePrevAvg);
-  const femaleRevenueChange =
-    femalePrevAvg === 0 ? null : calcChange(femaleCurrentAvg, femalePrevAvg);
-  const maleIndicator = getChangeIndicator(maleRevenueChange ?? 0);
-  const femaleIndicator = getChangeIndicator(femaleRevenueChange ?? 0);
-
-  // Tính tổng số khách trong tuần hiện tại
-  // Tuần hiện tại: startDate đến endDate
-  // Tuần hiện tại: startDate đến endDate
-
-  // Tính tổng doanh số trong tuần từ dữ liệu TotalSaleOfStores
+  // Định nghĩa lại weekSalesData và prevWeekSalesData
   const weekSalesData = filterData(
     TotalSaleOfStores,
-    selectedType,
-    selectedStatus,
-    weekStart,
-    weekEnd,
     selectedRegions,
     selectedBranches
   );
   const prevWeekSalesData = filterData(
     TotalSaleOfStores,
-    selectedType,
-    selectedStatus,
-    prevWeekStart,
-    prevWeekEnd,
     selectedRegions,
     selectedBranches
   );
 
+  // Tổng số khách mới trong hệ thống (ví dụ: tổng value của ngày endDate)
   const totalWeekSales = weekSalesData.reduce(
     (sum, item) =>
       sum +
@@ -917,7 +780,6 @@ export default function CustomerReportPage() {
           ((totalWeekSales - totalPrevWeekSales) / totalPrevWeekSales) *
           100
         ).toFixed(1);
-  const weekSalesIndicator = getChangeIndicator(weekSalesChange ?? 0);
 
   // Tính tổng thực thu trong tuần từ dữ liệu TotalRegionalSales
 
@@ -948,241 +810,9 @@ export default function CustomerReportPage() {
           ((totalWeekRevenue - totalPrevWeekRevenue) / totalPrevWeekRevenue) *
           100
         ).toFixed(1);
-  const weekRevenueIndicator = getChangeIndicator(weekRevenueChange ?? 0);
 
   // Dữ liệu mẫu cho bảng thời gian đơn hàng được tạo
-  const orderTimeHourRanges = [
-    "0-1",
-    "10-11",
-    "11-12",
-    "12-13",
-    "13-14",
-    "14-15",
-    "15-16",
-    "16-17",
-    "17-18",
-    "18-19",
-    "19-20",
-    "20-21",
-    "21-22",
-    "22-23",
-  ];
   // Tính tổng cộng cuối bảng
-
-  // Dữ liệu location/region mẫu cho từng shop type
-  const shopTypeDetails: Record<
-    string,
-    Array<{ location: string; region: string; data: Record<string, number> }>
-  > = {
-    "Trong Mall": [
-      {
-        location: "Vincom Center Mall",
-        region: "HCM",
-        data: {
-          "0-1": 75,
-          "10-11": 91,
-          "11-12": 121,
-          "12-13": 100,
-          "13-14": 94,
-          "14-15": 100,
-          "15-16": 69,
-          "16-17": 77,
-          "17-18": 44,
-          "18-19": 50,
-          "19-20": 60,
-          "20-21": 40,
-          "21-22": 30,
-          "22-23": 20,
-        },
-      },
-      {
-        location: "Vincom Thảo Điền",
-        region: "HCM",
-        data: {
-          "0-1": 57,
-          "10-11": 51,
-          "11-12": 56,
-          "12-13": 64,
-          "13-14": 61,
-          "14-15": 69,
-          "15-16": 44,
-          "16-17": 54,
-          "17-18": 34,
-          "18-19": 40,
-          "19-20": 45,
-          "20-21": 30,
-          "21-22": 20,
-          "22-23": 10,
-        },
-      },
-    ],
-    Shophouse: [
-      {
-        location: "Shophouse 1",
-        region: "Hà Nội",
-        data: {
-          "0-1": 20,
-          "10-11": 30,
-          "11-12": 40,
-          "12-13": 50,
-          "13-14": 60,
-          "14-15": 70,
-          "15-16": 80,
-          "16-17": 90,
-          "17-18": 100,
-          "18-19": 110,
-          "19-20": 120,
-          "20-21": 130,
-          "21-22": 140,
-          "22-23": 150,
-        },
-      },
-    ],
-    "Nhà phố": [
-      {
-        location: "Nhà phố 1",
-        region: "Đà Nẵng",
-        data: {
-          "0-1": 10,
-          "10-11": 20,
-          "11-12": 30,
-          "12-13": 40,
-          "13-14": 50,
-          "14-15": 60,
-          "15-16": 70,
-          "16-17": 80,
-          "17-18": 90,
-          "18-19": 100,
-          "19-20": 110,
-          "20-21": 120,
-          "21-22": 130,
-          "22-23": 140,
-        },
-      },
-    ],
-    "Đã đóng cửa": [
-      {
-        location: "Closed 1",
-        region: "Nha Trang",
-        data: {
-          "0-1": 1,
-          "10-11": 2,
-          "11-12": 3,
-          "12-13": 4,
-          "13-14": 5,
-          "14-15": 6,
-          "15-16": 7,
-          "16-17": 8,
-          "17-18": 9,
-          "18-19": 10,
-          "19-20": 11,
-          "20-21": 12,
-          "21-22": 13,
-          "22-23": 14,
-        },
-      },
-    ],
-    Khác: [
-      {
-        location: "Other 1",
-        region: "HCM",
-        data: {
-          "0-1": 2,
-          "10-11": 3,
-          "11-12": 4,
-          "12-13": 5,
-          "13-14": 6,
-          "14-15": 7,
-          "15-16": 8,
-          "16-17": 9,
-          "17-18": 10,
-          "18-19": 11,
-          "19-20": 12,
-          "20-21": 13,
-          "21-22": 14,
-          "22-23": 15,
-        },
-      },
-    ],
-  };
-
-  const [expandLocations, setExpandLocations] = useState(false);
-  const [expandRegions, setExpandRegions] = useState(false);
-
-  const handleToggleLocations = () => {
-    setExpandLocations((prev) => {
-      if (prev) setExpandRegions(false);
-      return !prev;
-    });
-  };
-  const handleToggleRegions = () => {
-    setExpandRegions((prev) => !prev);
-  };
-
-  // Functions to handle shop type management
-  const handleAddShopType = () => {
-    if (newShopType.trim() && !shopTypes.includes(newShopType.trim())) {
-      setShopTypes((prev) => [...prev, newShopType.trim()]);
-      setNewShopType("");
-      setShowAddShopType(false);
-    }
-  };
-
-  const dailyRegionRevenueData = filterData(
-    TotalRegionalSales,
-    selectedType,
-    selectedStatus,
-    weekStart,
-    weekEnd,
-    selectedRegions,
-    selectedBranches
-  );
-
-  const dailyRegionRevenueDataWithTotal = dailyRegionRevenueData.map(
-    (item) => ({
-      ...item,
-      total:
-        (item.HCM || 0) +
-        (item.HaNoi || 0) +
-        (item.DaNang || 0) +
-        (item.NhaTrang || 0) +
-        (item.DaDongCua || 0),
-    })
-  );
-
-  const weekTotal = data
-    .filter((d) => isInWeek(d, weekStart, weekEnd))
-    .reduce((sum, d) => sum + d.value, 0);
-
-  const prevWeekTotal = data
-    .filter((d) => isInWeek(d, prevWeekStart, prevWeekEnd))
-    .reduce((sum, d) => sum + d.value, 0);
-
-  const weekChange =
-    prevWeekTotal === 0
-      ? null
-      : +(((weekTotal - prevWeekTotal) / prevWeekTotal) * 100).toFixed(1);
-  const weekIndicator = getChangeIndicator(weekChange ?? 0);
-
-  const barData = regionStats.map((r) => ({
-    region: r.region,
-    revenue: r.revenueThisWeek,
-  }));
-
-  const pieRegionRevenueData = regionStats.map((r) => ({
-    name: r.region,
-    value: r.revenueThisWeek,
-  }));
-
-  const dailyCustomerRevenue = filterData(
-    kindOfCustomer,
-    selectedType,
-    selectedStatus,
-    weekStart,
-    weekEnd,
-    selectedRegions,
-    selectedBranches
-  );
 
   // Đóng dropdown khi click ngoài
   useEffect(() => {
@@ -1204,85 +834,342 @@ export default function CustomerReportPage() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  
-  const locationOptions = [
-    "Crescent Mall Q7",
-    "Vincom Thảo Điền",
-    "Vista Verde",
-    "Aeon Mall Tân Phú Celadon",
-    "Westpoint Phạm Hùng",
-    "Aeon Mall Bình Tân",
-    "Vincom Phan Văn Trị",
-    "Vincom Landmark 81",
-    "TTTM Estella Place",
-    "Võ Thị Sáu Q.1",
-    "The Sun Avenue",
-    "Trương Định Q.3",
-    "Hoa Lan Q.PN",
-    "Nowzone Q.1",
-    "Everrich Infinity Q.5",
-    "SC VivoCity",
-    "Đảo Ngọc Ngũ Xã HN",
-    "Vincom Lê Văn Việt",
-    "The Bonatica Q.TB",
-    "Midtown Q.7",
-    "Trần Phú Đà Nẵng",
-    "Vincom Quang Trung",
-    "Vincom Bà Triệu",
-    "Imperia Sky Garden HN",
-    "Gold Coast Nha Trang",
-    "Riviera Point Q7",
-    "Saigon Ofice",
-    "Millenium Apartment Q.4",
-    "Parc Mall Q.8",
-    "Saigon Mia Trung Sơn",
-  ];
-  const filteredLocationOptions = locationOptions.filter((l) =>
-    l.toLowerCase().includes(locationSearch.toLowerCase())
+  const filteredLocationOptions = React.useMemo(
+    () =>
+      locationOptions.filter((l) =>
+        l.toLowerCase().includes(locationSearch.toLowerCase())
+      ),
+    [locationOptions, locationSearch]
   );
 
-  
-  const locationRegionMap: Record<string, string> = {
-    "Crescent Mall Q7": "HCM",
-    "Vincom Thảo Điền": "HCM",
-    "Vista Verde": "HCM",
-    "Aeon Mall Tân Phú Celadon": "HCM",
-    "Westpoint Phạm Hùng": "HCM",
-    "Aeon Mall Bình Tân": "HCM",
-    "Vincom Phan Văn Trị": "HCM",
-    "Vincom Landmark 81": "HCM",
-    "TTTM Estella Place": "HCM",
-    "Võ Thị Sáu Q.1": "HCM",
-    "The Sun Avenue": "HCM",
-    "Trương Định Q.3": "HCM",
-    "Hoa Lan Q.PN": "HCM",
-    "Nowzone Q.1": "HCM",
-    "Everrich Infinity Q.5": "HCM",
-    "SC VivoCity": "HCM",
-    "Vincom Lê Văn Việt": "HCM",
-    "The Bonatica Q.TB": "HCM",
-    "Midtown Q.7": "HCM",
-    "Riviera Point Q7": "HCM",
-    "Saigon Ofice": "HCM",
-    "Millenium Apartment Q.4": "HCM",
-    "Parc Mall Q.8": "HCM",
-    "Saigon Mia Trung Sơn": "HCM",
-    "Đảo Ngọc Ngũ Xã HN": "Hà Nội",
-    "Imperia Sky Garden HN": "Hà Nội",
-    "Vincom Bà Triệu": "Hà Nội",
-    "Gold Coast Nha Trang": "Nha Trang",
-    "Trần Phú Đà Nẵng": "Đà Nẵng",
-    "Vincom Quang Trung": "HCM",
-  };
-
-  
   const regionOptions = regionStats.map((r) => ({
     name: r.region,
-    total: Object.values(locationRegionMap).filter((reg) => reg === r.region).length,
+    total: Object.values(locationRegionMap).filter((reg) => reg === r.region)
+      .length,
   }));
-  const filteredRegionOptions = regionOptions.filter((r) =>
-    r.name.toLowerCase().includes(regionSearch.toLowerCase())
+  const filteredRegionOptions = React.useMemo(
+    () =>
+      regionOptions.filter((r) =>
+        r.name.toLowerCase().includes(regionSearch.toLowerCase())
+      ),
+    [regionOptions, regionSearch]
   );
+
+  // Tính top 10 location (chi nhánh/cửa hàng) theo thực thu tuần này
+  const locationRevenueMap: Record<string, number> = {};
+  locationOptions.forEach((loc) => {
+    locationRevenueMap[loc] = data
+      .filter((d) => d.branch === loc && isInWeek(d, weekStart, weekEnd))
+      .reduce((sum, d) => sum + d.value, 0);
+  });
+  // Sắp xếp và tách top 10 + Khác
+  const sortedLocations = Object.entries(locationRevenueMap).sort(
+    (a, b) => b[1] - a[1]
+  );
+  const top10 = sortedLocations.slice(0, 10);
+  const other = sortedLocations.slice(10);
+  const otherTotal = other.reduce((sum, [, revenue]) => sum + revenue, 0);
+  const top10LocationChartData = [
+    ...top10.map(([name, revenue], idx) => ({
+      name,
+      revenue: Number(revenue),
+      foxie: Math.round(Number(revenue) * 0.45),
+      rank: idx + 1,
+    })),
+    ...(otherTotal > 0
+      ? [
+          {
+            name: "Khác",
+            revenue: otherTotal,
+            foxie: Math.round(otherTotal * 0.45),
+            rank: null,
+          },
+        ]
+      : []),
+  ];
+
+  // Hàm custom label cho BarChart
+  function renderBarLabel({
+    value,
+    fill,
+  }: {
+    value?: string | number;
+    fill?: string;
+  }) {
+    const val = typeof value === "number" ? value : Number(value);
+    if (isNaN(val)) return null;
+    return (
+      <tspan fontWeight={700} fill={fill} dx={8}>
+        {formatMoneyShort(val)}
+      </tspan>
+    );
+  }
+
+  const pieRegionRevenueData = regionStats.map((r) => ({
+    name: r.region,
+    value: r.revenueThisWeek,
+  }));
+  const dailyRegionRevenueDataWithTotal = filterData(
+    TotalRegionalSales,
+    selectedRegions,
+    selectedBranches
+  ).map((item) => ({
+    ...item,
+    total:
+      (item.HCM || 0) +
+      (item.HaNoi || 0) +
+      (item.DaNang || 0) +
+      (item.NhaTrang || 0) +
+      (item.DaDongCua || 0),
+  }));
+  const dailyCustomerRevenue = filterData(
+    kindOfCustomer,
+    selectedRegions,
+    selectedBranches
+  );
+
+  const storeTableData = locationOptions.map((loc) => {
+    // Lọc data tuần này và tuần trước cho từng cửa hàng
+    const thisWeek = data.filter(
+      (d) => d.branch === loc && isInWeek(d, weekStart, weekEnd)
+    );
+    const lastWeek = data.filter(
+      (d) => d.branch === loc && isInWeek(d, prevWeekStart, prevWeekEnd)
+    );
+    // Tổng thực thu
+    const revenue = thisWeek.reduce((sum, d) => sum + d.value, 0);
+    const revenueLast = lastWeek.reduce((sum, d) => sum + d.value, 0);
+    // % thay đổi thực thu
+    const revenueDelta =
+      revenueLast === 0 ? null : ((revenue - revenueLast) / revenueLast) * 100;
+    // Tổng trả Foxie
+    const foxie = Math.round(revenue * 0.45);
+    const foxieLast = Math.round(revenueLast * 0.45);
+    const foxieDelta =
+      foxieLast === 0 ? null : ((foxie - foxieLast) / foxieLast) * 100;
+    // Số đơn hàng
+    const orders = thisWeek.length;
+    const ordersLast = lastWeek.length;
+    const ordersDelta =
+      ordersLast === 0 ? null : ((orders - ordersLast) / ordersLast) * 100;
+    return {
+      location: loc,
+      revenue,
+      revenueDelta,
+      foxie,
+      foxieDelta,
+      orders,
+      ordersDelta,
+    };
+  });
+
+  // Tính số lượng đơn hàng theo ngày (loại bỏ đơn mua thẻ)
+  const ordersByDay: Record<string, { count: number; avgPerShop: number }> = {};
+  data.forEach((d) => {
+    if (d.type !== "Khách hàng Thành viên") {
+      if (!ordersByDay[d.date]) {
+        ordersByDay[d.date] = { count: 0, avgPerShop: 0 };
+      }
+      ordersByDay[d.date].count++;
+    }
+  });
+  // Tính trung bình số lượng đơn tại mỗi shop cho từng ngày
+  Object.keys(ordersByDay).forEach((date) => {
+    // Đếm số shop có đơn trong ngày đó
+    const shops = new Set(
+      data
+        .filter((d) => d.date === date && d.type !== "Khách hàng Thành viên")
+        .map((d) => d.branch)
+    );
+    ordersByDay[date].avgPerShop =
+      shops.size > 0 ? Math.round(ordersByDay[date].count / shops.size) : 0;
+  });
+  const ordersByDayArr = Object.entries(ordersByDay).sort((a, b) => {
+    // Sort theo ngày tăng dần
+    const [d1, m1] = a[0].split(" thg ");
+    const [d2, m2] = b[0].split(" thg ");
+    return Number(m1) !== Number(m2)
+      ? Number(m1) - Number(m2)
+      : Number(d1) - Number(d2);
+  });
+
+  // Chuẩn bị data cho chart
+  const ordersChartData = ordersByDayArr.map(([date, val]) => ({
+    date,
+    orders: val.count,
+    avgPerShop: val.avgPerShop,
+  }));
+
+  // Giả lập số đơn hàng mỗi ngày (ví dụ 31 ngày)
+  const fakeOrderCounts = [
+    240, 173, 201, 281, 269, 167, 166, 131, 228, 247, 380, 403, 217, 193, 210,
+    236, 244, 367, 411, 271, 256, 288, 291, 358, 398, 309, 191, 49, 17, 31, 67,
+  ];
+
+  // Gán lại vào ordersByDayArr
+  ordersByDayArr.forEach(([, val], idx) => {
+    val.count = fakeOrderCounts[idx % fakeOrderCounts.length];
+    // Tạo trung bình shop ngẫu nhiên (5-15)
+    val.avgPerShop = 5 + Math.floor(Math.random() * 11);
+  });
+
+  const storeOrderStats = locationOptions.map((loc) => {
+    const orders = data.filter(
+      (d) => d.branch === loc && isInWeek(d, weekStart, weekEnd)
+    );
+    return {
+      name: loc,
+      totalOrders: orders.length,
+      retailOrders: orders.filter((d) => d.type === "KH trải nghiệm").length,
+      cardOrders: orders.filter((d) => d.type === "Khách hàng Thành viên")
+        .length,
+      foxieOrders: Math.round(orders.length * 0.45), // hoặc tuỳ logic
+    };
+  });
+  const top10OrderStores = storeOrderStats
+    .sort((a, b) => b.totalOrders - a.totalOrders)
+    .slice(0, 10);
+
+  const otherOrderStores = storeOrderStats.slice(10);
+  const otherOrderTotal = {
+    name: "Khác",
+    totalOrders: otherOrderStores.reduce((sum, s) => sum + s.totalOrders, 0),
+    retailOrders: otherOrderStores.reduce((sum, s) => sum + s.retailOrders, 0),
+    cardOrders: otherOrderStores.reduce((sum, s) => sum + s.cardOrders, 0),
+    foxieOrders: otherOrderStores.reduce((sum, s) => sum + s.foxieOrders, 0),
+  };
+  const chartOrderData = [...top10OrderStores, otherOrderTotal];
+
+  // Tính dữ liệu bảng số đơn tại các cửa hàng (top 10 + tổng cộng)
+  const storeOrderTableData = locationOptions.map((loc) => {
+    const thisWeek = data.filter(
+      (d) => d.branch === loc && isInWeek(d, weekStart, weekEnd)
+    );
+    const lastWeek = data.filter(
+      (d) => d.branch === loc && isInWeek(d, prevWeekStart, prevWeekEnd)
+    );
+    const totalOrders = thisWeek.length;
+    const totalOrdersLast = lastWeek.length;
+    const totalOrdersDelta =
+      totalOrdersLast === 0 ? null : totalOrders - totalOrdersLast;
+    const cardOrders = thisWeek.filter(
+      (d) => d.type === "Khách hàng Thành viên"
+    ).length;
+    const cardOrdersLast = lastWeek.filter(
+      (d) => d.type === "Khách hàng Thành viên"
+    ).length;
+    const cardOrdersDelta =
+      cardOrdersLast === 0 ? null : cardOrders - cardOrdersLast;
+    const retailOrders = thisWeek.filter(
+      (d) => d.type === "KH trải nghiệm"
+    ).length;
+    const retailOrdersLast = lastWeek.filter(
+      (d) => d.type === "KH trải nghiệm"
+    ).length;
+    const retailOrdersDelta =
+      retailOrdersLast === 0 ? null : retailOrders - retailOrdersLast;
+    const foxieOrders = Math.round(totalOrders * 0.45);
+    const foxieOrdersLast = Math.round(totalOrdersLast * 0.45);
+    const foxieOrdersDelta =
+      foxieOrdersLast === 0 ? null : foxieOrders - foxieOrdersLast;
+    return {
+      location: loc,
+      totalOrders,
+      totalOrdersDelta,
+      cardOrders,
+      cardOrdersDelta,
+      retailOrders,
+      retailOrdersDelta,
+      foxieOrders,
+      foxieOrdersDelta,
+    };
+  });
+  
+  const totalOrderSumAll = storeOrderTableData.reduce(
+    (acc, row) => {
+      acc.totalOrders += row.totalOrders;
+      acc.totalOrdersDelta += row.totalOrdersDelta ?? 0;
+      acc.cardOrders += row.cardOrders;
+      acc.cardOrdersDelta += row.cardOrdersDelta ?? 0;
+      acc.retailOrders += row.retailOrders;
+      acc.retailOrdersDelta += row.retailOrdersDelta ?? 0;
+      acc.foxieOrders += row.foxieOrders;
+      acc.foxieOrdersDelta += row.foxieOrdersDelta ?? 0;
+      return acc;
+    },
+    {
+      totalOrders: 0,
+      totalOrdersDelta: 0,
+      cardOrders: 0,
+      cardOrdersDelta: 0,
+      retailOrders: 0,
+      retailOrdersDelta: 0,
+      foxieOrders: 0,
+      foxieOrdersDelta: 0,
+    }
+  );
+
+  // Tính tổng cộng cho bảng thực thu cửa hàng (30 locations)
+  const totalRevenueAll = storeTableData.reduce((sum, s) => sum + s.revenue, 0);
+  const totalFoxieAll = storeTableData.reduce((sum, s) => sum + s.foxie, 0);
+  const totalOrdersAll = storeTableData.reduce((sum, s) => sum + s.orders, 0);
+  const totalRevenueDeltaAll = storeTableData.reduce(
+    (sum, s) => sum + (s.revenueDelta ?? 0),
+    0
+  );
+  const totalFoxieDeltaAll = storeTableData.reduce(
+    (sum, s) => sum + (s.foxieDelta ?? 0),
+    0
+  );
+  const totalOrdersDeltaAll = storeTableData.reduce(
+    (sum, s) => sum + (s.ordersDelta ?? 0),
+    0
+  );
+
+  const retailOrdersThisWeek = data.filter(
+    (d) => d.type === "KH trải nghiệm" && isInWeek(d, weekStart, weekEnd)
+  ).length;
+  const retailOrdersLastWeek = data.filter(
+    (d) =>
+      d.type === "KH trải nghiệm" && isInWeek(d, prevWeekStart, prevWeekEnd)
+  ).length;
+  const deltaRetailOrders = retailOrdersThisWeek - retailOrdersLastWeek;
+
+  const productOrdersThisWeek = data.filter(
+    (d) => d.type === "Mua sản phẩm" && isInWeek(d, weekStart, weekEnd)
+  ).length;
+  const productOrdersLastWeek = data.filter(
+    (d) => d.type === "Mua sản phẩm" && isInWeek(d, prevWeekStart, prevWeekEnd)
+  ).length;
+  const deltaProductOrders = productOrdersThisWeek - productOrdersLastWeek;
+
+  // --- Chuẩn bị data cho PieChart tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ ---
+  const totalMembership = data.filter(
+    (d) => d.type === "Khách hàng Thành viên"
+  ).length;
+  const totalNormal = data.filter((d) => d.type === "KH trải nghiệm").length;
+  const totalFoxiePie = Math.round(
+    (totalMembership + totalNormal + productOrdersThisWeek) * 0.218
+  ); // Giả lập 21.8% như ảnh
+  const totalProduct = data.filter((d) => d.type === "Mua sản phẩm").length;
+  const totalAllPie =
+    totalMembership + totalNormal + totalFoxiePie + totalProduct;
+  const piePaymentData = [
+    { name: "Membership Payment", value: totalMembership, color: "#c2b6c6" },
+    { name: "Normal Payment", value: totalNormal, color: "#f8e48b" },
+    { name: "Foxie Card Purchase", value: totalFoxiePie, color: "#c86b82" },
+    { name: "Products Purchase", value: totalProduct, color: "#0a4a8f" },
+  ];
+
+  const paymentRegionData = REGIONS.map(region => {
+    const regionData = data.filter(d => d.region === region);
+    return {
+      region,
+      bank: regionData.filter(d => d.type === "Khách hàng Thành viên").length,
+      cash: regionData.filter(d => d.type === "KH trải nghiệm").length,
+      card: regionData.filter(d => d.type === "Mua sản phẩm").length,
+    };
+  });
 
   return (
     <div className="p-6">
@@ -1292,7 +1179,7 @@ export default function CustomerReportPage() {
             <h1 className="text-2xl font-semibold text-gray-900 mb-2">
               Order Report
             </h1>
-            <div className="flex gap-2" >
+            <div className="flex gap-2">
               {/* ...DatePicker code... */}
               <div className="w-full h-fit max-w-xl flex flex-row gap-4 bg-white p-2 rounded">
                 <div className="w-full bg-white flex flex-col gap-1">
@@ -1468,10 +1355,6 @@ export default function CustomerReportPage() {
                   height={400}
                   data={filterData(
                     TotalRegionalSales,
-                    selectedType,
-                    selectedStatus,
-                    startDate,
-                    endDate,
                     selectedRegions,
                     selectedBranches
                   )}
@@ -1553,10 +1436,6 @@ export default function CustomerReportPage() {
                   height={400}
                   data={filterData(
                     TotalSaleOfStores,
-                    selectedType,
-                    selectedStatus,
-                    startDate,
-                    endDate,
                     selectedRegions,
                     selectedBranches
                   )}
@@ -1623,9 +1502,14 @@ export default function CustomerReportPage() {
                 {totalWeekSales.toLocaleString()}
               </div>
               <div
-                className={`flex items-center gap-1 text-2xl font-semibold ${weekSalesIndicator.color}`}
+                className={`flex items-center gap-1 text-2xl font-semibold ${
+                  weekSalesChange === null
+                    ? "text-gray-500"
+                    : weekSalesChange > 0
+                    ? "text-green-600"
+                    : "text-red-500"
+                }`}
               >
-                <span>{weekSalesIndicator.icon}</span>
                 {weekSalesChange === null
                   ? "N/A"
                   : `${Math.abs(weekSalesChange)}%`}
@@ -1640,9 +1524,14 @@ export default function CustomerReportPage() {
                 {totalWeekRevenue.toLocaleString()}
               </div>
               <div
-                className={`flex items-center gap-1 text-2xl font-semibold ${weekRevenueIndicator.color}`}
+                className={`flex items-center gap-1 text-2xl font-semibold ${
+                  weekRevenueChange === null
+                    ? "text-gray-500"
+                    : weekRevenueChange > 0
+                    ? "text-green-600"
+                    : "text-red-500"
+                }`}
               >
-                <span>{weekRevenueIndicator.icon}</span>
                 {weekRevenueChange === null
                   ? "N/A"
                   : `${Math.abs(weekRevenueChange)}%`}
@@ -1651,10 +1540,10 @@ export default function CustomerReportPage() {
           </div>
 
           {/* Thực thu tại các khu vực trong tuần */}
-          <div className="flex w-[100%] bg-white rounded-xl shadow-lg gap-5 mt-5 h-[500px] items-center">
-            <div className="overflow-x-auto w-2/3 justify-center items-center rounded-xl ml-2">
+          <div className="flex w-full bg-white rounded-xl shadow-lg gap-4 mt-5 h-[550px] items-center">
+            <div className="overflow-x-auto  justify-center items-center rounded-xl ml-2">
               <div className="text-xl font-medium text-gray-700 text-center p-2">
-                Tổng thực thu tại các khu vực trong tuần
+                Thực thu tại các khu vực trong tuần
               </div>
               <div className="rounded-xl border border-gray-200 shadow-sm bg-white overflow-hidden">
                 <table className="min-w-full bg-white">
@@ -1763,13 +1652,10 @@ export default function CustomerReportPage() {
 
             {/* Tổng thực thu tại các khu vực trong tuần */}
 
-            <div className="w-1/3 bg-white rounded-xl shadow-lg h-full mr-2">
-              <div className="text-xl font-medium text-gray-700 text-center m-2">
-                Tổng thực thu tại các khu vực trong tuần
-              </div>
+            <div className=" flex flex-col justify-center items-center">
               <div className="flex justify-center items-center ">
-                <ResponsiveContainer width={650} height={400}>
-                  <PieChart>
+                <ResponsiveContainer width={600} height={400}>
+                  <PieChart className="mt-10 mb-10">
                     <Pie
                       data={pieRegionRevenueData}
                       dataKey="value"
@@ -1777,10 +1663,10 @@ export default function CustomerReportPage() {
                       cx="50%"
                       cy="50%"
                       outerRadius={150}
-                      label={({ name, percent }) =>
+                      label={({ percent }) =>
                         percent !== undefined
-                          ? `${name}: ${(percent * 100).toFixed(1)}%`
-                          : name
+                          ? `${(percent * 100).toFixed(0)}%`
+                          : ""
                       }
                     >
                       {pieRegionRevenueData.map((entry, idx) => (
@@ -1890,10 +1776,6 @@ export default function CustomerReportPage() {
               <LineChart
                 data={filterData(
                   TotalSaleOfStores,
-                  selectedType,
-                  selectedStatus,
-                  weekStart,
-                  weekEnd,
                   selectedRegions,
                   selectedBranches
                 )}
@@ -2014,836 +1896,257 @@ export default function CustomerReportPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* Tỉ lệ nam/nữ */}
+          <div className="flex h-fit bg-white mt-5 rounded-xl shadow-lg gap-2 items-center justify-center pr-2 pl-2l-2">
+            {/* Top 10 cửa hàng trong tuần theo thực thu */}
 
-          <div className="w-1/2 bg-white p-2 rounded-xl shadow-lg">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">
-              Tỷ lệ nam/nữ khách mới tạo
-            </h2>
-            <ResponsiveContainer width="100%" height={350}>
-              <PieChart>
-                <Pie
-                  data={filterData(
-                    pieData,
-                    selectedType,
-                    selectedStatus,
-                    startDate,
-                    endDate,
-                    selectedRegions,
-                    selectedBranches
-                  )}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={0}
-                  outerRadius={120}
-                  fill="#f933347"
-                  dataKey="value"
-                  labelLine={false}
-                  label={({ name, percent }) =>
-                    `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`
-                  }
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend
-                  wrapperStyle={{
-                    paddingTop: "20px",
-                    fontSize: "14px",
-                    color: "#9ee347",
-                  }}
-                  iconType="circle"
-                  iconSize={10}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        {/* Tổng số khách mới */}
-        <div className="flex gap-4 mt-4">
-          {/* Tổng số khách mới trong hệ thống */}
-          <div className="flex-1 bg-white rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-            <div className="text-xl font-medium text-gray-700 mb-2 text-center">
-              Tổng số khách mới trong hệ thống
-            </div>
-            <div className="text-5xl font-bold text-black mb-2">
-              {totalCurrent.toLocaleString()}
-            </div>
-            <div
-              className={`flex items-center gap-1 text-2xl font-semibold ${totalIndicator.color}`}
-            >
-              <span>{totalIndicator.icon}</span>
-              {totalChange === null ? "N/A" : `${Math.abs(totalChange)}%`}
-            </div>
-          </div>
-          {/* Tổng số khách mới thực đi */}
-          <div className="flex-1 bg-white rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-            <div className="text-xl font-medium text-gray-700 mb-2 text-center">
-              Tổng số khách mới thực đi
-            </div>
-            <div className="text-5xl font-bold text-black mb-2">
-              {totalCurrent2.toLocaleString()}
-            </div>
-            <div
-              className={`flex items-center gap-1 text-2xl font-semibold ${totalIndicator2.color}`}
-            >
-              <span>{totalIndicator2.icon}</span>
-              {totalChange2 === null ? "N/A" : `${Math.abs(totalChange2)}%`}
-            </div>
-          </div>
-
-          {/* Số khách tới chia theo phân loại */}
-          <div className="w-100 bg-white pt-2 mt-5 rounded-xl shadow-lg">
-            <h2 className="text-xl text-center font-semibold text-gray-800 mt-4">
-              Số khách tới chia theo loại
-            </h2>
-            <ResponsiveContainer width="100%" height={350}>
-              <LineChart
-                data={filterData(
-                  kindOfCustomer,
-                  selectedType,
-                  selectedStatus,
-                  startDate,
-                  endDate,
-                  selectedRegions,
-                  selectedBranches
-                )}
-                margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
-              >
-                <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#6b7280"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={{ stroke: "#d1d5db" }}
-                />
-                <YAxis
-                  stroke="#6b7280"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={{ stroke: "#d1d5db" }}
-                  tickFormatter={(value) =>
-                    value > 0 ? `${value} khách` : value
-                  }
-                  padding={{ bottom: 10, top: 10 }}
-                />
-                <Tooltip content={CustomTooltip} />
-                <Legend
-                  wrapperStyle={{
-                    paddingTop: "20px",
-                    fontSize: "14px",
-                    color: "#4b5563",
-                    gap: "5px",
-                  }}
-                  iconType="circle"
-                  iconSize={10}
-                />
-                <Line
-                  type="natural"
-                  dataKey="KHTraiNghiem"
-                  name="KH Trải Nghiệm"
-                  stroke="#5bd1d7"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 6,
-                    fill: "#5bd1d7",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  animationDuration={1500}
-                />
-                <Line
-                  type="natural"
-                  dataKey="KHThanhVien"
-                  name="KH Thành Viên"
-                  stroke="#eb94cf"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 6,
-                    fill: "#eb94cf",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  animationDuration={1500}
-                />
-                <Line
-                  type="natural"
-                  dataKey="KHDong"
-                  name="KH Đồng"
-                  stroke="#9ee347"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 6,
-                    fill: "#9ee347",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  animationDuration={1500}
-                />
-                <Line
-                  type="natural"
-                  dataKey="KHBac"
-                  name="KH Bạc"
-                  stroke="#f59794"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 6,
-                    fill: "#f59794",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  animationDuration={1500}
-                />
-                <Line
-                  type="natural"
-                  dataKey="KHVang"
-                  name="KH Vàng"
-                  stroke="#f0bf4c"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 6,
-                    fill: "#f0bf4c",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  animationDuration={1500}
-                />
-                <Line
-                  type="natural"
-                  dataKey="KHKimcuong"
-                  name="KH Kim Cuơng"
-                  stroke="#bccefb"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 6,
-                    fill: "#bccefb",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  animationDuration={1500}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex-1 bg-white rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-            <div className="text-xl font-medium text-gray-700 mb-2 text-center">
-              Tổng số khách trong tuần
-            </div>
-            <div className="text-5xl font-bold text-black mb-2">
-              {weekTotal.toLocaleString()}
-            </div>
-            <div
-              className={`flex items-center gap-1 text-2xl font-semibold ${weekIndicator.color}`}
-            >
-              <span>{weekIndicator.icon}</span>
-              {weekChange === null ? "N/A" : `${Math.abs(weekChange)}%`}
-            </div>
-          </div>
-
-          {/* Nguồn của đơn hàng */}
-
-          <div className="w-full bg-white rounded-xl shadow-lg">
-            <div className="text-xl font-medium text-gray-700 text-center">
-              Nguồn của đơn hàng
-            </div>
-            <div className="w-full bg-white rounded-xl shadow-lg">
-              <ResponsiveContainer width="100%" height={400}>
+            <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
+              <div className="text-xl font-medium text-gray-700 text-center mb-4">
+                Top 10 cửa hàng trong tuần theo thực thu
+              </div>
+              <ResponsiveContainer width="100%" height={500}>
                 <BarChart
-                  width={1000}
-                  height={400}
-                  data={filterData(
-                    originOfOrder,
-                    selectedType,
-                    selectedStatus,
-                    startDate,
-                    endDate,
-                    selectedRegions,
-                    selectedBranches
-                  )}
-                  margin={{ top: 50, right: 30, left: 20, bottom: 5 }}
+                  layout="vertical"
+                  data={top10LocationChartData}
+                  margin={{ top: 20, right: 40, left: 40, bottom: 20 }}
+                  barCategoryGap={30}
                 >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tickFormatter={formatMoneyShort}
+                    domain={[0, "dataMax"]}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={220}
+                    tick={{ fontWeight: 400, fontSize: 14 }}
+                  />
+                  <Tooltip formatter={formatMoneyShort} />
                   <Legend
-                    wrapperStyle={{
-                      paddingTop: 5,
-                      paddingBottom: 10,
-                      display: "flex",
-                      justifyContent: "center",
-                      flexWrap: "wrap",
-                      width: "100%",
+                    verticalAlign="top"
+                    align="left"
+                    iconType="rect"
+                    formatter={(value) => <span>{value}</span>}
+                  />
+                  <Bar
+                    dataKey="revenue"
+                    name="Thực thu"
+                    fill="#8d6e63"
+                    radius={[0, 8, 8, 0]}
+                    label={{
+                      position: "right",
+                      content: (props) =>
+                        renderBarLabel({ ...props, fill: "#8d6e63" }),
                     }}
                   />
                   <Bar
-                    dataKey="vangLai"
-                    fill="#ff7f7f"
-                    name="Vãng lai"
-                    label={{ position: "top" }}
-                  />
-                  <Bar
-                    dataKey="fanpage"
-                    fill="#b39ddb"
-                    name="Fanpage"
-                    label={{ position: "top" }}
-                  />
-                  <Bar
-                    dataKey="chuaXacDinh"
-                    fill="#8d6e63"
-                    name="Chưa xác định"
-                    label={{ position: "top" }}
-                  />
-                  <Bar
-                    dataKey="facebook"
-                    fill="#c5e1a5"
-                    name="Facebook"
-                    label={{ position: "top" }}
-                  />
-                  <Bar
-                    dataKey="app"
-                    fill="#81d4fa"
-                    name="App"
-                    label={{ position: "top" }}
-                  />
-                  <Bar
-                    dataKey="web"
-                    fill="#fff176"
-                    name="Web"
-                    label={{ position: "top" }}
-                  />
-                  <Bar
-                    dataKey="tiktok"
-                    fill="#d81b60"
-                    name="Tiktok shop"
-                    label={{ position: "top" }}
+                    dataKey="foxie"
+                    name="Trả bằng thẻ Foxie"
+                    fill="#b6d47a"
+                    radius={[0, 8, 8, 0]}
+                    label={{
+                      position: "right",
+                      content: (props) =>
+                        renderBarLabel({ ...props, fill: "#b6d47a" }),
+                    }}
                   />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
-          <div className="flex gap-2">
-            {/* Khách hàng tải app */}
-            <div className="w-3/4 bg-white rounded-xl shadow-lg mt-5 ">
-              <div className="text-xl font-medium text-gray-700 text-center pt-10">
-                Khách tải app/không tải
-              </div>
-              <div className="flex justify-center items-center py-8">
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart
-                    width={1000}
-                    height={400}
-                    data={filterData(
-                      AppCustomer,
-                      selectedType,
-                      selectedStatus,
-                      startDate,
-                      endDate,
-                      selectedRegions,
-                      selectedBranches
-                    )}
-                    margin={{ top: 50, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend
-                      wrapperStyle={{
-                        paddingTop: 10,
-                        paddingBottom: 10,
-                        display: "flex",
-                        justifyContent: "center",
-                        flexWrap: "wrap",
-                        width: "100%",
-                      }}
-                    />
-                    <Bar
-                      dataKey="chuaTai"
-                      fill="#ff7f7f"
-                      name="Chưa Tải"
-                      label={{ position: "top" }}
-                    />
-                    <Bar
-                      dataKey="daTai"
-                      fill="#b39ddb"
-                      name="Đã Tải"
-                      label={{ position: "top" }}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
 
-            <div className="w-1/4 bg-white rounded-xl shadow-lg mt-5">
-              <div className="text-xl font-medium text-gray-700 text-center pt-10">
-                Tỷ lệ tải app
-              </div>
-              <div className="flex justify-center items-center py-8">
-                <ResponsiveContainer width={400} height={400}>
-                  <PieChart>
-                    <Pie
-                      data={appCustomerPieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      label={({ name, percent }) =>
-                        `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`
-                      }
-                    >
-                      {appCustomerPieData.map((entry, idx) => (
-                        <Cell
-                          key={entry.name}
-                          fill={
-                            APP_CUSTOMER_PIE_COLORS[
-                              idx % APP_CUSTOMER_PIE_COLORS.length
-                            ]
-                          }
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend
-                      wrapperStyle={{
-                        paddingTop: 10,
-                        paddingBottom: 10,
-                        display: "flex",
-                        justifyContent: "center",
-                        flexWrap: "wrap",
-                        width: "100%",
-                      }}
-                    />
-                    <text
-                      x={200}
-                      y={200}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fontSize={24}
-                      fontWeight="bold"
-                      fill="#333"
-                    >
-                      {`${Math.round(
-                        (totalDaTai / (totalDaTai + totalChuaTai)) * 100
-                      )}%`}
-                    </text>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Chart tỉ lệ khách mới/cũ */}
-            <div className="w-1/4 bg-white rounded-xl shadow-lg mt-5">
-              <div className="text-xl font-medium text-gray-700 text-center pt-10">
-                Tỉ lệ khách mới/cũ
-              </div>
-              <div className="flex justify-center items-center py-8">
-                <ResponsiveContainer width={400} height={400}>
-                  <PieChart>
-                    <Pie
-                      data={newOldCustomerData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={80}
-                      label={({ name, percent }) =>
-                        `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`
-                      }
-                    >
-                      {newOldCustomerData.map((entry, idx) => (
-                        <Cell
-                          key={entry.name}
-                          fill={NEW_OLD_COLORS[idx % NEW_OLD_COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend
-                      wrapperStyle={{
-                        paddingTop: 10,
-                        paddingBottom: 10,
-                        display: "flex",
-                        justifyContent: "center",
-                        flexWrap: "wrap",
-                        width: "100%",
-                      }}
-                    />
-                    <text
-                      x="50%"
-                      y="50%"
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fontSize={18}
-                      fontWeight="bold"
-                      fill="#333"
-                    >
-                      {`${Math.round(
-                        (newOldCustomerData[0].value /
-                          (newOldCustomerData[0].value +
-                            newOldCustomerData[1].value)) *
-                          100
-                      )}%`}
-                    </text>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+            {/* 6 bảng tổng số liệu */}
+            <div className="flex flex-col gap-2 w-full max-w-xs mx-auto mb-6">
+              <StatCard
+                title="Thực thu"
+                value={totalRevenueThisWeek}
+                delta={percentRevenue}
+                valueColor="text-[#a9b8c3]"
+              />
+              <StatCard
+                title="Thực thu của dịch vụ lẻ"
+                value={retailThisWeek}
+                delta={percentRetail}
+                valueColor="text-[#fcb900]"
+              />
+              <StatCard
+                title="Thực thu mua sản phẩm"
+                value={productThisWeek}
+                delta={percentProduct}
+                valueColor="text-[#b6d47a]"
+              />
+              <StatCard
+                title="Thực thu của mua thẻ"
+                value={cardThisWeek}
+                delta={percentCard}
+                valueColor="text-[#8ed1fc]"
+              />
+              <StatCard
+                title="Tổng trả bằng thẻ Foxie"
+                value={foxieThisWeek}
+                delta={percentFoxie}
+                valueColor="text-[#a9b8c3]"
+              />
+              <StatCard
+                title="Trung bình thực thu mỗi ngày"
+                value={avgRevenueThisWeek}
+                delta={percentAvg}
+                valueColor="text-[#b39ddb]"
+              />
             </div>
           </div>
 
-          {/* Thời gian đơn hàng được tạo*/}
-          <div className="w-full bg-white rounded-xl shadow-lg p-4 mt-5">
-            <div className="flex justify-between items-center mt-5">
-              <h2 className="text-xl font-semibold">
-                Thời gian đơn hàng được tạo
-              </h2>
-              <div className="flex gap-2">
-                {showAddShopType ? (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newShopType}
-                      onChange={(e) => setNewShopType(e.target.value)}
-                      placeholder="Nhập tên shop type"
-                      className="border rounded px-2 py-1"
-                      onKeyPress={(e) =>
-                        e.key === "Enter" && handleAddShopType()
-                      }
-                    />
-                    <button
-                      onClick={handleAddShopType}
-                      className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                    >
-                      Thêm
-                    </button>
-                    <button
-                      onClick={() => setShowAddShopType(false)}
-                      className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600"
-                    >
-                      Hủy
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowAddShopType(true)}
-                    className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
-                  >
-                    + Thêm Shop Type
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <div className="w-full bg-white rounded-xl shadow-lg p-4 mt-6">
-                <div className="rounded-xl border border-gray-200 shadow-sm bg-white overflow-hidden">
-                  <table className="min-w-full bg-white">
-                    <thead>
-                      <tr>
-                        <th className="border px-2 py-1 bg-gray-100 text-left">
-                          <button
-                            onClick={handleToggleLocations}
-                            className="mr-2 text-lg font-bold text-blue-600 focus:outline-none"
-                            title={
-                              expandLocations
-                                ? "Thu gọn Shop types"
-                                : "Xem Locations"
-                            }
-                          >
-                            {expandLocations ? "−" : "+"}
-                          </button>
-                          Shop types
-                        </th>
-                        {expandLocations && (
-                          <th className="border px-2 py-1 bg-gray-100 text-left">
-                            <button
-                              onClick={handleToggleRegions}
-                              className="mr-2 text-lg font-bold text-green-600 focus:outline-none"
-                              title={
-                                expandRegions
-                                  ? "Thu gọn Locations"
-                                  : "Xem Region"
-                              }
-                            >
-                              {expandRegions ? "−" : "+"}
-                            </button>
-                            Locations
-                          </th>
-                        )}
-                        {expandRegions && (
-                          <th className="border px-2 py-1 bg-gray-100 text-left">
-                            Region
-                          </th>
-                        )}
-                        {orderTimeHourRanges.map((hour) => (
-                          <th
-                            className="border px-2 py-1 bg-gray-100"
-                            key={hour}
-                          >
-                            {hour}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(shopTypeDetails).map(
-                        ([shopType, locations]) => {
-                          const shopRowspan = expandLocations
-                            ? expandRegions
-                              ? locations.length
-                              : locations.length
-                            : 1;
-                          let shopTypeRendered = false;
-                          if (!expandLocations) {
-                            // chỉ shop type
-                            return (
-                              <tr key={shopType}>
-                                <td
-                                  rowSpan={shopRowspan}
-                                  className="border px-2 py-1 text-left"
-                                >
-                                  {shopType}
-                                </td>
-                                {orderTimeHourRanges.map((hour) => (
-                                  <td className="border px-2 py-1" key={hour}>
-                                    {locations.reduce(
-                                      (sum, loc) => sum + (loc.data[hour] ?? 0),
-                                      0
-                                    )}
-                                  </td>
-                                ))}
-                              </tr>
-                            );
-                          }
-
-                          return locations.map((loc) => {
-                            const locRowspan = expandRegions ? 1 : 1; // mỗi location chỉ có 1 region
-                            let locationRendered = false;
-                            if (!expandRegions) {
-                              // chỉ location
-                              return (
-                                <tr key={shopType + "-" + loc.location}>
-                                  {!shopTypeRendered &&
-                                    (shopTypeRendered = true) && (
-                                      <td
-                                        rowSpan={shopRowspan}
-                                        className="border px-2 py-1 text-left"
-                                      >
-                                        {shopType}
-                                      </td>
-                                    )}
-                                  <td
-                                    rowSpan={locRowspan}
-                                    className="border px-2 py-1 text-left"
-                                  >
-                                    {loc.location}
-                                  </td>
-                                  {orderTimeHourRanges.map((hour) => (
-                                    <td className="border px-2 py-1" key={hour}>
-                                      {loc.data[hour] ?? 0}
-                                    </td>
-                                  ))}
-                                </tr>
-                              );
-                            }
-
-                            return (
-                              <tr
-                                key={shopType + "-" + loc.location + "-region"}
-                              >
-                                {!shopTypeRendered &&
-                                  (shopTypeRendered = true) && (
-                                    <td
-                                      rowSpan={shopRowspan}
-                                      className="border px-2 py-1 text-left"
-                                    >
-                                      {shopType}
-                                    </td>
-                                  )}
-                                {!locationRendered &&
-                                  (locationRendered = true) && (
-                                    <td
-                                      rowSpan={locRowspan}
-                                      className="border px-2 py-1 text-left"
-                                    >
-                                      {loc.location}
-                                    </td>
-                                  )}
-                                <td className="border px-2 py-1 text-left">
-                                  {loc.region}
-                                </td>
-                                {orderTimeHourRanges.map((hour) => (
-                                  <td className="border px-2 py-1" key={hour}>
-                                    {loc.data[hour] ?? 0}
-                                  </td>
-                                ))}
-                              </tr>
-                            );
-                          });
-                        }
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới) */}
-
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5">
-            <div className="text-xl font-medium text-gray-700 text-center pt-10">
-              Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới)
-            </div>
-            <div className="flex justify-center items-center py-8">
-              <ResponsiveContainer width={800} height={400}>
-                <PieChart>
-                  <Pie
-                    data={pieNewGuestData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="49%"
-                    cy="55%"
-                    innerRadius={100}
-                    outerRadius={120}
-                    cornerRadius={10}
-                    paddingAngle={5}
-                    label={({ name, percent }) =>
-                      `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`
-                    }
-                  >
-                    {newOldCustomerData.map((entry, idx) => (
-                      <Cell
-                        key={entry.name}
-                        fill={NEW_GUEST_COLOR[idx % NEW_GUEST_COLOR.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend
-                    wrapperStyle={{
-                      paddingTop: 10,
-                      paddingBottom: 10,
-                      display: "flex",
-                      justifyContent: "center",
-                      flexWrap: "wrap",
-                      width: "100%",
-                    }}
-                  />
-                  <text
-                    x="49%"
-                    y="55%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontSize={18}
-                    fontWeight="bold"
-                    fill="#333"
-                  >
-                    {`${Math.round(
-                      (newOldCustomerData[0].value /
-                        (newOldCustomerData[0].value +
-                          newOldCustomerData[1].value)) *
-                        100
-                    )}%`}
-                  </text>
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách cũ) */}
-
-          <div className="w-full bg-white rounded-xl shadow-lg mt-2">
-            <div className="text-xl font-medium text-gray-700 text-center pt-10">
-              Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách cũ)
-            </div>
-            <div className="flex justify-center items-center ">
-              <ResponsiveContainer width={800} height={400}>
-                <PieChart>
-                  <Pie
-                    data={pieOldGuestData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={100}
-                    outerRadius={120}
-                    cornerRadius={10}
-                    paddingAngle={5}
-                    label={({ name, percent }) =>
-                      `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`
-                    }
-                  >
-                    {newOldCustomerData.map((entry, idx) => (
-                      <Cell
-                        key={entry.name}
-                        fill={NEW_OLD_COLORS[idx % NEW_OLD_COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend
-                    wrapperStyle={{
-                      paddingTop: 10,
-                      paddingBottom: 10,
-                      display: "flex",
-                      justifyContent: "center",
-                      flexWrap: "wrap",
-                      width: "100%",
-                    }}
-                  />
-                  <text
-                    x="50%"
-                    y="50%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontSize={18}
-                    fontWeight="bold"
-                    fill="#333"
-                  >
-                    {`${Math.round(
-                      (newOldCustomerData[0].value /
-                        (newOldCustomerData[0].value +
-                          newOldCustomerData[1].value)) *
-                        100
-                    )}%`}
-                  </text>
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Tổng thực thu theo loại cửa hàng */}
+          {/* Thực thu cửa hàng */}
           <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
             <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Tổng thực thu theo loại cửa hàng
+              Thực thu cửa hàng
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
+              <table className="min-w-full text-sm">
+                <thead className="sticky top-0 z-10 bg-yellow-200">
+                  <tr className="bg-yellow-200 font-bold text-gray-900">
+                    <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
+                    <th className="px-3 py-3 text-left">Locations</th>
+                    <th className="px-3 py-3 text-right ">Thực thu</th>
+                    <th className="px-3 py-3 text-right">% Δ</th>
+                    <th className="px-3 py-3 text-right ">
+                      Tổng trả thẻ Foxie
+                    </th>
+                    <th className="px-3 py-3 text-right">% Δ</th>
+                    <th className="px-3 py-3 text-right ">Số đơn hàng</th>
+                    <th className="px-3 py-3 text-right rounded-tr-xl">% Δ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {storeTableData.map((row, idx) => (
+                    <tr key={row.location}>
+                      <td className="px-3 py-2 text-left">{idx + 1}</td>
+                      <td className="px-3 py-2 text-left">{row.location}</td>
+                      <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">
+                        {row.revenue.toLocaleString()}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right ${
+                          row.revenueDelta !== null
+                            ? row.revenueDelta > 0
+                              ? "text-green-600"
+                              : row.revenueDelta < 0
+                              ? "text-red-500"
+                              : ""
+                            : ""
+                        }`}
+                      >
+                        {row.revenueDelta === null
+                          ? "N/A"
+                          : `${row.revenueDelta.toFixed(1)}%`}
+                      </td>
+                      <td className="px-3 py-2 text-right bg-[#8ed1fc]">
+                        {row.foxie.toLocaleString()}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right ${
+                          row.foxieDelta !== null
+                            ? row.foxieDelta > 0
+                              ? "text-green-600"
+                              : row.foxieDelta < 0
+                              ? "text-red-500"
+                              : ""
+                            : ""
+                        }`}
+                      >
+                        {row.foxieDelta === null
+                          ? "N/A"
+                          : `${row.foxieDelta.toFixed(1)}%`}
+                      </td>
+                      <td className="px-3 py-2 text-right bg-[#a9b8c3]">
+                        {row.orders}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right ${
+                          row.ordersDelta !== null
+                            ? row.ordersDelta > 0
+                              ? "text-green-600"
+                              : row.ordersDelta < 0
+                              ? "text-red-500"
+                              : ""
+                            : ""
+                        }`}
+                      >
+                        {row.ordersDelta === null
+                          ? "N/A"
+                          : `${row.ordersDelta.toFixed(1)}%`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="sticky bottom-0 bg-gray-100 z-20">
+                  <tr className="font-bold">
+                    <td
+                      colSpan={2}
+                      className="px-3 py-2 text-left rounded-bl-xl"
+                    >
+                      Tổng cộng
+                    </td>
+                    <td className="px-3 py-2 text-right bg-[#f8a0ca]">
+                      {totalRevenueAll.toLocaleString()}
+                    </td>
+                    <td
+                      className={`px-3 py-2 text-right ${
+                        totalRevenueDeltaAll > 0
+                          ? "text-green-600"
+                          : totalRevenueDeltaAll < 0
+                          ? "text-red-500"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {totalRevenueDeltaAll > 0 ? "+" : ""}
+                      {totalRevenueDeltaAll.toFixed(1)}%
+                    </td>
+                    <td className="px-3 py-2 text-right bg-[#8ed1fc]">
+                      {totalFoxieAll.toLocaleString()}
+                    </td>
+                    <td
+                      className={`px-3 py-2 text-right ${
+                        totalFoxieDeltaAll > 0
+                          ? "text-green-600"
+                          : totalFoxieDeltaAll < 0
+                          ? "text-red-500"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {totalFoxieDeltaAll > 0 ? "+" : ""}
+                      {totalFoxieDeltaAll.toFixed(1)}%
+                    </td>
+                    <td className="px-3 py-2 text-right bg-[#a9b8c3]">
+                      {totalOrdersAll.toLocaleString()}
+                    </td>
+                    <td
+                      className={`px-3 py-2 text-right ${
+                        totalOrdersDeltaAll > 0
+                          ? "text-green-600"
+                          : totalOrdersDeltaAll < 0
+                          ? "text-red-500"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {totalOrdersDeltaAll > 0 ? "+" : ""}
+                      {totalOrdersDeltaAll.toFixed(1)}%
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          {/* Số lượng đơn hàng theo ngày (- đơn mua thẻ) dạng chart */}
+          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
+            <div className="text-xl font-medium text-gray-700 text-center mb-4">
+              Số lượng đơn hàng theo ngày (-đơn mua thẻ)
             </div>
             <ResponsiveContainer width="100%" height={400}>
-              <LineChart
-                data={filterData(
-                  TotalSaleOfStores,
-                  selectedType,
-                  selectedStatus,
-                  weekStart,
-                  weekEnd,
-                  selectedRegions,
-                  selectedBranches
-                )}
-                margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
+              <BarChart
+                data={ordersChartData}
+                margin={{ top: 30, right: 40, left: 20, bottom: 40 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
@@ -2852,177 +2155,332 @@ export default function CustomerReportPage() {
                   textAnchor="end"
                   height={60}
                 />
-                <YAxis />
+                <YAxis yAxisId="left" orientation="left" tickCount={6} />
+                <YAxis yAxisId="right" orientation="right" tickCount={6} />
                 <Tooltip />
-                <Legend
-                  wrapperStyle={{
-                    paddingTop: 10,
-                    paddingBottom: 10,
-                    display: "flex",
-                    justifyContent: "center",
-                    flexWrap: "wrap",
-                    width: "100%",
-                  }}
-                />
+                <Legend />
+                <Bar
+                  yAxisId="left"
+                  dataKey="orders"
+                  name="Số đơn hàng"
+                  fill="#f87171"
+                  barSize={30}
+                >
+                  <LabelList dataKey="orders" position="top" />
+                </Bar>
                 <Line
+                  yAxisId="right"
                   type="monotone"
-                  dataKey="Mall"
-                  name="Trong Mall"
-                  stroke="#8d6e63"
+                  dataKey="avgPerShop"
+                  name="Trung bình số lượng đơn tại mỗi shop"
+                  stroke="#2563eb"
                   strokeWidth={3}
-                  dot={false}
+                  dot={{ r: 5, fill: "#2563eb" }}
+                  activeDot={{ r: 7 }}
+                  label={{ position: "top", fill: "#2563eb", fontWeight: 600 }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="Shophouse"
-                  name="Shophouse"
-                  stroke="#b6d47a"
-                  strokeWidth={3}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="NhaPho"
-                  name="Nhà phố"
-                  stroke="#ff7f7f"
-                  strokeWidth={3}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Khac"
-                  name="Khác"
-                  stroke="#81d4fa"
-                  strokeWidth={3}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="DaDongCua"
-                  name="Đã đóng cửa"
-                  stroke="#f0bf4c"
-                  strokeWidth={3}
-                  dot={false}
-                />
-              </LineChart>
+              </BarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Tổng thực thu theo loại khách hàng trong tuần */}
+          {/* Top 10 cửa hàng theo đơn hàng */}
           <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
             <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Tổng thực thu theo loại khách hàng trong tuần
+              Top 10 cửa hàng theo đơn hàng
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={600}>
               <BarChart
-                data={[
-                  {
-                    name: "KH Trải nghiệm",
-                    value: filterData(
-                      kindOfCustomer,
-                      selectedType,
-                      selectedStatus,
-                      weekStart,
-                      weekEnd,
-                      selectedRegions,
-                      selectedBranches
-                    ).reduce((sum, d) => sum + (d.KHTraiNghiem || 0), 0),
-                    fill: "#8d6e63",
-                  },
-                  {
-                    name: "KH Thành viên",
-                    value: filterData(
-                      kindOfCustomer,
-                      selectedType,
-                      selectedStatus,
-                      weekStart,
-                      weekEnd,
-                      selectedRegions,
-                      selectedBranches
-                    ).reduce((sum, d) => sum + (d.KHThanhVien || 0), 0),
-                    fill: "#b6d47a",
-                  },
-                  {
-                    name: "KH Bạc",
-                    value: filterData(
-                      kindOfCustomer,
-                      selectedType,
-                      selectedStatus,
-                      weekStart,
-                      weekEnd,
-                      selectedRegions,
-                      selectedBranches
-                    ).reduce((sum, d) => sum + (d.KHBac || 0), 0),
-                    fill: "#ff7f7f",
-                  },
-                  {
-                    name: "KH Vàng",
-                    value: filterData(
-                      kindOfCustomer,
-                      selectedType,
-                      selectedStatus,
-                      weekStart,
-                      weekEnd,
-                      selectedRegions,
-                      selectedBranches
-                    ).reduce((sum, d) => sum + (d.KHVang || 0), 0),
-                    fill: "#81d4fa",
-                  },
-                  {
-                    name: "KH Đồng",
-                    value: filterData(
-                      kindOfCustomer,
-                      selectedType,
-                      selectedStatus,
-                      weekStart,
-                      weekEnd,
-                      selectedRegions,
-                      selectedBranches
-                    ).reduce((sum, d) => sum + (d.KHDong || 0), 0),
-                    fill: "#f0bf4c",
-                  },
-                  {
-                    name: "KH Kim cương",
-                    value: filterData(
-                      kindOfCustomer,
-                      selectedType,
-                      selectedStatus,
-                      weekStart,
-                      weekEnd,
-                      selectedRegions,
-                      selectedBranches
-                    ).reduce((sum, d) => sum + (d.KHKimcuong || 0), 0),
-                    fill: "#bccefb",
-                  },
-                ]}
-                margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
+                layout="vertical"
+                data={chartOrderData}
+                margin={{ top: 20, right: 40, left: 40, bottom: 20 }}
+                barCategoryGap={10}
               >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend
-                  wrapperStyle={{
-                    paddingTop: 10,
-                    paddingBottom: 10,
-                    display: "flex",
-                    justifyContent: "center",
-                    flexWrap: "wrap",
-                    width: "100%",
-                  }}
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={140}
+                  tick={{ fontWeight: 400, fontSize: 14 }}
                 />
-                <Bar dataKey="value">
-                  {[
-                    "#8d6e63",
-                    "#b6d47a",
-                    "#ff7f7f",
-                    "#81d4fa",
-                    "#f0bf4c",
-                    "#bccefb",
-                  ].map((color, idx) => (
-                    <Cell key={color} fill={color} />
+                <Tooltip />
+                <Legend />
+                <Bar
+                  dataKey="totalOrders"
+                  name="Số đơn hàng"
+                  fill="#bc8b6f"
+                  barSize={5}
+                />
+                <Bar
+                  dataKey="retailOrders"
+                  name="Đơn dịch vụ lẻ/sản phẩm"
+                  fill="#f16a3f"
+                  barSize={5}
+                />
+                <Bar
+                  dataKey="cardOrders"
+                  name="Đơn mua thẻ"
+                  fill="#b6d47a"
+                  barSize={5}
+                />
+                <Bar
+                  dataKey="foxieOrders"
+                  name="Đơn trả bằng thẻ Foxie"
+                  fill="#81d4fa"
+                  barSize={5}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Số đơn tại các cửa hàng */}
+          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
+            <div className="text-xl font-medium text-gray-700 text-center mb-4">
+              Số đơn tại các cửa hàng
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
+              <table className="min-w-full text-sm">
+                <thead className="sticky top-0 z-10 bg-yellow-200">
+                  <tr className="bg-yellow-200 font-bold text-gray-900">
+                    <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
+                    <th className="px-3 py-3 text-left">Locations</th>
+                    <th className="px-3 py-3 text-right ">Số đơn hàng</th>
+                    <th className="px-3 py-3 text-right">Δ</th>
+                    <th className="px-3 py-3 text-right ">Đơn mua thẻ</th>
+                    <th className="px-3 py-3 text-right">Δ</th>
+                    <th className="px-3 py-3 text-right ">Đơn dịch vụ lẻ</th>
+                    <th className="px-3 py-3 text-right">Δ</th>
+                    <th className="px-3 py-3 text-right ">
+                      Đơn trả bằng thẻ Foxie
+                    </th>
+                    <th className="px-3 py-3 text-right rounded-tr-xl">Δ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {storeOrderTableData.map((row, idx) => (
+                    <tr key={row.location}>
+                      <td className="px-3 py-2 text-left">{idx + 1}</td>
+                      <td className="px-3 py-2 text-left">{row.location}</td>
+                      <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">
+                        {row.totalOrders}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right ${
+                          row.totalOrdersDelta !== null
+                            ? row.totalOrdersDelta > 0
+                              ? "text-green-600"
+                              : row.totalOrdersDelta < 0
+                              ? "text-red-500"
+                              : ""
+                            : ""
+                        }`}
+                      >
+                        {row.totalOrdersDelta === null
+                          ? "N/A"
+                          : `${row.totalOrdersDelta > 0 ? "+" : ""}${
+                              row.totalOrdersDelta
+                            }`}
+                      </td>
+                      <td className="px-3 py-2 text-right bg-[#8ed1fc]">
+                        {row.cardOrders}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right ${
+                          row.cardOrdersDelta !== null
+                            ? row.cardOrdersDelta > 0
+                              ? "text-green-600"
+                              : row.cardOrdersDelta < 0
+                              ? "text-red-500"
+                              : ""
+                            : ""
+                        }`}
+                      >
+                        {row.cardOrdersDelta === null
+                          ? "N/A"
+                          : `${row.cardOrdersDelta > 0 ? "+" : ""}${
+                              row.cardOrdersDelta
+                            }`}
+                      </td>
+                      <td className="px-3 py-2 text-right bg-[#fcb900]">
+                        {row.retailOrders}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right ${
+                          row.retailOrdersDelta !== null
+                            ? row.retailOrdersDelta > 0
+                              ? "text-green-600"
+                              : row.retailOrdersDelta < 0
+                              ? "text-red-500"
+                              : ""
+                            : ""
+                        }`}
+                      >
+                        {row.retailOrdersDelta === null
+                          ? "N/A"
+                          : `${row.retailOrdersDelta > 0 ? "+" : ""}${
+                              row.retailOrdersDelta
+                            }`}
+                      </td>
+                      <td className="px-3 py-2 text-right bg-[#a9b8c3]">
+                        {row.foxieOrders}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right ${
+                          row.foxieOrdersDelta !== null
+                            ? row.foxieOrdersDelta > 0
+                              ? "text-green-600"
+                              : row.foxieOrdersDelta < 0
+                              ? "text-red-500"
+                              : ""
+                            : ""
+                        }`}
+                      >
+                        {row.foxieOrdersDelta === null
+                          ? "N/A"
+                          : `${row.foxieOrdersDelta > 0 ? "+" : ""}${
+                              row.foxieOrdersDelta
+                            }`}
+                      </td>
+                    </tr>
                   ))}
-                </Bar>
+                </tbody>
+                <tfoot className="sticky bottom-0 bg-gray-100 z-20">
+                  <tr className="font-bold">
+                    <td
+                      colSpan={2}
+                      className="px-3 py-2 text-left rounded-bl-xl"
+                    >
+                      Tổng cộng
+                    </td>
+                    <td className="px-3 py-2 text-right bg-[#f8a0ca]">
+                      {totalOrderSumAll.totalOrders}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {totalOrderSumAll.totalOrdersDelta}
+                    </td>
+                    <td className="px-3 py-2 text-right bg-[#8ed1fc]">
+                      {totalOrderSumAll.cardOrders}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {totalOrderSumAll.cardOrdersDelta}
+                    </td>
+                    <td className="px-3 py-2 text-right bg-[#fcb900]">
+                      {totalOrderSumAll.retailOrders}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {totalOrderSumAll.retailOrdersDelta}
+                    </td>
+                    <td className="px-3 py-2 text-right bg-[#a9b8c3]">
+                      {totalOrderSumAll.foxieOrders}
+                    </td>
+                    <td className="px-3 py-2 text-right rounded-br-xl">
+                      {totalOrderSumAll.foxieOrdersDelta}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          {/* 5 bảng tổng số liệu */}
+
+          <div className="flex justify-between gap-2  mt-5 w-full">
+            <StatCard
+              title="Tổng đơn hàng"
+              value={totalOrdersThisWeek}
+              delta={deltaOrders}
+              className="border-[#f8a0ca] border w-1/5 text-sm"
+              valueColor="text-[#f8a0ca]"
+            />
+            <StatCard
+              title="Đơn mua thẻ"
+              value={cardOrdersThisWeek}
+              delta={deltaCardOrders}
+              className="border-[#8ed1fc] border w-1/5 text-sm"
+              valueColor="text-[#8ed1fc]"
+            />
+            <StatCard
+              title="Đơn dịch vụ/sản phẩm"
+              value={retailOrdersThisWeek}
+              delta={deltaRetailOrders}
+              className="border-[#fcb900] border w-1/5 text-sm"
+              valueColor="text-[#fcb900]"
+            />
+            <StatCard
+              title="Đơn trả bằng thẻ Foxie"
+              value={foxieOrdersThisWeek}
+              delta={deltaFoxieOrders}
+              className="border-[#a9b8c3] border w-1/5 text-sm"
+              valueColor="text-[#a9b8c3]"
+            />
+            <StatCard
+              title="Đơn mua sản phẩm"
+              value={productOrdersThisWeek}
+              delta={deltaProductOrders}
+              className="border-[#b6d47a] border w-1/5 text-sm"
+              valueColor="text-[#b6d47a]"
+            />
+          </div>
+          {/* PieChart tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ */}
+          <div className="w-full flex justify-center mt-8">
+            <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col md:flex-row items-center gap-8 max-w-3xl w-full">
+              <div className="flex-1 flex justify-center">
+                <ResponsiveContainer width={400} height={320}>
+                  <PieChart>
+                    <Pie
+                      data={piePaymentData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={120}
+                      label={({ percent }) =>
+                        percent !== undefined ? `${(percent * 100).toFixed(1)}%` : ""
+                      }
+                    >
+                      {piePaymentData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) =>
+                        `${value} (${((Number(value) / totalAllPie) * 100).toFixed(1)}%)`
+                      }
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex-1 flex flex-col items-center md:items-start">
+                <div className="text-xl font-semibold text-gray-700 mb-4 text-center md:text-left">
+                  Tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ
+                </div>
+                <ul className="space-y-2">
+                  {piePaymentData.map((item) => (
+                    <li key={item.name} className="flex items-center gap-3">
+                      <span
+                        className="inline-block w-5 h-5 rounded-full"
+                        style={{ background: item.color }}
+                      ></span>
+                      <span className="font-medium text-gray-800">{item.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full bg-white rounded-xl shadow-lg mt-8 p-6">
+            <div className="text-2xl font-semibold text-gray-800 mb-4">Hình thức thanh toán theo vùng</div>
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={paymentRegionData} margin={{ top: 20, right: 40, left: 20, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="region" />
+                <YAxis tickFormatter={v => (v >= 1000 ? `${v / 1000} N` : v)} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="bank" name="Bank Transfer" fill="#795548" barSize={40} />
+                <Bar dataKey="cash" name="Cash" fill="#c5e1a5" barSize={40} />
+                <Bar dataKey="card" name="Credit/Debit card" fill="#ff7f7f" barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>
