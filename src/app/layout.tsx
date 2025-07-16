@@ -8,8 +8,8 @@ import { Header } from "@/components/header"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "CRM Dashboard",
-  description: "Modern CRM Dashboard for business management",
+  title: "FB Network Dashboard",
+  description: "Master Report Of FB Network",
 }
 
 export default function RootLayout({
