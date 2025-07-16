@@ -1171,6 +1171,8 @@ export default function CustomerReportPage() {
     };
   });
 
+  
+
   return (
     <div className="p-6">
       <div className="mb-6">
@@ -2484,6 +2486,9 @@ export default function CustomerReportPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+
+        
+        
         </div>
       </div>
     </div>
