@@ -753,21 +753,23 @@ export default function CustomerReportPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
+    <div className="p-4 lg:p-6">
+      <div className="mb-4 lg:mb-6">
         <div className="p-2">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+          <h1 className="text-xl lg:text-2xl font-semibold text-gray-900 mb-2">
             Customer Report
           </h1>
 
-          <div className="flex gap-6 mb-6">
-            {/* ...DatePicker code... */}
-            <div className="w-full h-fit max-w-xl flex flex-row gap-4 bg-white p-2 rounded">
-              <div className="w-full bg-white flex flex-col gap-1">
-                <h3>Start date</h3>
+          <div className="flex flex-col gap-4 lg:gap-6 mb-4 lg:mb-6">
+            {/* Date filters */}
+            <div className="w-full flex flex-col sm:flex-row gap-4 bg-white p-4 rounded-lg shadow">
+              <div className="flex-1 flex flex-col gap-1">
+                <h3 className="text-sm font-medium text-gray-700">
+                  Start date
+                </h3>
                 <input
                   type="date"
-                  className="border rounded p-2 bg-white"
+                  className="border border-gray-300 rounded p-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#f66035]"
                   value={startDate.toString()}
                   onChange={(e) => {
                     const date = parseDate(e.target.value);
@@ -776,11 +778,11 @@ export default function CustomerReportPage() {
                   max={today(getLocalTimeZone()).toString()}
                 />
               </div>
-              <div className="w-full bg-white flex flex-col gap-1">
-                <h3>End date</h3>
+              <div className="flex-1 flex flex-col gap-1">
+                <h3 className="text-sm font-medium text-gray-700">End date</h3>
                 <input
                   type="date"
-                  className="border rounded p-2 bg-white"
+                  className="border border-gray-300 rounded p-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#f66035]"
                   value={endDate.toString()}
                   onChange={(e) => {
                     const date = parseDate(e.target.value);
@@ -792,11 +794,12 @@ export default function CustomerReportPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-6 mb-6">
+            {/* Dropdown filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Filter loại khách */}
               <div className="relative">
                 <button
-                  className="block border rounded p-2 w-64 text-left bg-white shadow border-[orange]"
+                  className="block border rounded p-2 w-full text-left bg-white shadow border-[orange] hover:bg-gray-50 transition-colors"
                   onClick={() => setShowTypeDropdown((v) => !v)}
                   type="button"
                 >
@@ -807,7 +810,7 @@ export default function CustomerReportPage() {
                   <span className="float-right">&#9660;</span>
                 </button>
                 {showTypeDropdown && (
-                  <div className="absolute z-20 bg-white border rounded shadow w-64 mt-1 max-h-60 overflow-auto">
+                  <div className="absolute z-20 bg-white border rounded shadow w-full mt-1 max-h-60 overflow-auto">
                     <label className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100">
                       <input
                         type="checkbox"
@@ -852,7 +855,7 @@ export default function CustomerReportPage() {
               {/* Filter khách mới/cũ */}
               <div className="relative">
                 <button
-                  className="block border rounded p-2 w-64 text-left bg-white shadow border-[orange]"
+                  className="block border rounded p-2 w-full text-left bg-white shadow border-[orange] hover:bg-gray-50 transition-colors"
                   onClick={() => setShowStatusDropdown((v) => !v)}
                   type="button"
                 >
@@ -861,7 +864,7 @@ export default function CustomerReportPage() {
                   <span className="float-right">&#9660;</span>
                 </button>
                 {showStatusDropdown && (
-                  <div className="absolute z-20 bg-white border rounded shadow w-64 mt-1 max-h-60 overflow-auto">
+                  <div className="absolute z-20 bg-white border rounded shadow w-full mt-1 max-h-60 overflow-auto">
                     <label className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100">
                       <input
                         type="radio"
@@ -900,7 +903,7 @@ export default function CustomerReportPage() {
               {/* Filter Region */}
               <div className="relative">
                 <button
-                  className="block border rounded p-2 w-64 text-left bg-white shadow border-[orange]"
+                  className="block border rounded p-2 w-full text-left bg-white shadow border-[orange] hover:bg-gray-50 transition-colors"
                   onClick={() => setShowRegionDropdown((v) => !v)}
                   type="button"
                 >
@@ -911,7 +914,7 @@ export default function CustomerReportPage() {
                   <span className="float-right">&#9660;</span>
                 </button>
                 {showRegionDropdown && (
-                  <div className="absolute z-20 bg-white border rounded shadow w-64 mt-1 max-h-60 overflow-auto">
+                  <div className="absolute z-20 bg-white border rounded shadow w-full mt-1 max-h-60 overflow-auto">
                     <label className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100">
                       <input
                         type="checkbox"
@@ -956,7 +959,7 @@ export default function CustomerReportPage() {
               {/* Filter Branch */}
               <div className="relative">
                 <button
-                  className="block border rounded p-2 w-64 text-left bg-white shadow border-[orange]"
+                  className="block border rounded p-2 w-full text-left bg-white shadow border-[orange]"
                   onClick={() => setShowBranchDropdown((v) => !v)}
                   type="button"
                 >
@@ -1013,18 +1016,18 @@ export default function CustomerReportPage() {
           </div>
 
           {/* 4 bảng thống kê */}
-          <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-4 lg:mb-6">
             {/* Card 1 */}
-            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
-              <div className="text-xl text-gray-700 mb-2">
+            <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center">
+              <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
                 Trung bình thực thu của nam
               </div>
-              <div className="text-5xl font-bold text-[#f66035] mb-2">
+              <div className="text-3xl lg:text-5xl font-bold text-[#f66035] mb-2">
                 {maleRevenue.toLocaleString()}{" "}
-                <span className="text-2xl">đ</span>
+                <span className="text-lg lg:text-2xl">đ</span>
               </div>
               <div
-                className={`flex items-center gap-2 text-xl font-semibold ${maleIndicator.color}`}
+                className={`flex items-center gap-2 text-sm lg:text-xl font-semibold ${maleIndicator.color}`}
               >
                 <span>{maleIndicator.icon}</span>
                 {maleRevenueChange === null
@@ -1033,16 +1036,16 @@ export default function CustomerReportPage() {
               </div>
             </div>
             {/* Card 2 */}
-            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
-              <div className="text-xl text-gray-700 mb-2">
+            <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center">
+              <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
                 Trung bình thực thu của nữ
               </div>
-              <div className="text-5xl font-bold text-[#0693e3] mb-2">
+              <div className="text-3xl lg:text-5xl font-bold text-[#0693e3] mb-2">
                 {femaleRevenue.toLocaleString()}{" "}
-                <span className="text-2xl">đ</span>
+                <span className="text-lg lg:text-2xl">đ</span>
               </div>
               <div
-                className={`flex items-center gap-2 text-xl font-semibold ${femaleIndicator.color}`}
+                className={`flex items-center gap-2 text-sm lg:text-xl font-semibold ${femaleIndicator.color}`}
               >
                 <span>{femaleIndicator.icon}</span>
                 {femaleRevenueChange === null
@@ -1051,35 +1054,35 @@ export default function CustomerReportPage() {
               </div>
             </div>
             {/* Card 3 */}
-            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
-              <div className="text-xl text-gray-700 mb-2">
+            <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center">
+              <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
                 Trung bình đơn dịch vụ (Nam)
               </div>
-              <div className="text-5xl font-bold text-[#00d082] mb-2">
+              <div className="text-3xl lg:text-5xl font-bold text-[#00d082] mb-2">
                 {maleOrderAvg.toLocaleString()}{" "}
-                <span className="text-2xl">đ</span>
+                <span className="text-lg lg:text-2xl">đ</span>
               </div>
             </div>
             {/* Card 4 */}
-            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
-              <div className="text-xl text-gray-700 mb-2">
+            <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center">
+              <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
                 Trung bình đơn dịch vụ (Nữ)
               </div>
-              <div className="text-5xl font-bold text-[#9b51e0] mb-2">
+              <div className="text-3xl lg:text-5xl font-bold text-[#9b51e0] mb-2">
                 {femaleOrderAvg.toLocaleString()}{" "}
-                <span className="text-2xl">đ</span>
+                <span className="text-lg lg:text-2xl">đ</span>
               </div>
             </div>
           </div>
 
-          <div className="flex w-full gap-4">
+          <div className="flex flex-col lg:flex-row w-full gap-4 lg:gap-4">
             {/* Số khách tạo mới*/}
 
-            <div className="w-1/2 bg-white p-2 rounded-xl shadow-lg">
-              <h2 className="text-xl text-center font-semibold text-gray-800 mb-4">
+            <div className="w-full lg:w-1/2 bg-white p-4 rounded-xl shadow-lg">
+              <h2 className="text-lg lg:text-xl text-center font-semibold text-gray-800 mb-4">
                 Số khách tạo mới
               </h2>
-              <ResponsiveContainer width="100%" height={350}>
+              <ResponsiveContainer width="100%" height={300}>
                 <LineChart
                   data={filterData(
                     data,
@@ -1156,11 +1159,11 @@ export default function CustomerReportPage() {
 
             {/* Tỉ lệ nam/nữ */}
 
-            <div className="w-1/2 bg-white p-2 rounded-xl shadow-lg">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">
+            <div className="w-full lg:w-1/2 bg-white p-4 rounded-xl shadow-lg">
+              <h2 className="text-lg lg:text-xl font-semibold text-gray-800 mb-4 text-center">
                 Tỷ lệ nam/nữ khách mới tạo
               </h2>
-              <ResponsiveContainer width="100%" height={350}>
+              <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
                     data={filterData(
@@ -1174,13 +1177,13 @@ export default function CustomerReportPage() {
                     )}
                     cx="50%"
                     cy="50%"
-                    innerRadius={0}
-                    outerRadius={120}
+                    innerRadius="0%"
+                    outerRadius="80%"
                     fill="#f933347"
                     dataKey="value"
                     labelLine={false}
-                    label={({ name, percent }) =>
-                      `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`
+                    label={({  percent }) =>
+                      ` ${percent ? (percent * 100).toFixed(0) : 0}%`
                     }
                   >
                     {pieData.map((entry, index) => (
@@ -1193,19 +1196,19 @@ export default function CustomerReportPage() {
                   <Tooltip />
                   <Legend
                     wrapperStyle={{
-                      paddingTop: "20px",
-                      fontSize: "14px",
-                      color: "#9ee347",
+                      paddingTop: "10px",
+                      fontSize: "12px",
+                      color: "#4b5563",
                     }}
                     iconType="circle"
-                    iconSize={10}
+                    iconSize={8}
                   />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           </div>
           {/* Tổng số khách mới */}
-          <div className="flex gap-4 mt-4">
+          <div className="flex flex-col md:flex-row gap-2 md:gap-4 mt-4">
             {/* Tổng số khách mới trong hệ thống */}
             <div className="flex-1 bg-white rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
               <div className="text-xl font-medium text-gray-700 mb-2 text-center">
@@ -1238,7 +1241,7 @@ export default function CustomerReportPage() {
             </div>
           </div>
           {/* Số khách tới chia theo phân loại */}
-          <div className="w-100 bg-white pt-2 mt-5 rounded-xl shadow-lg">
+          <div className="w-full bg-white pt-2 mt-5 rounded-xl shadow-lg">
             <h2 className="text-xl text-center font-semibold text-gray-800 mt-4">
               Số khách tới chia theo loại
             </h2>
@@ -1377,7 +1380,7 @@ export default function CustomerReportPage() {
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex-1 bg-white rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
+          <div className="flex-1 bg-white rounded-xl shadow-lg p-6 flex flex-col items-center justify-center bg-[#deacc4] mt-5 mb-5">
             <div className="text-xl font-medium text-gray-700 mb-2 text-center">
               Tổng số khách trong tuần
             </div>
@@ -1476,15 +1479,13 @@ export default function CustomerReportPage() {
           </div>
 
           {/* Khách hàng tải app */}
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 ">
-            <div className="text-xl font-medium text-gray-700 text-center pt-10">
+          <div className="w-full bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
+            <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
               Khách tải app/không tải
             </div>
-            <div className="flex justify-center items-center py-8">
-              <ResponsiveContainer width="100%" height={400}>
+            <div className="flex justify-center items-center py-4 lg:py-8">
+              <ResponsiveContainer width="100%" height={300}>
                 <BarChart
-                  width={1000}
-                  height={400}
                   data={filterData(
                     AppCustomer,
                     selectedType,
@@ -1494,7 +1495,7 @@ export default function CustomerReportPage() {
                     selectedRegions,
                     selectedBranches
                   )}
-                  margin={{ top: 50, right: 30, left: 20, bottom: 5 }}
+                  margin={{ top: 20, right: 20, left: 20, bottom: 20 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
@@ -1528,13 +1529,13 @@ export default function CustomerReportPage() {
           </div>
 
           {/* Tỉ lệ khách hàng tải app/không tải app */}
-          <div className="flex gap-2">
-            <div className="w-1/2 bg-white rounded-xl shadow-lg mt-5">
-              <div className="text-xl font-medium text-gray-700 text-center pt-10">
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-2">
+            <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
+              <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
                 Tỷ lệ tải app
               </div>
-              <div className="flex justify-center items-center py-8">
-                <ResponsiveContainer width={400} height={400}>
+              <div className="flex justify-center items-center py-4 lg:py-8">
+                <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
                       data={appCustomerPieData}
@@ -1542,46 +1543,51 @@ export default function CustomerReportPage() {
                       nameKey="name"
                       cx="50%"
                       cy="50%"
-                      innerRadius={80}
-                      outerRadius={100}
+                      innerRadius="30%"
+                      outerRadius="60%"
                       label={({ percent }) =>
-                        ` ${percent ? (percent * 100).toFixed(0) : 0}%`
+                        percent && percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ""
                       }
+                      labelLine={false}
                     >
-                      {appCustomerPieData.map((entry, idx) => (
-                        <Cell
-                          key={entry.name}
-                          fill={
-                            APP_CUSTOMER_PIE_COLORS[
-                              idx % APP_CUSTOMER_PIE_COLORS.length
-                            ]
-                          }
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend
-                      wrapperStyle={{
-                        paddingTop: 10,
-                        paddingBottom: 10,
-                        display: "flex",
-                        justifyContent: "center",
-                        flexWrap: "wrap",
-                        width: "100%",
-                      }}
-                    />
+                                              {appCustomerPieData.map((entry, idx) => (
+                          <Cell
+                            key={entry.name}
+                            fill={
+                              APP_CUSTOMER_PIE_COLORS[
+                                idx % APP_CUSTOMER_PIE_COLORS.length
+                              ]
+                            }
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend
+                        wrapperStyle={{
+                          paddingTop: 10,
+                          paddingBottom: 10,
+                          display: "flex",
+                          justifyContent: "center",
+                          flexWrap: "wrap",
+                          width: "100%",
+                          fontSize: "11px",
+                        }}
+                        layout="horizontal"
+                        verticalAlign="bottom"
+                        align="center"
+                      />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             {/* Chart tỉ lệ khách mới/cũ */}
-            <div className="w-1/2 bg-white rounded-xl shadow-lg mt-5">
-              <div className="text-xl font-medium text-gray-700 text-center pt-10">
+            <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
+              <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
                 Tỉ lệ khách mới/cũ
               </div>
-              <div className="flex justify-center items-center py-8">
-                <ResponsiveContainer width={400} height={400}>
+              <div className="flex justify-center items-center py-4 lg:py-8">
+                <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
                       data={newOldCustomerData}
@@ -1589,11 +1595,12 @@ export default function CustomerReportPage() {
                       nameKey="name"
                       cx="50%"
                       cy="50%"
-                      innerRadius={80}
-                      outerRadius={100}
+                      innerRadius="30%"
+                      outerRadius="60%"
                       label={({ percent }) =>
-                        `${percent ? (percent * 100).toFixed(0) : 0}%`
+                        percent && percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ""
                       }
+                      labelLine={false}
                     >
                       {newOldCustomerData.map((entry, idx) => (
                         <Cell
@@ -1621,49 +1628,54 @@ export default function CustomerReportPage() {
 
           {/* Thời gian đơn hàng được tạo*/}
           <div className="w-full bg-white rounded-xl shadow-lg p-4 mt-5">
-            <div className="flex justify-between items-center mt-5">
-              <h2 className="text-xl font-semibold">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-5 gap-4">
+              <h2 className="text-lg sm:text-xl font-semibold">
                 Thời gian đơn hàng được tạo
               </h2>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 {showAddShopType ? (
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="text"
                       value={newShopType}
                       onChange={(e) => setNewShopType(e.target.value)}
                       placeholder="Nhập tên shop type"
-                      className="border rounded px-2 py-1"
+                      className="border rounded px-2 py-1 text-sm"
                       onKeyPress={(e) =>
                         e.key === "Enter" && handleAddShopType()
                       }
                     />
-                    <button
-                      onClick={handleAddShopType}
-                      className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                    >
-                      Thêm
-                    </button>
-                    <button
-                      onClick={() => setShowAddShopType(false)}
-                      className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600"
-                    >
-                      Hủy
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleAddShopType}
+                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm"
+                      >
+                        Thêm
+                      </button>
+                      <button
+                        onClick={() => setShowAddShopType(false)}
+                        className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 text-sm"
+                      >
+                        Hủy
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <button
                     onClick={() => setShowAddShopType(true)}
-                    className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                    className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 text-sm flex items-center justify-center gap-1"
                   >
-                    + Thêm Shop Type
+                    <span className="text-lg">+</span>
+                    <span>Thêm Shop Type</span>
                   </button>
                 )}
               </div>
             </div>
-            <div className="overflow-x-auto">
+            
+            {/* Desktop Table View */}
+            <div className="hidden lg:block overflow-x-auto">
               <div className="w-full bg-white rounded-xl shadow-lg p-4 mt-6">
-                <table className="min-w-full border text-center">
+                <table className="min-w-[600px] w-full border text-center">
                   <thead>
                     <tr>
                       <th className="border px-2 py-1 bg-gray-100 text-left">
@@ -1735,8 +1747,7 @@ export default function CustomerReportPage() {
                               {orderTimeHourRanges.map((hour) => (
                                 <td
                                   className={`border px-2 py-1 text-center ${
-                                    orderTimeHourRanges.indexOf(hour) % 2 ===
-                                    0
+                                    orderTimeHourRanges.indexOf(hour) % 2 === 0
                                       ? "bg-blue-50"
                                       : "bg-green-50"
                                   }`}
@@ -1840,29 +1851,109 @@ export default function CustomerReportPage() {
                 </table>
               </div>
             </div>
+
+            {/* Mobile Card View */}
+            <div className="lg:hidden mt-6">
+              <div className="space-y-4">
+                {Object.entries(shopTypeDetails).map(([shopType, locations]) => (
+                  <div key={shopType} className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-gray-800 text-lg">{shopType}</h3>
+                      <button
+                        onClick={handleToggleLocations}
+                        className="text-blue-600 text-lg font-bold"
+                        title={expandLocations ? "Thu gọn" : "Mở rộng"}
+                      >
+                        {expandLocations ? "−" : "+"}
+                      </button>
+                    </div>
+                    
+                    {!expandLocations ? (
+                      // Chỉ hiển thị tổng cho shop type
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {orderTimeHourRanges.map((hour) => {
+                          const total = locations.reduce(
+                            (sum, loc) => sum + (loc.data[hour] ?? 0),
+                            0
+                          );
+                          return (
+                            <div
+                              key={hour}
+                              className={`p-2 rounded text-center ${
+                                orderTimeHourRanges.indexOf(hour) % 2 === 0
+                                  ? "bg-blue-50"
+                                  : "bg-green-50"
+                              }`}
+                            >
+                              <div className="text-xs text-gray-600">{hour}</div>
+                              <div className="font-semibold">{total}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      // Hiển thị chi tiết locations
+                      <div className="space-y-3">
+                        {locations.map((loc) => (
+                          <div key={loc.location} className="bg-white rounded p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium text-gray-700">{loc.location}</h4>
+                              {expandRegions && (
+                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                  {loc.region}
+                                </span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {orderTimeHourRanges.map((hour) => {
+                                const value = loc.data[hour] ?? 0;
+                                let bg = "bg-white";
+                                if (value > 100) bg = "bg-green-200";
+                                else if (value > 50) bg = "bg-yellow-100";
+                                else if (value > 0) bg = "bg-red-100";
+                                return (
+                                  <div
+                                    key={hour}
+                                    className={`p-2 rounded text-center border ${bg}`}
+                                  >
+                                    <div className="text-xs text-gray-600">{hour}</div>
+                                    <div className="font-semibold">{value}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới) */}
 
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5">
-            <div className="text-xl font-medium text-gray-700 text-center pt-10">
+          <div className="w-full bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
+            <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
               Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới)
             </div>
-            <div className="flex justify-center items-center py-8">
-              <ResponsiveContainer width={800} height={400}>
+            <div className="flex justify-center items-center 18 lg:py-8">
+              <ResponsiveContainer width="100%" height={300}>
+                
                 <PieChart>
                   <Pie
                     data={pieNewGuestData}
                     dataKey="value"
                     nameKey="name"
-                    cx="49%"
-                    cy="55%"
-                    innerRadius={100}
-                    outerRadius={120}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius="30%"
+                    outerRadius="40%"
                     cornerRadius={10}
                     paddingAngle={5}
-                    label={({ name, percent }) =>
-                      `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`
+                    label={({ percent }) =>
+                      `${percent ? (percent * 100).toFixed(0) : 0}%`
                     }
                   >
                     {newOldCustomerData.map((entry, idx) => (
@@ -1881,24 +1972,9 @@ export default function CustomerReportPage() {
                       justifyContent: "center",
                       flexWrap: "wrap",
                       width: "100%",
+                      fontSize: "12px",
                     }}
                   />
-                  <text
-                    x="49%"
-                    y="55%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontSize={18}
-                    fontWeight="bold"
-                    fill="#333"
-                  >
-                    {`${Math.round(
-                      (newOldCustomerData[0].value /
-                        (newOldCustomerData[0].value +
-                          newOldCustomerData[1].value)) *
-                        100
-                    )}%`}
-                  </text>
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -1907,11 +1983,11 @@ export default function CustomerReportPage() {
           {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách cũ) */}
 
           <div className="w-full bg-white rounded-xl shadow-lg mt-2">
-            <div className="text-xl font-medium text-gray-700 text-center pt-10">
+            <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
               Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách cũ)
             </div>
-            <div className="flex justify-center items-center ">
-              <ResponsiveContainer width={800} height={400}>
+            <div className="flex justify-center items-center py-4 lg:py-8">
+              <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
                     data={pieOldGuestData}
@@ -1919,12 +1995,13 @@ export default function CustomerReportPage() {
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                    innerRadius={100}
-                    outerRadius={120}
+                    innerRadius="30%"
+                    outerRadius="40%"
+                    
                     cornerRadius={10}
                     paddingAngle={5}
-                    label={({ name, percent }) =>
-                      `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`
+                    label={({ percent }) =>
+                      `${percent ? (percent * 100).toFixed(0) : 0}%`
                     }
                   >
                     {newOldCustomerData.map((entry, idx) => (
@@ -1935,23 +2012,7 @@ export default function CustomerReportPage() {
                     ))}
                   </Pie>
                   <Tooltip />
-                  <Legend wrapperStyle={{}} />
-                  <text
-                    x="50%"
-                    y="50%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontSize={18}
-                    fontWeight="bold"
-                    fill="#333"
-                  >
-                    {`${Math.round(
-                      (newOldCustomerData[0].value /
-                        (newOldCustomerData[0].value +
-                          newOldCustomerData[1].value)) *
-                        100
-                    )}%`}
-                  </text>
+                  <Legend wrapperStyle={{ fontSize: "12px" }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
