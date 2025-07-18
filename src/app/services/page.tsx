@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   CalendarDate,
   today,
@@ -220,7 +221,6 @@ export default function CustomerReportPage() {
     }).flat(),
   ];
 
-
   const TotalRegionalSales: TotalRegionalSales[] = [
     {
       date: "9 thg 6, 2025",
@@ -336,6 +336,8 @@ export default function CustomerReportPage() {
     const dDate = parseVNDate(d.date);
     return dDate.compare(start) >= 0 && dDate.compare(end) <= 0;
   }
+
+  
 
   // Đặt các biến tuần lên trước
   const weekStart = startDate;
@@ -548,8 +550,6 @@ export default function CustomerReportPage() {
       .reduce((sum, d) => sum + d.value, 0);
   });
 
-  
-  
   const ordersByDay: Record<string, { count: number; avgPerShop: number }> = {};
   data.forEach((d) => {
     if (d.type !== "Khách hàng Thành viên") {
@@ -591,7 +591,7 @@ export default function CustomerReportPage() {
     // Tạo trung bình shop ngẫu nhiên (5-15)
     val.avgPerShop = 5 + Math.floor(Math.random() * 11);
   });
-  
+
   const weekDates = [];
   let d = weekStart;
   while (d.compare(weekEnd) <= 0) {
@@ -1359,51 +1359,118 @@ export default function CustomerReportPage() {
     },
   ];
 
+  function useIsMobile(breakpoint = 640) {
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+      const check = () => setIsMobile(window.innerWidth < breakpoint);
+      check();
+      window.addEventListener("resize", check);
+      return () => window.removeEventListener("resize", check);
+    }, [breakpoint]);
+    return isMobile;
+  }
+
+  const isMobile = useIsMobile();
+
+  const renderPieLabel = ({
+    percent,
+    x,
+    y,
+    index,
+  }: {
+    percent?: number;
+    x?: number;
+    y?: number;
+    index?: number;
+  }) => {
+    if (isMobile && percent !== undefined && percent < 0.15) return null;
+    if (percent !== undefined && percent < 0.05) return null;
+    return (
+      <text
+        x={x}
+        y={y}
+        fill={pieTop10Data[index ?? 0]?.color || "#333"}
+        fontSize={isMobile ? 10 : 14}
+        fontWeight="bold"
+        textAnchor="middle"
+        dominantBaseline="central"
+      >
+        {(percent! * 100).toFixed(1)}%
+      </text>
+    );
+  };
+
+  const bottom3Data = (() => {
+    const serviceCountMap = new Map();
+    filteredServiceData.forEach((d) => {
+      const name = d.serviceName || d.type;
+      serviceCountMap.set(name, (serviceCountMap.get(name) || 0) + 1);
+    });
+    const sorted = Array.from(serviceCountMap.entries()).sort(
+      (a, b) => a[1] - b[1]
+    );
+    const bottom3 = sorted.slice(0, 3);
+    const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
+    return bottom3.map(([name, value], idx) => ({
+      name,
+      value,
+      color: grayShades[idx % grayShades.length],
+    }));
+  })();
+
   return (
-    <div className="p-6">
+    <div className="p-2 sm:p-4 md:p-6">
       <div className="mb-6">
-        <div className="p-2 ">
-          <div className=" gap-2">
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-              Services Report
-            </h1>
-            <div className="flex gap-10">
-              {/* ...DatePicker code... */}
-              <div className="w-full h-fit max-w-xl flex flex-row gap-4 bg-white p-2 rounded">
-                <div className="w-full bg-white flex flex-col gap-1">
-                  <h3>Start date</h3>
-                  <input
-                    type="date"
-                    className="border rounded p-2 bg-white"
-                    value={startDate.toString()}
-                    onChange={(e) => {
-                      const date = parseDate(e.target.value);
-                      setStartDate(date);
-                    }}
-                    max={today(getLocalTimeZone()).toString()}
-                  />
-                </div>
-                <div className="w-full bg-white flex flex-col gap-1">
-                  <h3>End date</h3>
-                  <input
-                    type="date"
-                    className="border rounded p-2 bg-white"
-                    value={endDate.toString()}
-                    onChange={(e) => {
-                      const date = parseDate(e.target.value);
-                      setEndDate(date);
-                    }}
-                    min={startDate.add({ days: 1 }).toString()}
-                    max={today(getLocalTimeZone()).toString()}
-                  />
-                </div>
+        <div className=" p-2">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+            Services Report
+          </h1>
+          <div className="w-full flex flex-col gap-4 md:flex-row md:gap-10">
+            {/* Date Picker */}
+            <div className="w-full max-w-xl flex flex-col gap-4 md:flex-row md:gap-4 bg-white p-2 rounded">
+              {/* Start Date */}
+              <div className="w-full flex flex-col gap-1">
+                <h3>Start date</h3>
+                <input
+                  type="date"
+                  className="border rounded p-2 bg-white"
+                  value={startDate.toString()}
+                  onChange={(e) => {
+                    const date = parseDate(e.target.value);
+                    setStartDate(date);
+                  }}
+                  max={today(getLocalTimeZone()).toString()}
+                />
               </div>
 
-              <div className="flex flex-wrap mb-4 gap-2">
+              {/* End Date */}
+              <div className="w-full flex flex-col gap-1">
+                <h3>End date</h3>
+                <input
+                  type="date"
+                  className="border rounded p-2 bg-white"
+                  value={endDate.toString()}
+                  onChange={(e) => {
+                    const date = parseDate(e.target.value);
+                    setEndDate(date);
+                  }}
+                  min={startDate.add({ days: 1 }).toString()}
+                  max={today(getLocalTimeZone()).toString()}
+                />
+              </div>
+            </div>
+
+            {/* Filter */}
+
+            <div className="w-full flex flex-col gap-2">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full">
                 {/* Region Dropdown */}
-                <div className="relative" ref={regionDropdownRef}>
+                <div
+                  className="relative w-fulll sm:flex-wrap gap-2 w-full"
+                  ref={regionDropdownRef}
+                >
                   <button
-                    className="bg-yellow-300 px-4 py-2 rounded-t-lg font-bold flex items-center gap-2 min-w-[250px] border-b-2 border-yellow-400"
+                    className="bg-yellow-300 px-3 py-2 rounded-lg font-bold flex items-center gap-2 w-full sm:w-auto border-b-2 border-yellow-400"
                     onClick={() => setShowRegionDropdown((v) => !v)}
                     type="button"
                   >
@@ -1466,9 +1533,12 @@ export default function CustomerReportPage() {
                   )}
                 </div>
                 {/* Location Dropdown */}
-                <div className="relative" ref={locationDropdownRef}>
+                <div
+                  className="relative w-full sm:w-auto"
+                  ref={locationDropdownRef}
+                >
                   <button
-                    className="bg-yellow-300 px-4 py-2 rounded-t-lg font-bold flex items-center gap-2 min-w-[220px] border-b-2 border-yellow-400"
+                    className="bg-yellow-300 px-3 py-2 rounded-lg font-bold flex items-center gap-2 w-full sm:w-auto border-b-2 border-yellow-400"
                     onClick={() => setShowLocationDropdown((v) => !v)}
                     type="button"
                   >
@@ -1533,11 +1603,14 @@ export default function CustomerReportPage() {
                   )}
                 </div>
 
-                <div className="flex gap-2 mb-4">
+                <div className="flex flex-wrap gap-2 mb-4">
                   {/* Filter dịch vụ dạng dropdown */}
-                  <div className="relative" ref={serviceDropdownRef}>
+                  <div
+                    className="relative w-full sm:w-auto"
+                    ref={serviceDropdownRef}
+                  >
                     <button
-                      className="bg-yellow-300 px-4 py-2 rounded-t-lg font-bold flex items-center gap-2 min-w-[250px] border-b-2 border-yellow-400"
+                      className="bg-yellow-300 px-3 py-2 rounded-lg font-bold flex items-center gap-2 w-full sm:w-auto border-b-2 border-yellow-400"
                       onClick={() => setShowServiceDropdown((v) => !v)}
                       type="button"
                     >
@@ -1598,9 +1671,12 @@ export default function CustomerReportPage() {
                     )}
                   </div>
                   {/* Filter giới tính dạng dropdown */}
-                  <div className="relative" ref={genderDropdownRef}>
+                  <div
+                    className="relative w-full sm:w-auto"
+                    ref={genderDropdownRef}
+                  >
                     <button
-                      className="bg-yellow-300 px-4 py-2 rounded-t-lg font-bold flex items-center gap-2 min-w-[220px] border-b-2 border-yellow-400"
+                      className="bg-yellow-300 px-3 py-2 rounded-lg font-bold flex items-center gap-2 w-full sm:w-auto border-b-2 border-yellow-400"
                       onClick={() => setShowGenderDropdown((v) => !v)}
                       type="button"
                     >
@@ -1673,708 +1749,635 @@ export default function CustomerReportPage() {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Tổng dịch vụ thực hiện trong tuần */}
+        {/* Tổng dịch vụ thực hiện trong tuần */}
 
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Tổng dịch vụ thực hiện trong tuần
+        {/* Responsive BarChart */}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
+          <div className="text-xl font-medium text-gray-700 text-center mb-4">
+            Tổng dịch vụ thực hiện trong tuần
+          </div>
+          <div className="w-full overflow-x-auto">
+            <div style={{ minWidth: 520 }}>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart
+                  data={weeklyServiceChartData}
+                  margin={{ top: 20, right: 10, left: 10, bottom: 40 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="date"
+                    angle={-30}
+                    textAnchor="end"
+                    height={isMobile ? 40 : 60}
+                    tick={{ fontSize: isMobile ? 10 : 14 }}
+                  />
+                  <YAxis tick={{ fontSize: isMobile ? 10 : 14 }} />
+                  <Tooltip />
+                  {/* Ẩn legend trên mobile */}
+                  {!isMobile && <Legend />}
+                  <Bar dataKey="combo" name="Combo" fill="#795548" />
+                  <Bar dataKey="service" name="Dịch vụ" fill="#c5e1a5" />
+                  <Bar dataKey="addedon" name="Added on" fill="#f16a3f" />
+                  <Bar dataKey="foxcard" name="Fox card" fill="#c86b82" />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart
-                data={weeklyServiceChartData}
-                margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="date"
-                  angle={-30}
-                  textAnchor="end"
-                  height={60}
+          </div>
+          {/* Custom legend cho mobile */}
+          {isMobile && (
+            <div className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
+              <span className="flex items-center gap-1">
+                <span
+                  className="inline-block w-3 h-3 rounded-full"
+                  style={{ background: "#795548" }}
                 />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="combo" name="Combo" fill="#795548" />
-                <Bar dataKey="service" name="Dịch vụ" fill="#c5e1a5" />
-                <Bar dataKey="addedon" name="Added on" fill="#f16a3f" />
-                <Bar dataKey="foxcard" name="Fox card" fill="#c86b82" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex gap-2">
-            {/* PieChart tỉ lệ dịch vụ/combo/cộng thêm (có filter) */}
-            <div className="w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
-              <div className="text-xl font-medium text-gray-700 text-center mb-4">
-                Tỉ lệ dịch vụ/combo/cộng thêm
-              </div>
-              <ResponsiveContainer width="100%" height={350}>
-                <PieChart>
-                  <Pie
-                    data={pieChartData}
-                    dataKey="value"
-                    nameKey="label"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={90}
-                    label={({ percent }) =>
-                      percent ? `${(percent * 100).toFixed(1)}%` : ""
-                    }
-                    isAnimationActive={false}
-                  >
-                    {pieChartData.map((entry) => (
-                      <Cell key={entry.key} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Legend
-                    layout="vertical"
-                    align="right"
-                    verticalAlign="middle"
-                    iconType="circle"
-                    wrapperStyle={{ width: 180, paddingLeft: 8 }}
-                    content={({ payload }) => (
-                      <ul style={{ margin: 0, padding: 0 }}>
-                        {(payload || []).map((entry, idx) => (
-                          <li
-                            key={idx}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              marginBottom: 8,
-                            }}
-                          >
-                            <span
-                              style={{
-                                display: "inline-block",
-                                width: 14,
-                                height: 14,
-                                borderRadius: "50%",
-                                background: entry.color,
-                                marginRight: 8,
-                              }}
-                            />
-                            <span
-                              style={{
-                                color: "#222",
-                                fontWeight: 500,
-                                fontSize: 16,
-                              }}
-                            >
-                              {entry.value}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+                Combo
+              </span>
+              <span className="flex items-center gap-1">
+                <span
+                  className="inline-block w-3 h-3 rounded-full"
+                  style={{ background: "#c5e1a5" }}
+                />
+                Dịch vụ
+              </span>
+              <span className="flex items-center gap-1">
+                <span
+                  className="inline-block w-3 h-3 rounded-full"
+                  style={{ background: "#f16a3f" }}
+                />
+                Added on
+              </span>
+              <span className="flex items-center gap-1">
+                <span
+                  className="inline-block w-3 h-3 rounded-full"
+                  style={{ background: "#c86b82" }}
+                />
+                Fox card
+              </span>
             </div>
-
-            {/* PieChart top 10 dịch vụ theo số lượng */}
-            <div className="w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
-              <div className="text-xl font-medium text-gray-700 text-center mb-4">
-                Top 10 dịch vụ theo số lượng
-              </div>
-              <ResponsiveContainer width="100%" height={350}>
-                <PieChart>
-                  <Pie
-                    data={pieTop10Data}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={90}
-                    label={({ percent }) =>
-                      percent ? `${(percent * 100).toFixed(1)}%` : ""
-                    }
-                    isAnimationActive={false}
-                  >
-                    {pieTop10AvgData.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Legend
-                    layout="vertical"
-                    align="right"
-                    verticalAlign="middle"
-                    iconType="circle"
-                    formatter={(value) => (
-                      <span
-                        style={{
-                          color: "#222",
-                          fontWeight: 500,
-                          fontSize: 16,
-                          maxWidth: 180,
-                          display: "inline-block",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {value}
-                      </span>
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* PieChart top 10 dịch vụ theo giá buổi */}
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
+          )}
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-3">
+          {/* PieChart tỉ lệ dịch vụ/combo/cộng thêm (có filter) */}
+          <div className="w-full sm:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
             <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Top 10 dịch vụ theo giá buổi
+              Tỉ lệ dịch vụ/combo/cộng thêm
             </div>
-            <ResponsiveContainer width="100%" height={350}>
+            <ResponsiveContainer width="100%" height={isMobile ? 180 : 320}>
               <PieChart>
                 <Pie
-                  data={pieTop10AvgData}
+                  data={pieChartData}
                   dataKey="value"
                   nameKey="name"
                   cx="50%"
                   cy="50%"
-                  outerRadius={150}
-                  className="justify-center"
-                  label={({ percent }) =>
-                    percent ? `${(percent * 100).toFixed(1)}%` : ""
-                  }
-                  isAnimationActive={false}
+                  outerRadius={isMobile ? 60 : 120}
+                  label={renderPieLabel}
                 >
-                  {pieTop10AvgData.map((entry) => (
+                  {pieChartData.map((entry) => (
+                    <Cell key={entry.key} fill={entry.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
+              {pieChartData.map((item) => (
+                <li key={item.key} className="flex items-center gap-1">
+                  <span
+                    className="inline-block w-3 h-3 rounded-full"
+                    style={{ background: item.color }}
+                  />
+                  {item.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* PieChart top 10 dịch vụ theo số lượng */}
+          <div className="w-full sm:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
+            <div className="text-xl font-medium text-gray-700 text-center mb-4">
+              Top 10 dịch vụ theo số lượng
+            </div>
+            <ResponsiveContainer width="100%" height={isMobile ? 180 : 320}>
+              <PieChart>
+                <Pie
+                  data={pieTop10Data}
+                  dataKey="value"
+                  nameKey="label"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={isMobile ? 60 : 120}
+                  label={renderPieLabel}
+                >
+                  {pieTop10Data.map((entry) => (
                     <Cell key={entry.name} fill={entry.color} />
                   ))}
                 </Pie>
-                <Legend
-                  layout="vertical"
-                  align="right"
-                  verticalAlign="middle"
-                  iconType="circle"
-                  wrapperStyle={{ width: 180, paddingLeft: 8 }}
-                  content={({ payload }) => (
-                    <ul style={{ margin: 0, padding: 0 }}>
-                      {(payload || []).map((entry, idx) => (
-                        <li
-                          key={idx}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginBottom: 8,
-                          }}
-                        >
-                          <span
-                            style={{
-                              display: "inline-block",
-                              width: 14,
-                              height: 14,
-                              borderRadius: "50%",
-                              background: entry.color,
-                              marginRight: 8,
-                            }}
-                          />
-                          <span
-                            style={{
-                              color:
-                                entry.color === "#e65100" ? "#e65100" : "#222",
-                              fontWeight: 500,
-                              fontSize: 16,
-                            }}
-                          >
-                            {entry.value}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                />
               </PieChart>
             </ResponsiveContainer>
-          </div>
-
-          <div className="flex gap-2">
-            {/* PieChart bottom 3 dịch vụ theo số lượng */}
-            <div className="w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
-              <div className="text-xl font-medium text-gray-700 text-center mb-4">
-                Bottom 3 dịch vụ theo số lượng
-              </div>
-              <ResponsiveContainer width="100%" height={350}>
-                <PieChart>
-                  <Pie
-                    data={(() => {
-                      // Lấy bottom 3 dịch vụ theo số lượng
-                      const serviceCountMap = new Map();
-                      filteredServiceData.forEach((d) => {
-                        const name = d.serviceName || d.type;
-                        serviceCountMap.set(
-                          name,
-                          (serviceCountMap.get(name) || 0) + 1
-                        );
-                      });
-                      const sorted = Array.from(serviceCountMap.entries()).sort(
-                        (a, b) => a[1] - b[1]
-                      );
-                      const bottom3 = sorted.slice(0, 3);
-                      // Màu xám cho từng phần
-                      const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
-                      return bottom3.map(([name, value], idx) => ({
-                        name,
-                        value,
-                        color: grayShades[idx % grayShades.length],
-                      }));
-                    })()}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={90}
-                    label={({ percent }) =>
-                      percent ? `${(percent * 100).toFixed(1)}%` : ""
-                    }
-                    isAnimationActive={false}
-                  >
-                    {(() => {
-                      // Lặp lại logic màu xám cho Cell
-                      const serviceCountMap = new Map();
-                      filteredServiceData.forEach((d) => {
-                        const name = d.serviceName || d.type;
-                        serviceCountMap.set(
-                          name,
-                          (serviceCountMap.get(name) || 0) + 1
-                        );
-                      });
-                      const sorted = Array.from(serviceCountMap.entries()).sort(
-                        (a, b) => a[1] - b[1]
-                      );
-                      const bottom3 = sorted.slice(0, 3);
-                      const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
-                      return bottom3.map(([name], idx) => (
-                        <Cell
-                          key={name}
-                          fill={grayShades[idx % grayShades.length]}
-                        />
-                      ));
-                    })()}
-                  </Pie>
-                  <Legend
-                    layout="vertical"
-                    align="right"
-                    verticalAlign="middle"
-                    iconType="circle"
-                    wrapperStyle={{ width: 180, paddingLeft: 8 }}
-                    content={({ payload }) => (
-                      <ul style={{ margin: 0, padding: 0 }}>
-                        {(payload || []).map((entry, idx) => (
-                          <li
-                            key={idx}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              marginBottom: 8,
-                            }}
-                          >
-                            <span
-                              style={{
-                                display: "inline-block",
-                                width: 14,
-                                height: 14,
-                                borderRadius: "50%",
-                                background: entry.color,
-                                marginRight: 8,
-                              }}
-                            />
-                            <span
-                              style={{
-                                color: "#222",
-                                fontWeight: 500,
-                                fontSize: 16,
-                              }}
-                            >
-                              {entry.value}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+            <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
+              {pieTop10Data.map((item) => (
+                <li key={item.name} className="flex items-center gap-1">
+                  <span
+                    className="inline-block w-3 h-3 rounded-full"
+                    style={{ background: item.color }}
                   />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* PieChart bottom 3 dịch vụ theo giá buổi */}
-            <div className="w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
-              <div className="text-xl font-medium text-gray-700 text-center mb-4">
-                Bottom 3 dịch vụ theo giá buổi
-              </div>
-              <ResponsiveContainer width="100%" height={350}>
-                <PieChart>
-                  <Pie
-                    data={(() => {
-                      // Lấy bottom 3 dịch vụ theo giá buổi trung bình
-                      const serviceValueMap = new Map();
-                      filteredServiceData.forEach((d) => {
-                        const name = d.serviceName || d.type;
-                        if (!serviceValueMap.has(name)) {
-                          serviceValueMap.set(name, {
-                            totalValue: 0,
-                            count: 0,
-                          });
-                        }
-                        const obj = serviceValueMap.get(name);
-                        obj.totalValue += d.value;
-                        obj.count += 1;
-                      });
-                      const serviceAvgArr = Array.from(
-                        serviceValueMap.entries()
-                      ).map(([name, { totalValue, count }]) => ({
-                        name,
-                        avg: count > 0 ? totalValue / count : 0,
-                        count,
-                      }));
-                      const sortedAvg = serviceAvgArr.sort(
-                        (a, b) => a.avg - b.avg
-                      );
-                      const bottom3 = sortedAvg.slice(0, 3);
-                      const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
-                      return bottom3.map((s, idx) => ({
-                        name: s.name,
-                        value: s.avg,
-                        color: grayShades[idx % grayShades.length],
-                      }));
-                    })()}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={90}
-                    label={({ percent }) =>
-                      percent ? `${(percent * 100).toFixed(1)}%` : ""
-                    }
-                    isAnimationActive={false}
-                  >
-                    {(() => {
-                      // Lặp lại logic màu xám cho Cell
-                      const serviceValueMap = new Map();
-                      filteredServiceData.forEach((d) => {
-                        const name = d.serviceName || d.type;
-                        if (!serviceValueMap.has(name)) {
-                          serviceValueMap.set(name, {
-                            totalValue: 0,
-                            count: 0,
-                          });
-                        }
-                        const obj = serviceValueMap.get(name);
-                        obj.totalValue += d.value;
-                        obj.count += 1;
-                      });
-                      const serviceAvgArr = Array.from(
-                        serviceValueMap.entries()
-                      ).map(([name, { totalValue, count }]) => ({
-                        name,
-                        avg: count > 0 ? totalValue / count : 0,
-                        count,
-                      }));
-                      const sortedAvg = serviceAvgArr.sort(
-                        (a, b) => a.avg - b.avg
-                      );
-                      const bottom3 = sortedAvg.slice(0, 3);
-                      const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
-                      return bottom3.map((s, idx) => (
-                        <Cell
-                          key={s.name}
-                          fill={grayShades[idx % grayShades.length]}
-                        />
-                      ));
-                    })()}
-                  </Pie>
-                  <Legend
-                    layout="vertical"
-                    align="right"
-                    verticalAlign="middle"
-                    iconType="circle"
-                    wrapperStyle={{ width: 180, paddingLeft: 8 }}
-                    content={({ payload }) => (
-                      <ul style={{ margin: 0, padding: 0 }}>
-                        {(payload || []).map((entry, idx) => (
-                          <li
-                            key={idx}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              marginBottom: 8,
-                            }}
-                          >
-                            <span
-                              style={{
-                                display: "inline-block",
-                                width: 14,
-                                height: 14,
-                                borderRadius: "50%",
-                                background: entry.color,
-                                marginRight: 8,
-                              }}
-                            />
-                            <span
-                              style={{
-                                color: "#222",
-                                fontWeight: 500,
-                                fontSize: 16,
-                              }}
-                            >
-                              {entry.value}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+                  {item.name}
+                </li>
+              ))}
+            </ul>
           </div>
+        </div>
 
-          {/* 5 bảng tổng dịch vụ */}
-
-          <div className="flex w-full justify-between mb-5 mt-5">
-            <StatCard
-              title="Tổng Combo"
-              value={comboThisWeek}
-              delta={deltaCombo}
-              valueColor="text-black"
-              className="bg-[#b6d47b]"
-            />
-            <StatCard
-              title="Tổng dịch vụ lẻ"
-              value={retailThisWeek}
-              delta={deltaRetail}
-              valueColor="text-black"
-              className="bg-[#8fd1fc]"
-            />
-            <StatCard
-              title="Tổng dịch vụ CT"
-              value={ctThisWeek}
-              delta={deltaCT}
-              valueColor="text-black"
-              className="bg-[#b39ddb]"
-            />
-            <StatCard
-              title="Tổng quà tặng"
-              value={giftThisWeek}
-              delta={deltaGift}
-              valueColor="text-black"
-              className="bg-[#f7a0ca]"
-            />
-            <StatCard
-              title="Tổng dịch vụ thực hiện"
-              value={totalServiceThisWeek}
-              delta={deltaTotalService}
-              valueColor="text-black"
-              className="bg-[#bd8b6f]"
-            />
+        {/* PieChart top 10 dịch vụ theo giá buổi */}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
+          <div className="text-xl font-medium text-gray-700 text-center mb-4">
+            Top 10 dịch vụ theo giá buổi
           </div>
+          <ResponsiveContainer width="100%" height={isMobile ? 180 : 320}>
+            <PieChart>
+              <Pie
+                data={pieTop10AvgData}
+                dataKey="value"
+                nameKey="label"
+                cx="50%"
+                cy="50%"
+                outerRadius={isMobile ? 60 : 120}
+                label={renderPieLabel}
+              >
+                {pieTop10AvgData.map((entry) => (
+                  <Cell key={entry.name} fill={entry.color} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
+            {pieTop10AvgData.map((item) => (
+              <li key={item.name} className="flex items-center gap-1">
+                <span
+                  className="inline-block w-3 h-3 rounded-full"
+                  style={{ background: item.color }}
+                />
+                {item.name}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-          {/* Tổng dịch vụ thực hiện theo cửa hàng*/}
-
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
+        <div className="flex flex-wrap gap-2 justify-center">
+          {/* PieChart bottom 3 dịch vụ theo số lượng */}
+          <div className="w-full sm:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
             <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Tổng dịch vụ thực hiện theo cửa hàng
+              Bottom 3 dịch vụ theo số lượng
             </div>
-            <ResponsiveContainer width="100%" height={500}>
-              <BarChart
-                data={storeServiceChartData}
-                margin={{ top: 30, right: 30, left: 20, bottom: 80 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="store"
-                  angle={-30}
-                  textAnchor="end"
-                  interval={0}
-                  height={100}
-                  tick={{ fontSize: 12 }}
-                />
-                <YAxis
-                  tickFormatter={(v) => (v >= 1000 ? `${v / 1000} N` : v)}
-                />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="combo" name="Combo" stackId="a" fill="#795548" />
-                <Bar
-                  dataKey="service"
-                  name="Dịch vụ"
-                  stackId="a"
-                  fill="#c5e1a5"
-                />
-                <Bar
-                  dataKey="addedon"
-                  name="Added on"
-                  stackId="a"
-                  fill="#f16a3f"
-                />
-                <Bar dataKey="gifts" name="Gifts" stackId="a" fill="#8fd1fc" />
-                <Bar
-                  dataKey="foxcard"
-                  name="Fox card"
-                  stackId="a"
-                  fill="#c86b82"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          {/* Bảng thống kê tất cả các dịch vụ */}
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Bảng dịch vụ
-            </div>
-            <div className="overflow-x-auto">
-              {/* Table header */}
-              <table
-                className="min-w-full border text-sm table-fixed"
-                style={{ tableLayout: "fixed", width: "100%" }}
-              >
-                <thead>
-                  <tr className="bg-yellow-200 text-gray-900">
-                    <th className="w-12 px-2 py-2 border text-center font-bold">
-                      STT
-                    </th>
-                    <th className="w-64 px-2 py-2 border text-left font-bold">
-                      Dịch vụ
-                    </th>
-                    <th className="w-24 px-2 py-2 border text-center font-bold">
-                      Loại
-                    </th>
-                    <th className="w-20 px-2 py-2 border text-right font-bold bg-orange-100">
-                      Số lượng
-                    </th>
-                    <th className="w-20 px-2 py-2 border text-right font-bold">
-                      Δ
-                    </th>
-                    <th className="w-24 px-2 py-2 border text-right font-bold">
-                      % Số lượng
-                    </th>
-                    <th className="w-32 px-2 py-2 border text-right font-bold bg-blue-100">
-                      Tổng giá
-                    </th>
-                    <th className="w-20 px-2 py-2 border text-right font-bold">
-                      % Δ
-                    </th>
-                    <th className="w-24 px-2 py-2 border text-right font-bold">
-                      % Tổng giá
-                    </th>
-                  </tr>
-                </thead>
-              </table>
-              {/* Table body with scroll */}
-              <div
-                style={{
-                  maxHeight: 420,
-                  overflowY: "auto",
-                  scrollbarWidth: "none",
-                }}
-                className="hide-scrollbar"
-              >
-                <table
-                  className="min-w-full border text-sm table-fixed"
-                  style={{ tableLayout: "fixed", width: "100%" }}
+            <ResponsiveContainer width="100%" height={350}>
+              <PieChart>
+                <Pie
+                  data={(() => {
+                    // Lấy bottom 3 dịch vụ theo số lượng
+                    const serviceCountMap = new Map();
+                    filteredServiceData.forEach((d) => {
+                      const name = d.serviceName || d.type;
+                      serviceCountMap.set(
+                        name,
+                        (serviceCountMap.get(name) || 0) + 1
+                      );
+                    });
+                    const sorted = Array.from(serviceCountMap.entries()).sort(
+                      (a, b) => a[1] - b[1]
+                    );
+                    const bottom3 = sorted.slice(0, 3);
+                    // Màu xám cho từng phần
+                    const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
+                    return bottom3.map(([name, value], idx) => ({
+                      name,
+                      value,
+                      color: grayShades[idx % grayShades.length],
+                    }));
+                  })()}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={isMobile ? 60 : 90}
+                  label={({ percent }) =>
+                    percent && percent > 0.15
+                      ? `${(percent * 100).toFixed(1)}%`
+                      : ""
+                  }
+                  labelLine={false}
+                  isAnimationActive={false}
                 >
-                  <tbody>
-                    {serviceData.map((s, idx) => {
-                      // Chỉ random mẫu cho delta và percentDelta, không truy cập s.delta/s.percentDelta
-                      const delta =
-                        Math.floor(Math.random() * 1000) *
-                        (Math.random() > 0.2 ? 1 : -1);
-                      const percentDelta =
-                        delta > 0
-                          ? (Math.random() * 10 + 100).toFixed(1)
-                          : (Math.random() * 10 + 90).toFixed(1);
-                      return (
-                        <tr
-                          key={`${s.tenDichVu}-${idx}`}
-                          className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                        >
-                          <td className="w-12 px-2 py-1 border text-center">
-                            {idx + 1}
-                          </td>
-                          <td
-                            className="w-64 px-2 py-1 border text-left font-medium truncate"
-                            title={s.tenDichVu}
-                          >
-                            {s.tenDichVu}
-                          </td>
-                          <td className="w-24 px-2 py-1 border text-center">
-                            {s.loaiDichVu}
-                          </td>
-                          <td className="w-20 px-2 py-1 border text-right font-bold bg-orange-100 text-orange-700">
-                            {s.soLuong?.toLocaleString?.() ?? s.soLuong}
-                          </td>
-                          <td
-                            className={`w-20 px-2 py-1 border text-right font-semibold ${
-                              delta > 0
-                                ? "text-green-600"
-                                : delta < 0
-                                ? "text-red-500"
-                                : ""
-                            }`}
-                          >
-                            {delta?.toLocaleString?.() ?? delta}{" "}
-                            {delta > 0 ? "↑" : delta < 0 ? "↓" : ""}
-                          </td>
-                          <td className="w-24 px-2 py-1 border text-right">
-                            {s.percentSoLuong}%
-                          </td>
-                          <td className="w-32 px-2 py-1 border text-right font-bold bg-blue-100 text-blue-700">
-                            {s.tongGia?.toLocaleString?.() ?? s.tongGia}
-                          </td>
-                          <td
-                            className={`w-20 px-2 py-1 border text-right font-semibold ${
-                              delta > 0
-                                ? "text-green-600"
-                                : delta < 0
-                                ? "text-red-500"
-                                : ""
-                            }`}
-                          >
-                            {percentDelta}%{" "}
-                            {delta > 0 ? "↑" : delta < 0 ? "↓" : ""}
-                          </td>
-                          <td className="w-24 px-2 py-1 border text-right">
-                            {s.percentTongGia}%
-                          </td>
-                        </tr>
+                  {(() => {
+                    // Lặp lại logic màu xám cho Cell
+                    const serviceCountMap = new Map();
+                    filteredServiceData.forEach((d) => {
+                      const name = d.serviceName || d.type;
+                      serviceCountMap.set(
+                        name,
+                        (serviceCountMap.get(name) || 0) + 1
                       );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {/* Table footer */}
-              <table
-                className="min-w-full border text-sm table-fixed"
-                style={{ tableLayout: "fixed", width: "100%" }}
+                    });
+                    const sorted = Array.from(serviceCountMap.entries()).sort(
+                      (a, b) => a[1] - b[1]
+                    );
+                    const bottom3 = sorted.slice(0, 3);
+                    const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
+                    return bottom3.map(([name], idx) => (
+                      <Cell
+                        key={name}
+                        fill={grayShades[idx % grayShades.length]}
+                      />
+                    ));
+                  })()}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
+              {bottom3Data.map((item) => (
+                <li key={item.name} className="flex items-center gap-1">
+                  <span
+                    className="inline-block w-3 h-3 rounded-full"
+                    style={{ background: item.color }}
+                  />
+                  {item.name}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* PieChart bottom 3 dịch vụ theo giá buổi */}
+          <div className="w-full sm:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
+            <div className="text-xl font-medium text-gray-700 text-center mb-4">
+              Bottom 3 dịch vụ theo giá buổi
+            </div>
+            <ResponsiveContainer width="100%" height={350}>
+              <PieChart>
+                <Pie
+                  data={(() => {
+                    // Lấy bottom 3 dịch vụ theo giá buổi trung bình
+                    const serviceValueMap = new Map();
+                    filteredServiceData.forEach((d) => {
+                      const name = d.serviceName || d.type;
+                      if (!serviceValueMap.has(name)) {
+                        serviceValueMap.set(name, {
+                          totalValue: 0,
+                          count: 0,
+                        });
+                      }
+                      const obj = serviceValueMap.get(name);
+                      obj.totalValue += d.value;
+                      obj.count += 1;
+                    });
+                    const serviceAvgArr = Array.from(
+                      serviceValueMap.entries()
+                    ).map(([name, { totalValue, count }]) => ({
+                      name,
+                      avg: count > 0 ? totalValue / count : 0,
+                      count,
+                    }));
+                    const sortedAvg = serviceAvgArr.sort(
+                      (a, b) => a.avg - b.avg
+                    );
+                    const bottom3 = sortedAvg.slice(0, 3);
+                    const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
+                    return bottom3.map((s, idx) => ({
+                      name: s.name,
+                      value: s.avg,
+                      color: grayShades[idx % grayShades.length],
+                    }));
+                  })()}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={isMobile ? 60 : 90}
+                  label={({ percent }) =>
+                    percent && percent > 0.15
+                      ? `${(percent * 100).toFixed(1)}%`
+                      : ""
+                  }
+                  labelLine={false}
+                  isAnimationActive={false}
+                >
+                  {(() => {
+                    // Lặp lại logic màu xám cho Cell
+                    const serviceValueMap = new Map();
+                    filteredServiceData.forEach((d) => {
+                      const name = d.serviceName || d.type;
+                      if (!serviceValueMap.has(name)) {
+                        serviceValueMap.set(name, {
+                          totalValue: 0,
+                          count: 0,
+                        });
+                      }
+                      const obj = serviceValueMap.get(name);
+                      obj.totalValue += d.value;
+                      obj.count += 1;
+                    });
+                    const serviceAvgArr = Array.from(
+                      serviceValueMap.entries()
+                    ).map(([name, { totalValue, count }]) => ({
+                      name,
+                      avg: count > 0 ? totalValue / count : 0,
+                      count,
+                    }));
+                    const sortedAvg = serviceAvgArr.sort(
+                      (a, b) => a.avg - b.avg
+                    );
+                    const bottom3 = sortedAvg.slice(0, 3);
+                    const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
+                    return bottom3.map((s, idx) => (
+                      <Cell
+                        key={s.name}
+                        fill={grayShades[idx % grayShades.length]}
+                      />
+                    ));
+                  })()}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
+              {bottom3Data.map((item) => (
+                <li key={item.name} className="flex items-center gap-1">
+                  <span
+                    className="inline-block w-3 h-3 rounded-full"
+                    style={{ background: item.color }}
+                  />
+                  {item.name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* 5 bảng tổng dịch vụ */}
+
+        <div className="flex flex-col md:flex-row w-full gap-4 mb-5 mt-5">
+          <StatCard
+            title="Tổng Combo"
+            value={comboThisWeek}
+            delta={deltaCombo}
+            valueColor="text-black"
+            className="bg-[#33a7b5] w-full md:flex-1"
+          />
+          <StatCard
+            title="Tổng dịch vụ lẻ"
+            value={retailThisWeek}
+            delta={deltaRetail}
+            valueColor="text-black"
+            className="bg-[#9b51e0] w-full md:flex-1"
+          />
+          <StatCard
+            title="Tổng dịch vụ CT"
+            value={ctThisWeek}
+            delta={deltaCT}
+            valueColor="text-black"
+            className="bg-[#ee2c82] w-full md:flex-1"
+          />
+          <StatCard
+            title="Tổng quà tặng"
+            value={giftThisWeek}
+            delta={deltaGift}
+            valueColor="text-black"
+            className="bg-[#f16a3f] w-full md:flex-1"
+          />
+          <StatCard
+            title="Tổng dịch vụ thực hiện"
+            value={totalServiceThisWeek}
+            delta={deltaTotalService}
+            valueColor="text-black"
+            className="bg-[#7adcb4] w-full md:flex-1"
+          />
+        </div>
+
+        {/* Tổng dịch vụ thực hiện theo cửa hàng*/}
+        {/* Tổng dịch vụ thực hiện theo cửa hàng*/}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
+          <div className="text-xl font-medium text-gray-700 text-center mb-4">
+            Tổng dịch vụ thực hiện theo cửa hàng
+          </div>
+          <div className="w-full overflow-x-auto">
+            <div className="min-w-[600px] md:min-w-0 ">
+              <ResponsiveContainer
+                width={window.innerWidth < 640 ? 500 : "100%"}
+                height={window.innerWidth < 640 ? 400 : 500}
               >
-                <tfoot>
-                  <tr className="bg-gray-100 font-bold border-t-2 border-gray-400">
-                    <td className="w-12 px-2 py-1 border text-center"></td>
-                    <td className="w-64 px-2 py-1 border text-left">
-                      Tổng cộng
-                    </td>
-                    <td className="w-24 px-2 py-1 border text-center"></td>
-                    <td className="w-20 px-2 py-1 border text-right bg-orange-100 text-orange-700">
-                      {serviceData
-                        .reduce((sum, s) => sum + (s.soLuong || 0), 0)
-                        .toLocaleString()}
-                    </td>
-                    <td className="w-20 px-2 py-1 border text-right">—</td>
-                    <td className="w-24 px-2 py-1 border text-right">100%</td>
-                    <td className="w-32 px-2 py-1 border text-right bg-blue-100 text-blue-700">
-                      {serviceData
-                        .reduce((sum, s) => sum + (s.tongGia || 0), 0)
-                        .toLocaleString()}
-                    </td>
-                    <td className="w-20 px-2 py-1 border text-right">—</td>
-                    <td className="w-24 px-2 py-1 border text-right">100%</td>
-                  </tr>
-                </tfoot>
+                <BarChart
+                  data={storeServiceChartData}
+                  layout="vertical"
+                  margin={{
+                    top: 20,
+                    right: 30,
+                    left: window.innerWidth < 640 ? 40 : 100,
+                    bottom: 20,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    type="number"
+                    tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)}
+                    tick={{ fontSize: window.innerWidth < 640 ? 10 : 14 }}
+                  />
+                  <YAxis
+                    dataKey="store"
+                    type="category"
+                    tick={{ fontSize: window.innerWidth < 640 ? 10 : 12 }}
+                    width={window.innerWidth < 640 ? 120 : 150}
+                  />
+                  <Tooltip />
+                  <Legend
+                    wrapperStyle={{
+                      fontSize: window.innerWidth < 640 ? 10 : 14,
+                    }}
+                  />
+                  <Bar
+                    dataKey="combo"
+                    name="Combo"
+                    stackId="a"
+                    fill="#795548"
+                  />
+                  <Bar
+                    dataKey="service"
+                    name="Dịch vụ"
+                    stackId="a"
+                    fill="#c5e1a5"
+                  />
+                  <Bar
+                    dataKey="addedon"
+                    name="Added on"
+                    stackId="a"
+                    fill="#f16a3f"
+                  />
+                  <Bar
+                    dataKey="gifts"
+                    name="Gifts"
+                    stackId="a"
+                    fill="#8fd1fc"
+                  />
+                  <Bar
+                    dataKey="foxcard"
+                    name="Fox card"
+                    stackId="a"
+                    fill="#c86b82"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+        {/* Bảng thống kê tất cả các dịch vụ */}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
+          <div className="text-xl font-medium text-gray-700 text-center mb-4">
+            Bảng dịch vụ
+          </div>
+          <div className="overflow-x-auto">
+            <table
+              className="text-xs sm:text-sm border table-fixed"
+              style={{ tableLayout: "fixed", width: "100%" }}
+            >
+              <thead>
+                <tr className="bg-yellow-200 text-gray-900">
+                  <th className="w-12 px-2 py-2 border text-center font-bold">
+                    STT
+                  </th>
+                  <th className="w-64 px-2 py-2 border text-left font-bold">
+                    Dịch vụ
+                  </th>
+                  <th className="w-24 px-2 py-2 border text-center font-bold">
+                    Loại
+                  </th>
+                  <th className="w-20 px-2 py-2 border text-right font-bold bg-orange-100">
+                    Số lượng
+                  </th>
+                  <th className="w-20 px-2 py-2 border text-right font-bold">
+                    Δ
+                  </th>
+                  <th className="w-24 px-2 py-2 border text-right font-bold">
+                    % Số lượng
+                  </th>
+                  <th className="w-32 px-2 py-2 border text-right font-bold bg-blue-100">
+                    Tổng giá
+                  </th>
+                  <th className="w-20 px-2 py-2 border text-right font-bold">
+                    % Δ
+                  </th>
+                  <th className="w-24 px-2 py-2 border text-right font-bold">
+                    % Tổng giá
+                  </th>
+                </tr>
+              </thead>
+            </table>
+            <div
+             
+              style={{
+                maxHeight: 400,
+                overflowY: "auto",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+                width: "100%",
+              }}
+            >
+              <table
+               className="min-w-[700px] text-xs sm:text-sm border table-fixed"
+               style={{ tableLayout: "fixed", width: "100%" }}
+              >
+                <tbody>
+                  {serviceData.map((s, idx) => {
+                    const delta =
+                      Math.floor(Math.random() * 1000) *
+                      (Math.random() > 0.2 ? 1 : -1);
+                    const percentDelta =
+                      delta > 0
+                        ? (Math.random() * 10 + 100).toFixed(1)
+                        : (Math.random() * 10 + 90).toFixed(1);
+                    return (
+                      <tr
+                        key={`${s.tenDichVu}-${idx}`}
+                        className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                      >
+                        <td className="w-12 px-2 py-1 border text-center">
+                          {idx + 1}
+                        </td>
+                        <td
+                          className="w-64 px-2 py-1 border text-left font-medium truncate"
+                          title={s.tenDichVu}
+                        >
+                          {s.tenDichVu}
+                        </td>
+                        <td className="w-24 px-2 py-1 border text-center">
+                          {s.loaiDichVu}
+                        </td>
+                        <td className="w-20 px-2 py-1 border text-right font-bold bg-orange-100 text-orange-700">
+                          {s.soLuong?.toLocaleString?.() ?? s.soLuong}
+                        </td>
+                        <td
+                          className={`w-20 px-2 py-1 border text-right font-semibold ${
+                            delta > 0
+                              ? "text-green-600"
+                              : delta < 0
+                              ? "text-red-500"
+                              : ""
+                          }`}
+                        >
+                          {delta?.toLocaleString?.() ?? delta}{" "}
+                          {delta > 0 ? "↑" : delta < 0 ? "↓" : ""}
+                        </td>
+                        <td className="w-24 px-2 py-1 border text-right">
+                          {s.percentSoLuong}%
+                        </td>
+                        <td className="w-32 px-2 py-1 border text-right font-bold bg-blue-100 text-blue-700">
+                          {s.tongGia?.toLocaleString?.() ?? s.tongGia}
+                        </td>
+                        <td
+                          className={`w-20 px-2 py-1 border text-right font-semibold ${
+                            delta > 0
+                              ? "text-green-600"
+                              : delta < 0
+                              ? "text-red-500"
+                              : ""
+                          }`}
+                        >
+                          {percentDelta}%{" "}
+                          {delta > 0 ? "↑" : delta < 0 ? "↓" : ""}
+                        </td>
+                        <td className="w-24 px-2 py-1 border text-right">
+                          {s.percentTongGia}%
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
               </table>
             </div>
+            <table
+              className="min-w-[700px] text-xs sm:text-sm border table-fixed"
+              style={{ tableLayout: "fixed", width: "100%" }}
+            >
+              <tfoot className="display:block">
+                <tr className="bg-gray-100 font-bold border-t-2 border-gray-400">
+                  <td className="w-12 px-2 py-1 border text-center"></td>
+                  <td className="w-64 px-2 py-1 border text-left">Tổng cộng</td>
+                  <td className="w-24 px-2 py-1 border text-center"></td>
+                  <td className="w-20 px-2 py-1 border text-right bg-orange-100 text-orange-700">
+                    {serviceData
+                      .reduce((sum, s) => sum + (s.soLuong || 0), 0)
+                      .toLocaleString()}
+                  </td>
+                  <td className="w-20 px-2 py-1 border text-right">—</td>
+                  <td className="w-24 px-2 py-1 border text-right">100%</td>
+                  <td className="w-32 px-2 py-1 border text-right bg-blue-100 text-blue-700">
+                    {serviceData
+                      .reduce((sum, s) => sum + (s.tongGia || 0), 0)
+                      .toLocaleString()}
+                  </td>
+                  <td className="w-20 px-2 py-1 border text-right">—</td>
+                  <td className="w-24 px-2 py-1 border text-right">100%</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </div>
       </div>

@@ -68,6 +68,20 @@ interface TotalSaleOfStores {
   status: string;
 }
 
+// Hook lấy width window
+function useWindowWidth() {
+  const [width, setWidth] = useState(1024);
+  useEffect(() => {
+    function handleResize() {
+      setWidth(window.innerWidth);
+    }
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  return width;
+}
+
 export default function CustomerReportPage() {
   const [startDate, setStartDate] = useState<CalendarDate>(
     today(getLocalTimeZone()).subtract({ days: 7 })
@@ -670,20 +684,22 @@ export default function CustomerReportPage() {
     const isDown = delta !== null && delta < 0;
     return (
       <div
-        className={`bg-white rounded-xl shadow p-6 flex flex-col items-center min-w-[220px] border-4 ${
+        className={`bg-white rounded-xl shadow p-3 flex flex-col items-center min-w-[140px] border-4 ${
           className ?? "border-gray-200"
         }`}
       >
-        <div className="text-sm text-gray-700 mb-1 text-center">{title}</div>
+        <div className="text-xs font-semibold text-gray-700 mb-1 text-center">
+          {title}
+        </div>
         <div
-          className={`text-4xl font-bold mb-1 text-center ${
+          className={`text-2xl sm:text-4xl font-bold mb-1 text-center ${
             valueColor ?? "text-black"
           }`}
         >
           {value.toLocaleString()}
         </div>
         <div
-          className={`text-lg font-semibold flex items-center gap-1 ${
+          className={`text-xs font-semibold flex items-center gap-1 ${
             isUp ? "text-green-600" : isDown ? "text-red-500" : "text-gray-500"
           }`}
         >
@@ -1084,7 +1100,7 @@ export default function CustomerReportPage() {
       foxieOrdersDelta,
     };
   });
-  
+
   const totalOrderSumAll = storeOrderTableData.reduce(
     (acc, row) => {
       acc.totalOrders += row.totalOrders;
@@ -1161,197 +1177,221 @@ export default function CustomerReportPage() {
     { name: "Products Purchase", value: totalProduct, color: "#0a4a8f" },
   ];
 
-  const paymentRegionData = REGIONS.map(region => {
-    const regionData = data.filter(d => d.region === region);
+  const paymentRegionData = REGIONS.map((region) => {
+    const regionData = data.filter((d) => d.region === region);
     return {
       region,
-      bank: regionData.filter(d => d.type === "Khách hàng Thành viên").length,
-      cash: regionData.filter(d => d.type === "KH trải nghiệm").length,
-      card: regionData.filter(d => d.type === "Mua sản phẩm").length,
+      bank: regionData.filter((d) => d.type === "Khách hàng Thành viên").length,
+      cash: regionData.filter((d) => d.type === "KH trải nghiệm").length,
+      card: regionData.filter((d) => d.type === "Mua sản phẩm").length,
     };
   });
 
-  
+  const windowWidth = useWindowWidth();
+  const isMobile = windowWidth < 640;
+
+  // Pie label responsive
+  const renderPieLabel = (props: {
+    percent?: number;
+    x?: number;
+    y?: number;
+    index?: number;
+  }) => {
+    const { percent = 0, x = 0, y = 0, index = 0 } = props;
+    if (isMobile && percent < 0.15) return null;
+    if (percent < 0.05) return null;
+    return (
+      <text
+        x={x}
+        y={y}
+        fill={piePaymentData[index]?.color || "#333"}
+        fontSize={isMobile ? 10 : 14}
+        fontWeight="bold"
+        textAnchor="middle"
+        dominantBaseline="central"
+      >
+        {`${(percent * 100).toFixed(1)}%`}
+      </text>
+    );
+  };
 
   return (
-    <div className="p-6">
+    <div className="p-2 sm:p-4 md:p-6 max-w-full">
       <div className="mb-6">
-        <div className="p-2 ">
-          <div className=" gap-2">
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-              Order Report
-            </h1>
-            <div className="flex gap-2">
-              {/* ...DatePicker code... */}
-              <div className="w-full h-fit max-w-xl flex flex-row gap-4 bg-white p-2 rounded">
-                <div className="w-full bg-white flex flex-col gap-1">
-                  <h3>Start date</h3>
-                  <input
-                    type="date"
-                    className="border rounded p-2 bg-white"
-                    value={startDate.toString()}
-                    onChange={(e) => {
-                      const date = parseDate(e.target.value);
-                      setStartDate(date);
-                    }}
-                    max={today(getLocalTimeZone()).toString()}
-                  />
-                </div>
-                <div className="w-full bg-white flex flex-col gap-1">
-                  <h3>End date</h3>
-                  <input
-                    type="date"
-                    className="border rounded p-2 bg-white"
-                    value={endDate.toString()}
-                    onChange={(e) => {
-                      const date = parseDate(e.target.value);
-                      setEndDate(date);
-                    }}
-                    min={startDate.add({ days: 1 }).toString()}
-                    max={today(getLocalTimeZone()).toString()}
-                  />
-                </div>
+        <div className="p-2">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-2">
+            Order Report
+          </h1>
+          <div className="flex flex-col md:flex-row gap-2 md:gap-4">
+            {/* ...DatePicker code... */}
+            <div className="w-full max-w-xl flex flex-col md:flex-row gap-2 md:gap-4 bg-white p-2 rounded">
+              <div className="w-full bg-white flex flex-col gap-1">
+                <h3 className="text-sm sm:text-base">Start date</h3>
+                <input
+                  type="date"
+                  className="border rounded p-2 bg-white text-sm"
+                  value={startDate.toString()}
+                  onChange={(e) => {
+                    const date = parseDate(e.target.value);
+                    setStartDate(date);
+                  }}
+                  max={today(getLocalTimeZone()).toString()}
+                />
               </div>
-
-              <div className="flex mb-4 gap-2">
-                {/* Region Dropdown */}
-                <div className="relative" ref={regionDropdownRef}>
-                  <button
-                    className="bg-yellow-300 px-4 py-2 rounded-t-lg font-bold flex items-center gap-2 min-w-[250px] border-b-2 border-yellow-400"
-                    onClick={() => setShowRegionDropdown((v) => !v)}
-                    type="button"
-                  >
-                    <span className="material-icons"></span> Region
-                  </button>
-                  {showRegionDropdown && (
-                    <div className="absolute z-20 bg-white shadow-xl rounded-b-lg w-full min-w-[250px] border border-yellow-200">
-                      <div className="bg-yellow-200 px-4 py-2 font-bold flex items-center gap-2 border-b border-yellow-300">
-                        <input
-                          type="checkbox"
-                          checked={
+              <div className="w-full bg-white flex flex-col gap-1">
+                <h3 className="text-sm sm:text-base">End date</h3>
+                <input
+                  type="date"
+                  className="border rounded p-2 bg-white text-sm"
+                  value={endDate.toString()}
+                  onChange={(e) => {
+                    const date = parseDate(e.target.value);
+                    setEndDate(date);
+                  }}
+                  min={startDate.add({ days: 1 }).toString()}
+                  max={today(getLocalTimeZone()).toString()}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              {/* Region Dropdown */}
+              <div className="relative" ref={regionDropdownRef}>
+                <button
+                  className="bg-yellow-300 px-4 py-2 rounded-t-lg font-bold flex items-center gap-2 min-w-[180px] border-b-2 border-yellow-400 text-sm sm:text-base"
+                  onClick={() => setShowRegionDropdown((v) => !v)}
+                  type="button"
+                >
+                  <span className="material-icons"></span> Region
+                </button>
+                {showRegionDropdown && (
+                  <div className="absolute z-20 bg-white shadow-xl rounded-b-lg w-full min-w-[250px] border border-yellow-200">
+                    <div className="bg-yellow-200 px-4 py-2 font-bold flex items-center gap-2 border-b border-yellow-300">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedRegions.length === regionOptions.length
+                        }
+                        onChange={() =>
+                          setSelectedRegions(
                             selectedRegions.length === regionOptions.length
-                          }
-                          onChange={() =>
-                            setSelectedRegions(
-                              selectedRegions.length === regionOptions.length
-                                ? []
-                                : regionOptions.map((r) => r.name)
-                            )
-                          }
-                          className="accent-yellow-400"
-                        />
-                        Region
-                        <span className="ml-auto">Branches </span>
-                      </div>
-                      <div className="px-2 py-2 border-b">
-                        <input
-                          className="w-full border rounded px-2 py-1"
-                          placeholder="Nhập để tìm kiếm"
-                          value={regionSearch}
-                          onChange={(e) => setRegionSearch(e.target.value)}
-                        />
-                      </div>
-                      <div className="max-h-60 overflow-y-auto">
-                        {filteredRegionOptions.map((r) => (
-                          <label
-                            key={r.name}
-                            className="flex items-center gap-2 px-4 py-2 hover:bg-yellow-50 cursor-pointer border-b last:border-b-0"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedRegions.includes(r.name)}
-                              onChange={() => {
-                                setSelectedRegions((prev) =>
-                                  prev.includes(r.name)
-                                    ? prev.filter((x) => x !== r.name)
-                                    : [...prev, r.name]
-                                );
-                              }}
-                              className="accent-yellow-400"
-                            />
-                            <span className="font-medium">{r.name}</span>
-                            <span className="ml-auto text-right min-w-[70px] font-semibold">
-                              {r.total}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
+                              ? []
+                              : regionOptions.map((r) => r.name)
+                          )
+                        }
+                        className="accent-yellow-400"
+                      />
+                      Region
+                      <span className="ml-auto">Branches </span>
                     </div>
-                  )}
-                </div>
-                {/* Location Dropdown */}
-                <div className="relative" ref={locationDropdownRef}>
-                  <button
-                    className="bg-yellow-300 px-4 py-2 rounded-t-lg font-bold flex items-center gap-2 min-w-[220px] border-b-2 border-yellow-400"
-                    onClick={() => setShowLocationDropdown((v) => !v)}
-                    type="button"
-                  >
-                    <span className="material-icons"></span> Locations
-                  </button>
-                  {showLocationDropdown && (
-                    <div className="absolute z-20 bg-white shadow-xl rounded-b-lg w-full min-w-[220px] border border-yellow-200">
-                      <div className="bg-yellow-100 px-4 py-2 font-bold flex items-center gap-2 border-b border-yellow-200">
-                        <input
-                          type="checkbox"
-                          checked={
+                    <div className="px-2 py-2 border-b">
+                      <input
+                        className="w-full border rounded px-2 py-1"
+                        placeholder="Nhập để tìm kiếm"
+                        value={regionSearch}
+                        onChange={(e) => setRegionSearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                      {filteredRegionOptions.map((r) => (
+                        <label
+                          key={r.name}
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-yellow-50 cursor-pointer border-b last:border-b-0"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedRegions.includes(r.name)}
+                            onChange={() => {
+                              setSelectedRegions((prev) =>
+                                prev.includes(r.name)
+                                  ? prev.filter((x) => x !== r.name)
+                                  : [...prev, r.name]
+                              );
+                            }}
+                            className="accent-yellow-400"
+                          />
+                          <span className="font-medium">{r.name}</span>
+                          <span className="ml-auto text-right min-w-[70px] font-semibold">
+                            {r.total}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Location Dropdown */}
+              <div className="relative" ref={locationDropdownRef}>
+                <button
+                  className="bg-yellow-300 px-4 py-2 rounded-t-lg font-bold flex items-center gap-2 min-w-[180px] border-b-2 border-yellow-400 text-sm sm:text-base"
+                  onClick={() => setShowLocationDropdown((v) => !v)}
+                  type="button"
+                >
+                  <span className="material-icons"></span> Locations
+                </button>
+                {showLocationDropdown && (
+                  <div className="absolute z-20 bg-white shadow-xl rounded-b-lg w-full min-w-[220px] border border-yellow-200">
+                    <div className="bg-yellow-100 px-4 py-2 font-bold flex items-center gap-2 border-b border-yellow-200">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedBranches.length === locationOptions.length
+                        }
+                        onChange={() =>
+                          setSelectedBranches(
                             selectedBranches.length === locationOptions.length
-                          }
-                          onChange={() =>
-                            setSelectedBranches(
-                              selectedBranches.length === locationOptions.length
-                                ? []
-                                : [...locationOptions]
-                            )
-                          }
-                          className="accent-yellow-400"
-                        />
-                        Locations
-                      </div>
-                      <div className="px-2 py-2 border-b">
-                        <input
-                          className="w-full border rounded px-2 py-1"
-                          placeholder="Nhập để tìm kiếm"
-                          value={locationSearch}
-                          onChange={(e) => setLocationSearch(e.target.value)}
-                        />
-                      </div>
-                      <div className="max-h-60 overflow-y-auto">
-                        {filteredLocationOptions.map((loc) => (
-                          <label
-                            key={loc}
-                            className="flex items-center gap-2 px-4 py-2 hover:bg-yellow-50 cursor-pointer border-b last:border-b-0"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedBranches.includes(loc)}
-                              onChange={() => {
-                                setSelectedBranches((prev) =>
-                                  prev.includes(loc)
-                                    ? prev.filter((x) => x !== loc)
-                                    : [...prev, loc]
-                                );
-                              }}
-                              className="accent-yellow-400"
-                            />
-                            <span className="font-medium">{loc}</span>
-                          </label>
-                        ))}
-                      </div>
+                              ? []
+                              : [...locationOptions]
+                          )
+                        }
+                        className="accent-yellow-400"
+                      />
+                      Locations
                     </div>
-                  )}
-                </div>
+                    <div className="px-2 py-2 border-b">
+                      <input
+                        className="w-full border rounded px-2 py-1"
+                        placeholder="Nhập để tìm kiếm"
+                        value={locationSearch}
+                        onChange={(e) => setLocationSearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                      {filteredLocationOptions.map((loc) => (
+                        <label
+                          key={loc}
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-yellow-50 cursor-pointer border-b last:border-b-0"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedBranches.includes(loc)}
+                            onChange={() => {
+                              setSelectedBranches((prev) =>
+                                prev.includes(loc)
+                                  ? prev.filter((x) => x !== loc)
+                                  : [...prev, loc]
+                              );
+                            }}
+                            className="accent-yellow-400"
+                          />
+                          <span className="font-medium">{loc}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Tổng doanh số vùng */}
-
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5">
-            <div className="text-xl font-medium text-gray-700 text-center mt-5">
-              Tổng doanh số vùng
-            </div>
-            <div className="w-full bg-white rounded-xl shadow-lg">
-              <ResponsiveContainer width="100%" height={400}>
+        {/* Tổng doanh số vùng */}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5">
+          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mt-5">
+            Tổng doanh số vùng
+          </div>
+          <div className="w-full bg-white rounded-xl shadow-lg">
+            <div className="w-full overflow-x-auto">
+              <ResponsiveContainer width="100%" height={400} minWidth={320}>
                 <BarChart
                   width={1000}
                   height={400}
@@ -1424,15 +1464,16 @@ export default function CustomerReportPage() {
               </ResponsiveContainer>
             </div>
           </div>
+        </div>
 
-          {/* Tổng doanh số loại cửa hàng*/}
-
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5">
-            <div className="text-xl font-medium text-gray-700 text-center mt-5">
-              Tổng doanh số loại cửa hàng
-            </div>
-            <div className="w-full bg-white rounded-xl shadow-lg">
-              <ResponsiveContainer width="100%" height={400}>
+        {/* Tổng doanh số loại cửa hàng*/}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5">
+          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mt-5">
+            Tổng doanh số loại cửa hàng
+          </div>
+          <div className="w-full bg-white rounded-xl shadow-lg">
+            <div className="w-full overflow-x-auto">
+              <ResponsiveContainer width="100%" height={400} minWidth={320}>
                 <BarChart
                   width={1000}
                   height={400}
@@ -1491,243 +1532,254 @@ export default function CustomerReportPage() {
               </ResponsiveContainer>
             </div>
           </div>
+        </div>
 
-          {/* Tổng doanh số và Tổng thực thu */}
-
-          <div className="flex gap-4 mt-4">
-            {/* Tổng doanh số trong tuần */}
-            <div className="flex-1 bg-white rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-              <div className="text-xl font-medium text-gray-700 mb-2 text-center">
-                Tổng doanh số trong tuần
-              </div>
-              <div className="text-5xl font-bold text-black mb-2">
-                {totalWeekSales.toLocaleString()}
-              </div>
-              <div
-                className={`flex items-center gap-1 text-2xl font-semibold ${
-                  weekSalesChange === null
-                    ? "text-gray-500"
-                    : weekSalesChange > 0
-                    ? "text-green-600"
-                    : "text-red-500"
-                }`}
-              >
-                {weekSalesChange === null
-                  ? "N/A"
-                  : `${Math.abs(weekSalesChange)}%`}
-              </div>
+        {/* Tổng doanh số và Tổng thực thu */}
+        <div className="flex flex-col md:flex-row gap-4 mt-4">
+          {/* Tổng doanh số trong tuần */}
+          <div className="flex-1 bg-white rounded-xl shadow-lg p-4 sm:p-6 flex flex-col items-center justify-center min-w-[180px]">
+            <div className="text-base sm:text-xl font-medium text-gray-700 mb-2 text-center">
+              Tổng doanh số trong tuần
             </div>
-            {/* Tổng thực thu trong tuần */}
-            <div className="flex-1 bg-white rounded-xl shadow-lg p-6 flex flex-col items-center justify-center w-3/4">
-              <div className="text-xl font-medium text-gray-700 mb-2 text-center">
-                Tổng thực thu trong tuần
-              </div>
-              <div className="text-5xl font-bold text-black mb-2">
-                {totalWeekRevenue.toLocaleString()}
-              </div>
-              <div
-                className={`flex items-center gap-1 text-2xl font-semibold ${
-                  weekRevenueChange === null
-                    ? "text-gray-500"
-                    : weekRevenueChange > 0
-                    ? "text-green-600"
-                    : "text-red-500"
-                }`}
-              >
-                {weekRevenueChange === null
-                  ? "N/A"
-                  : `${Math.abs(weekRevenueChange)}%`}
-              </div>
+            <div className="text-3xl sm:text-5xl font-bold text-black mb-2">
+              {totalWeekSales.toLocaleString()}
+            </div>
+            <div
+              className={`flex items-center gap-1 text-lg sm:text-2xl font-semibold ${
+                weekSalesChange === null
+                  ? "text-gray-500"
+                  : weekSalesChange > 0
+                  ? "text-green-600"
+                  : "text-red-500"
+              }`}
+            >
+              {weekSalesChange === null
+                ? "N/A"
+                : `${Math.abs(weekSalesChange)}%`}
             </div>
           </div>
+          {/* Tổng thực thu trong tuần */}
+          <div className="flex-1 bg-white rounded-xl shadow-lg p-4 sm:p-6 flex flex-col items-center justify-center min-w-[180px]">
+            <div className="text-base sm:text-xl font-medium text-gray-700 mb-2 text-center">
+              Tổng thực thu trong tuần
+            </div>
+            <div className="text-3xl sm:text-5xl font-bold text-black mb-2">
+              {totalWeekRevenue.toLocaleString()}
+            </div>
+            <div
+              className={`flex items-center gap-1 text-lg sm:text-2xl font-semibold ${
+                weekRevenueChange === null
+                  ? "text-gray-500"
+                  : weekRevenueChange > 0
+                  ? "text-green-600"
+                  : "text-red-500"
+              }`}
+            >
+              {weekRevenueChange === null
+                ? "N/A"
+                : `${Math.abs(weekRevenueChange)}%`}
+            </div>
+          </div>
+        </div>
 
-          {/* Thực thu tại các khu vực trong tuần */}
-          <div className="flex w-full bg-white rounded-xl shadow-lg gap-4 mt-5 h-[550px] items-center">
-            <div className="overflow-x-auto  justify-center items-center rounded-xl ml-2">
-              <div className="text-xl font-medium text-gray-700 text-center p-2">
-                Thực thu tại các khu vực trong tuần
-              </div>
-              <div className="rounded-xl border border-gray-200 shadow-sm bg-white overflow-hidden">
-                <table className="min-w-full bg-white">
-                  <thead>
-                    <tr className="bg-yellow-100 text-gray-900">
-                      <th className="px-4 py-2 border-b font-semibold text-left">
-                        Khu vực
-                      </th>
-                      <th className="px-4 py-2 border-b font-semibold text-right">
-                        Số đơn
-                      </th>
-                      <th className="px-4 py-2 border-b font-semibold text-right">
-                        Δ
-                      </th>
-                      <th className="px-4 py-2 border-b font-semibold text-right">
-                        Thực thu
-                      </th>
-                      <th className="px-4 py-2 border-b font-semibold text-right">
-                        % Δ
-                      </th>
-                      <th className="px-4 py-2 border-b font-semibold text-right">
-                        %Thực thu
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {regionStats.map((r) => (
-                      <tr key={r.region} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 border-b text-left">
-                          {r.region}
-                        </td>
-                        <td className="px-4 py-2 border-b text-right">
-                          {r.ordersThisWeek}
-                        </td>
-                        <td
-                          className={`px-4 py-2 border-b text-right ${
-                            r.deltaOrders > 0
-                              ? "text-green-600"
-                              : r.deltaOrders < 0
-                              ? "text-red-500"
-                              : ""
-                          }`}
-                        >
-                          {r.deltaOrders}{" "}
-                          {r.deltaOrders > 0
-                            ? "↑"
+        {/* Thực thu tại các khu vực trong tuần */}
+        <div className="flex flex-col lg:flex-row w-full bg-white rounded-xl shadow-lg gap-4 mt-5 h-fit lg:h-[550px] items-center">
+          <div className="overflow-x-auto w-full lg:w-1/2 justify-center items-center rounded-xl ml-0 lg:ml-2">
+            <div className="text-base sm:text-xl font-medium text-gray-700 text-center p-2">
+              Thực thu tại các khu vực trong tuần
+            </div>
+            <div className="rounded-xl border border-gray-200 shadow-sm bg-white overflow-x-auto">
+              <table className="min-w-[700px] w-full text-xs sm:text-sm">
+                <thead>
+                  <tr className="bg-yellow-100 text-gray-900">
+                    <th className="px-4 py-2 border-b font-semibold text-left">
+                      Khu vực
+                    </th>
+                    <th className="px-4 py-2 border-b font-semibold text-right">
+                      Số đơn
+                    </th>
+                    <th className="px-4 py-2 border-b font-semibold text-right">
+                      Δ
+                    </th>
+                    <th className="px-4 py-2 border-b font-semibold text-right">
+                      Thực thu
+                    </th>
+                    <th className="px-4 py-2 border-b font-semibold text-right">
+                      % Δ
+                    </th>
+                    <th className="px-4 py-2 border-b font-semibold text-right">
+                      %Thực thu
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {regionStats.map((r) => (
+                    <tr key={r.region} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 border-b text-left">
+                        {r.region}
+                      </td>
+                      <td className="px-4 py-2 border-b text-right">
+                        {r.ordersThisWeek}
+                      </td>
+                      <td
+                        className={`px-4 py-2 border-b text-right ${
+                          r.deltaOrders > 0
+                            ? "text-green-600"
                             : r.deltaOrders < 0
-                            ? "↓"
-                            : ""}
-                        </td>
-                        <td className="px-4 py-2 border-b text-right">
-                          {r.revenueThisWeek.toLocaleString()}
-                        </td>
-                        <td
-                          className={`px-4 py-2 border-b text-right ${
-                            r.percentDelta && r.percentDelta > 0
-                              ? "text-green-600"
-                              : r.percentDelta && r.percentDelta < 0
-                              ? "text-red-500"
-                              : ""
-                          }`}
-                        >
-                          {r.percentDelta === null
-                            ? "N/A"
-                            : `${r.percentDelta.toFixed(1)}%`}
-                          {r.percentDelta && r.percentDelta > 0
-                            ? "↑"
+                            ? "text-red-500"
+                            : ""
+                        }`}
+                      >
+                        {r.deltaOrders}{" "}
+                        {r.deltaOrders > 0 ? "↑" : r.deltaOrders < 0 ? "↓" : ""}
+                      </td>
+                      <td className="px-4 py-2 border-b text-right">
+                        {r.revenueThisWeek.toLocaleString()}
+                      </td>
+                      <td
+                        className={`px-4 py-2 border-b text-right ${
+                          r.percentDelta && r.percentDelta > 0
+                            ? "text-green-600"
                             : r.percentDelta && r.percentDelta < 0
-                            ? "↓"
-                            : ""}
-                        </td>
-                        <td className="px-4 py-2 border-b text-right">
-                          {totalRevenueThisWeek === 0
-                            ? "0.00"
-                            : (
-                                (r.revenueThisWeek / totalRevenueThisWeek) *
-                                100
-                              ).toFixed(2)}
-                          %
-                        </td>
-                      </tr>
-                    ))}
-                    <tr className="font-bold bg-gray-100">
-                      <td className="px-4 py-2 border-t text-left">
-                        Tổng cộng
+                            ? "text-red-500"
+                            : ""
+                        }`}
+                      >
+                        {r.percentDelta === null
+                          ? "N/A"
+                          : `${r.percentDelta.toFixed(1)}%`}
+                        {r.percentDelta && r.percentDelta > 0
+                          ? "↑"
+                          : r.percentDelta && r.percentDelta < 0
+                          ? "↓"
+                          : ""}
                       </td>
-                      <td className="px-4 py-2 border-t text-right">
-                        {regionStats.reduce(
-                          (sum, r) => sum + r.ordersThisWeek,
-                          0
-                        )}
+                      <td className="px-4 py-2 border-b text-right">
+                        {totalRevenueThisWeek === 0
+                          ? "0.00"
+                          : (
+                              (r.revenueThisWeek / totalRevenueThisWeek) *
+                              100
+                            ).toFixed(2)}
+                        %
                       </td>
-                      <td className="px-4 py-2 border-t text-right">
-                        {regionStats.reduce((sum, r) => sum + r.deltaOrders, 0)}
-                      </td>
-                      <td className="px-4 py-2 border-t text-right">
-                        {totalRevenueThisWeek.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2 border-t text-right"></td>
-                      <td className="px-4 py-2 border-t text-right">100%</td>
                     </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Tổng thực thu tại các khu vực trong tuần */}
-
-            <div className=" flex flex-col justify-center items-center">
-              <div className="flex justify-center items-center ">
-                <ResponsiveContainer width={600} height={400}>
-                  <PieChart className="mt-10 mb-10">
-                    <Pie
-                      data={pieRegionRevenueData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={150}
-                      label={({ percent }) =>
-                        percent !== undefined
-                          ? `${(percent * 100).toFixed(0)}%`
-                          : ""
-                      }
-                    >
-                      {pieRegionRevenueData.map((entry, idx) => (
-                        <Cell
-                          key={entry.name}
-                          fill={
-                            [
-                              "#8d6e63",
-                              "#b39ddb",
-                              "#81d4fa",
-                              "#f0bf4c",
-                              "#ff7f7f",
-                              "#9ee347",
-                            ][idx % 6]
-                          }
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend
-                      wrapperStyle={{
-                        paddingTop: 10,
-                        paddingBottom: 10,
-                        display: "flex",
-                        justifyContent: "center",
-                        flexWrap: "wrap",
-                        width: "100%",
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+                  ))}
+                  <tr className="font-bold bg-gray-100">
+                    <td className="px-4 py-2 border-t text-left">Tổng cộng</td>
+                    <td className="px-4 py-2 border-t text-right">
+                      {regionStats.reduce(
+                        (sum, r) => sum + r.ordersThisWeek,
+                        0
+                      )}
+                    </td>
+                    <td className="px-4 py-2 border-t text-right">
+                      {regionStats.reduce((sum, r) => sum + r.deltaOrders, 0)}
+                    </td>
+                    <td className="px-4 py-2 border-t text-right">
+                      {totalRevenueThisWeek.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 border-t text-right"></td>
+                    <td className="px-4 py-2 border-t text-right">100%</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
-
-          {/* Tổng thực thu tại các khu vực theo ngày */}
-
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Tổng thực thu tại các khu vực theo ngày
+          {/* Tổng thực thu tại các khu vực trong tuần */}
+          <div className="flex flex-col justify-center items-center w-full lg:w-1/2">
+            <div className="flex-1 flex flex-col items-center md:items-start">
+              <ResponsiveContainer width="100%" height={320} minWidth={320}>
+                <PieChart className="mt-10 mb-10">
+                  <Pie
+                    data={pieRegionRevenueData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={isMobile ? 70 : 120}
+                    label={({ percent }) =>
+                      percent !== undefined
+                        ? `${(percent * 100).toFixed(0)}%`
+                        : ""
+                    }
+                  >
+                    {pieRegionRevenueData.map((entry, idx) => (
+                      <Cell
+                        key={entry.name}
+                        fill={
+                          [
+                            "#8d6e63",
+                            "#b39ddb",
+                            "#81d4fa",
+                            "#f0bf4c",
+                            "#ff7f7f",
+                            "#9ee347",
+                          ][idx % 6]
+                        }
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <ul className="space-y-2 mb-2">
+                {pieRegionRevenueData.map((item, idx) => (
+                  <li key={item.name} className="flex items-center gap-3">
+                    <span
+                      className="inline-block w-5 h-5 rounded-full"
+                      style={{
+                        background: [
+                          "#8d6e63",
+                          "#b39ddb",
+                          "#81d4fa",
+                          "#f0bf4c",
+                          "#ff7f7f",
+                          "#9ee347",
+                        ][idx % 6],
+                      }}
+                    ></span>
+                    <span className="font-medium text-gray-800">
+                      {item.name}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+          </div>
+        </div>
+
+        {/* Tổng thực thu tại các khu vực theo ngày */}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+            Tổng thực thu tại các khu vực theo ngày
+          </div>
+          <div className="w-full overflow-x-auto">
+            <ResponsiveContainer width={500} height={isMobile ? 220 : 400}>
               <BarChart
                 data={dailyRegionRevenueDataWithTotal}
-                margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
+                margin={{
+                  top: isMobile ? 10 : 30,
+                  right: 10,
+                  left: 10,
+                  bottom: isMobile ? 20 : 40,
+                }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
-                  angle={-30}
+                  angle={isMobile ? -20 : -30}
                   textAnchor="end"
-                  height={60}
+                  height={isMobile ? 40 : 60}
+                  tick={{ fontSize: isMobile ? 10 : 14 }}
                 />
-                <YAxis />
+                <YAxis tick={{ fontSize: isMobile ? 10 : 14 }} />
                 <Tooltip />
                 <Legend
                   wrapperStyle={{
-                    paddingTop: 10,
-                    paddingBottom: 10,
+                    paddingTop: isMobile ? 0 : 10,
+                    paddingBottom: isMobile ? 0 : 10,
+                    fontSize: isMobile ? 10 : 14,
                     display: "flex",
                     justifyContent: "center",
                     flexWrap: "wrap",
@@ -1754,27 +1806,33 @@ export default function CustomerReportPage() {
                   fill="#f0bf4c"
                   name="Đã đóng cửa"
                 >
-                  <LabelList
-                    dataKey="total"
-                    position="top"
-                    formatter={(value) => (value ? value.toLocaleString() : "")}
-                    style={{
-                      fontWeight: "bold",
-                      fill: "#f0bf4c",
-                      fontSize: 16,
-                    }}
-                  />
+                  {!isMobile && (
+                    <LabelList
+                      dataKey="total"
+                      position="top"
+                      formatter={(value) =>
+                        value ? value.toLocaleString() : ""
+                      }
+                      style={{
+                        fontWeight: "bold",
+                        fill: "#f0bf4c",
+                        fontSize: 16,
+                      }}
+                    />
+                  )}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </div>
 
-          {/* Tổng thực thu theo loại cửa hàng */}
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Tổng thực thu theo loại cửa hàng
-            </div>
-            <ResponsiveContainer width="100%" height={400}>
+        {/* Tổng thực thu theo loại cửa hàng */}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+            Tổng thực thu theo loại cửa hàng
+          </div>
+          <div className="w-full overflow-x-auto">
+            <ResponsiveContainer width="100%" height={400} minWidth={320}>
               <LineChart
                 data={filterData(
                   TotalSaleOfStores,
@@ -1845,14 +1903,15 @@ export default function CustomerReportPage() {
               </LineChart>
             </ResponsiveContainer>
           </div>
+        </div>
 
-          {/* Tổng thực thu theo loại khách hàng trong tuần */}
-
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Tổng thực thu theo loại khách hàng trong tuần
-            </div>
-            <ResponsiveContainer width="100%" height={400}>
+        {/* Tổng thực thu theo loại khách hàng trong tuần */}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+            Tổng thực thu theo loại khách hàng trong tuần
+          </div>
+          <div className="w-full overflow-x-auto">
+            <ResponsiveContainer width="100%" height={400} minWidth={320}>
               <BarChart
                 data={dailyCustomerRevenue}
                 margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
@@ -1897,15 +1956,16 @@ export default function CustomerReportPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </div>
 
-          <div className="flex h-fit bg-white mt-5 rounded-xl shadow-lg gap-2 items-center justify-center pr-2 pl-2l-2">
-            {/* Top 10 cửa hàng trong tuần theo thực thu */}
-
-            <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-              <div className="text-xl font-medium text-gray-700 text-center mb-4">
-                Top 10 cửa hàng trong tuần theo thực thu
-              </div>
-              <ResponsiveContainer width="100%" height={500}>
+        <div className="flex flex-col lg:flex-row h-fit bg-white mt-5 rounded-xl shadow-lg gap-2 items-center justify-center pr-2 pl-2">
+          {/* Top 10 cửa hàng trong tuần theo thực thu */}
+          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+            <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+              Top 10 cửa hàng trong tuần theo thực thu
+            </div>
+            <div className="w-full overflow-x-auto">
+              <ResponsiveContainer width="100%" height={400} minWidth={320}>
                 <BarChart
                   layout="vertical"
                   data={top10LocationChartData}
@@ -1956,196 +2016,192 @@ export default function CustomerReportPage() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-
-            {/* 6 bảng tổng số liệu */}
-            <div className="flex flex-col gap-2 w-full max-w-xs mx-auto mb-6">
-              <StatCard
-                title="Thực thu"
-                value={totalRevenueThisWeek}
-                delta={percentRevenue}
-                valueColor="text-[#a9b8c3]"
-              />
-              <StatCard
-                title="Thực thu của dịch vụ lẻ"
-                value={retailThisWeek}
-                delta={percentRetail}
-                valueColor="text-[#fcb900]"
-              />
-              <StatCard
-                title="Thực thu mua sản phẩm"
-                value={productThisWeek}
-                delta={percentProduct}
-                valueColor="text-[#b6d47a]"
-              />
-              <StatCard
-                title="Thực thu của mua thẻ"
-                value={cardThisWeek}
-                delta={percentCard}
-                valueColor="text-[#8ed1fc]"
-              />
-              <StatCard
-                title="Tổng trả bằng thẻ Foxie"
-                value={foxieThisWeek}
-                delta={percentFoxie}
-                valueColor="text-[#a9b8c3]"
-              />
-              <StatCard
-                title="Trung bình thực thu mỗi ngày"
-                value={avgRevenueThisWeek}
-                delta={percentAvg}
-                valueColor="text-[#b39ddb]"
-              />
-            </div>
           </div>
+          {/* 6 bảng tổng số liệu */}
+          <div className="flex flex-col sm:grid sm:grid-cols-2 gap-2 w-full max-w-xs mx-auto mb-6">
+            <StatCard
+              title="Thực thu"
+              value={totalRevenueThisWeek}
+              delta={percentRevenue}
+              valueColor="text-[#a9b8c3]"
+            />
+            <StatCard
+              title="Thực thu của dịch vụ lẻ"
+              value={retailThisWeek}
+              delta={percentRetail}
+              valueColor="text-[#fcb900]"
+            />
+            <StatCard
+              title="Thực thu mua sản phẩm"
+              value={productThisWeek}
+              delta={percentProduct}
+              valueColor="text-[#b6d47a]"
+            />
+            <StatCard
+              title="Thực thu của mua thẻ"
+              value={cardThisWeek}
+              delta={percentCard}
+              valueColor="text-[#8ed1fc]"
+            />
+            <StatCard
+              title="Tổng trả bằng thẻ Foxie"
+              value={foxieThisWeek}
+              delta={percentFoxie}
+              valueColor="text-[#a9b8c3]"
+            />
+            <StatCard
+              title="Trung bình thực thu mỗi ngày"
+              value={avgRevenueThisWeek}
+              delta={percentAvg}
+              valueColor="text-[#b39ddb]"
+            />
+          </div>
+        </div>
 
-          {/* Thực thu cửa hàng */}
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Thực thu cửa hàng
-            </div>
-            <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
-              <table className="min-w-full text-sm">
-                <thead className="sticky top-0 z-10 bg-yellow-200">
-                  <tr className="bg-yellow-200 font-bold text-gray-900">
-                    <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
-                    <th className="px-3 py-3 text-left">Locations</th>
-                    <th className="px-3 py-3 text-right ">Thực thu</th>
-                    <th className="px-3 py-3 text-right">% Δ</th>
-                    <th className="px-3 py-3 text-right ">
-                      Tổng trả thẻ Foxie
-                    </th>
-                    <th className="px-3 py-3 text-right">% Δ</th>
-                    <th className="px-3 py-3 text-right ">Số đơn hàng</th>
-                    <th className="px-3 py-3 text-right rounded-tr-xl">% Δ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {storeTableData.map((row, idx) => (
-                    <tr key={row.location}>
-                      <td className="px-3 py-2 text-left">{idx + 1}</td>
-                      <td className="px-3 py-2 text-left">{row.location}</td>
-                      <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">
-                        {row.revenue.toLocaleString()}
-                      </td>
-                      <td
-                        className={`px-3 py-2 text-right ${
-                          row.revenueDelta !== null
-                            ? row.revenueDelta > 0
-                              ? "text-green-600"
-                              : row.revenueDelta < 0
-                              ? "text-red-500"
-                              : ""
-                            : ""
-                        }`}
-                      >
-                        {row.revenueDelta === null
-                          ? "N/A"
-                          : `${row.revenueDelta.toFixed(1)}%`}
-                      </td>
-                      <td className="px-3 py-2 text-right bg-[#8ed1fc]">
-                        {row.foxie.toLocaleString()}
-                      </td>
-                      <td
-                        className={`px-3 py-2 text-right ${
-                          row.foxieDelta !== null
-                            ? row.foxieDelta > 0
-                              ? "text-green-600"
-                              : row.foxieDelta < 0
-                              ? "text-red-500"
-                              : ""
-                            : ""
-                        }`}
-                      >
-                        {row.foxieDelta === null
-                          ? "N/A"
-                          : `${row.foxieDelta.toFixed(1)}%`}
-                      </td>
-                      <td className="px-3 py-2 text-right bg-[#a9b8c3]">
-                        {row.orders}
-                      </td>
-                      <td
-                        className={`px-3 py-2 text-right ${
-                          row.ordersDelta !== null
-                            ? row.ordersDelta > 0
-                              ? "text-green-600"
-                              : row.ordersDelta < 0
-                              ? "text-red-500"
-                              : ""
-                            : ""
-                        }`}
-                      >
-                        {row.ordersDelta === null
-                          ? "N/A"
-                          : `${row.ordersDelta.toFixed(1)}%`}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="sticky bottom-0 bg-gray-100 z-20">
-                  <tr className="font-bold">
-                    <td
-                      colSpan={2}
-                      className="px-3 py-2 text-left rounded-bl-xl"
-                    >
-                      Tổng cộng
-                    </td>
-                    <td className="px-3 py-2 text-right bg-[#f8a0ca]">
-                      {totalRevenueAll.toLocaleString()}
+        {/* Thực thu cửa hàng */}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+            Thực thu cửa hàng
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
+            <table className="min-w-[700px] w-full text-xs sm:text-sm">
+              <thead className="sticky top-0 z-10 bg-yellow-200">
+                <tr className="bg-yellow-200 font-bold text-gray-900">
+                  <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
+                  <th className="px-3 py-3 text-left">Locations</th>
+                  <th className="px-3 py-3 text-right ">Thực thu</th>
+                  <th className="px-3 py-3 text-right">% Δ</th>
+                  <th className="px-3 py-3 text-right ">Tổng trả thẻ Foxie</th>
+                  <th className="px-3 py-3 text-right">% Δ</th>
+                  <th className="px-3 py-3 text-right ">Số đơn hàng</th>
+                  <th className="px-3 py-3 text-right rounded-tr-xl">% Δ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {storeTableData.map((row, idx) => (
+                  <tr key={row.location}>
+                    <td className="px-3 py-2 text-left">{idx + 1}</td>
+                    <td className="px-3 py-2 text-left">{row.location}</td>
+                    <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">
+                      {row.revenue.toLocaleString()}
                     </td>
                     <td
                       className={`px-3 py-2 text-right ${
-                        totalRevenueDeltaAll > 0
-                          ? "text-green-600"
-                          : totalRevenueDeltaAll < 0
-                          ? "text-red-500"
-                          : "text-gray-500"
+                        row.revenueDelta !== null
+                          ? row.revenueDelta > 0
+                            ? "text-green-600"
+                            : row.revenueDelta < 0
+                            ? "text-red-500"
+                            : ""
+                          : ""
                       }`}
                     >
-                      {totalRevenueDeltaAll > 0 ? "+" : ""}
-                      {totalRevenueDeltaAll.toFixed(1)}%
+                      {row.revenueDelta === null
+                        ? "N/A"
+                        : `${row.revenueDelta.toFixed(1)}%`}
                     </td>
                     <td className="px-3 py-2 text-right bg-[#8ed1fc]">
-                      {totalFoxieAll.toLocaleString()}
+                      {row.foxie.toLocaleString()}
                     </td>
                     <td
                       className={`px-3 py-2 text-right ${
-                        totalFoxieDeltaAll > 0
-                          ? "text-green-600"
-                          : totalFoxieDeltaAll < 0
-                          ? "text-red-500"
-                          : "text-gray-500"
+                        row.foxieDelta !== null
+                          ? row.foxieDelta > 0
+                            ? "text-green-600"
+                            : row.foxieDelta < 0
+                            ? "text-red-500"
+                            : ""
+                          : ""
                       }`}
                     >
-                      {totalFoxieDeltaAll > 0 ? "+" : ""}
-                      {totalFoxieDeltaAll.toFixed(1)}%
+                      {row.foxieDelta === null
+                        ? "N/A"
+                        : `${row.foxieDelta.toFixed(1)}%`}
                     </td>
                     <td className="px-3 py-2 text-right bg-[#a9b8c3]">
-                      {totalOrdersAll.toLocaleString()}
+                      {row.orders}
                     </td>
                     <td
                       className={`px-3 py-2 text-right ${
-                        totalOrdersDeltaAll > 0
-                          ? "text-green-600"
-                          : totalOrdersDeltaAll < 0
-                          ? "text-red-500"
-                          : "text-gray-500"
+                        row.ordersDelta !== null
+                          ? row.ordersDelta > 0
+                            ? "text-green-600"
+                            : row.ordersDelta < 0
+                            ? "text-red-500"
+                            : ""
+                          : ""
                       }`}
                     >
-                      {totalOrdersDeltaAll > 0 ? "+" : ""}
-                      {totalOrdersDeltaAll.toFixed(1)}%
+                      {row.ordersDelta === null
+                        ? "N/A"
+                        : `${row.ordersDelta.toFixed(1)}%`}
                     </td>
                   </tr>
-                </tfoot>
-              </table>
-            </div>
+                ))}
+              </tbody>
+              <tfoot className="sticky bottom-0 bg-gray-100 z-20">
+                <tr className="font-bold">
+                  <td colSpan={2} className="px-3 py-2 text-left rounded-bl-xl">
+                    Tổng cộng
+                  </td>
+                  <td className="px-3 py-2 text-right bg-[#f8a0ca]">
+                    {totalRevenueAll.toLocaleString()}
+                  </td>
+                  <td
+                    className={`px-3 py-2 text-right ${
+                      totalRevenueDeltaAll > 0
+                        ? "text-green-600"
+                        : totalRevenueDeltaAll < 0
+                        ? "text-red-500"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    {totalRevenueDeltaAll > 0 ? "+" : ""}
+                    {totalRevenueDeltaAll.toFixed(1)}%
+                  </td>
+                  <td className="px-3 py-2 text-right bg-[#8ed1fc]">
+                    {totalFoxieAll.toLocaleString()}
+                  </td>
+                  <td
+                    className={`px-3 py-2 text-right ${
+                      totalFoxieDeltaAll > 0
+                        ? "text-green-600"
+                        : totalFoxieDeltaAll < 0
+                        ? "text-red-500"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    {totalFoxieDeltaAll > 0 ? "+" : ""}
+                    {totalFoxieDeltaAll.toFixed(1)}%
+                  </td>
+                  <td className="px-3 py-2 text-right bg-[#a9b8c3]">
+                    {totalOrdersAll.toLocaleString()}
+                  </td>
+                  <td
+                    className={`px-3 py-2 text-right ${
+                      totalOrdersDeltaAll > 0
+                        ? "text-green-600"
+                        : totalOrdersDeltaAll < 0
+                        ? "text-red-500"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    {totalOrdersDeltaAll > 0 ? "+" : ""}
+                    {totalOrdersDeltaAll.toFixed(1)}%
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
+        </div>
 
-          {/* Số lượng đơn hàng theo ngày (- đơn mua thẻ) dạng chart */}
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Số lượng đơn hàng theo ngày (-đơn mua thẻ)
-            </div>
-            <ResponsiveContainer width="100%" height={400}>
+        {/* Số lượng đơn hàng theo ngày (- đơn mua thẻ) dạng chart */}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+            Số lượng đơn hàng theo ngày (-đơn mua thẻ)
+          </div>
+          <div className="w-full overflow-x-auto">
+            <ResponsiveContainer width="100%" height={400} minWidth={320}>
               <BarChart
                 data={ordersChartData}
                 margin={{ top: 30, right: 40, left: 20, bottom: 40 }}
@@ -2184,13 +2240,15 @@ export default function CustomerReportPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </div>
 
-          {/* Top 10 cửa hàng theo đơn hàng */}
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Top 10 cửa hàng theo đơn hàng
-            </div>
-            <ResponsiveContainer width="100%" height={600}>
+        {/* Top 10 cửa hàng theo đơn hàng */}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+            Top 10 cửa hàng theo đơn hàng
+          </div>
+          <div className="w-full overflow-x-auto">
+            <ResponsiveContainer width="100%" height={400} minWidth={320}>
               <BarChart
                 layout="vertical"
                 data={chartOrderData}
@@ -2206,7 +2264,17 @@ export default function CustomerReportPage() {
                   tick={{ fontWeight: 400, fontSize: 14 }}
                 />
                 <Tooltip />
-                <Legend />
+                <Legend
+                  wrapperStyle={{
+                    display: isMobile ? "none" : "flex",
+                    paddingTop: 10,
+                    paddingBottom: 10,
+                    fontSize: isMobile ? 10 : 14,
+                    justifyContent: "center",
+                    flexWrap: "wrap",
+                    width: "100%",
+                  }}
+                />
                 <Bar
                   dataKey="totalOrders"
                   name="Số đơn hàng"
@@ -2234,261 +2302,279 @@ export default function CustomerReportPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </div>
 
-          {/* Số đơn tại các cửa hàng */}
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Số đơn tại các cửa hàng
-            </div>
-            <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
-              <table className="min-w-full text-sm">
-                <thead className="sticky top-0 z-10 bg-yellow-200">
-                  <tr className="bg-yellow-200 font-bold text-gray-900">
-                    <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
-                    <th className="px-3 py-3 text-left">Locations</th>
-                    <th className="px-3 py-3 text-right ">Số đơn hàng</th>
-                    <th className="px-3 py-3 text-right">Δ</th>
-                    <th className="px-3 py-3 text-right ">Đơn mua thẻ</th>
-                    <th className="px-3 py-3 text-right">Δ</th>
-                    <th className="px-3 py-3 text-right ">Đơn dịch vụ lẻ</th>
-                    <th className="px-3 py-3 text-right">Δ</th>
-                    <th className="px-3 py-3 text-right ">
-                      Đơn trả bằng thẻ Foxie
-                    </th>
-                    <th className="px-3 py-3 text-right rounded-tr-xl">Δ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {storeOrderTableData.map((row, idx) => (
-                    <tr key={row.location}>
-                      <td className="px-3 py-2 text-left">{idx + 1}</td>
-                      <td className="px-3 py-2 text-left">{row.location}</td>
-                      <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">
-                        {row.totalOrders}
-                      </td>
-                      <td
-                        className={`px-3 py-2 text-right ${
-                          row.totalOrdersDelta !== null
-                            ? row.totalOrdersDelta > 0
-                              ? "text-green-600"
-                              : row.totalOrdersDelta < 0
-                              ? "text-red-500"
-                              : ""
-                            : ""
-                        }`}
-                      >
-                        {row.totalOrdersDelta === null
-                          ? "N/A"
-                          : `${row.totalOrdersDelta > 0 ? "+" : ""}${
-                              row.totalOrdersDelta
-                            }`}
-                      </td>
-                      <td className="px-3 py-2 text-right bg-[#8ed1fc]">
-                        {row.cardOrders}
-                      </td>
-                      <td
-                        className={`px-3 py-2 text-right ${
-                          row.cardOrdersDelta !== null
-                            ? row.cardOrdersDelta > 0
-                              ? "text-green-600"
-                              : row.cardOrdersDelta < 0
-                              ? "text-red-500"
-                              : ""
-                            : ""
-                        }`}
-                      >
-                        {row.cardOrdersDelta === null
-                          ? "N/A"
-                          : `${row.cardOrdersDelta > 0 ? "+" : ""}${
-                              row.cardOrdersDelta
-                            }`}
-                      </td>
-                      <td className="px-3 py-2 text-right bg-[#fcb900]">
-                        {row.retailOrders}
-                      </td>
-                      <td
-                        className={`px-3 py-2 text-right ${
-                          row.retailOrdersDelta !== null
-                            ? row.retailOrdersDelta > 0
-                              ? "text-green-600"
-                              : row.retailOrdersDelta < 0
-                              ? "text-red-500"
-                              : ""
-                            : ""
-                        }`}
-                      >
-                        {row.retailOrdersDelta === null
-                          ? "N/A"
-                          : `${row.retailOrdersDelta > 0 ? "+" : ""}${
-                              row.retailOrdersDelta
-                            }`}
-                      </td>
-                      <td className="px-3 py-2 text-right bg-[#a9b8c3]">
-                        {row.foxieOrders}
-                      </td>
-                      <td
-                        className={`px-3 py-2 text-right ${
-                          row.foxieOrdersDelta !== null
-                            ? row.foxieOrdersDelta > 0
-                              ? "text-green-600"
-                              : row.foxieOrdersDelta < 0
-                              ? "text-red-500"
-                              : ""
-                            : ""
-                        }`}
-                      >
-                        {row.foxieOrdersDelta === null
-                          ? "N/A"
-                          : `${row.foxieOrdersDelta > 0 ? "+" : ""}${
-                              row.foxieOrdersDelta
-                            }`}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="sticky bottom-0 bg-gray-100 z-20">
-                  <tr className="font-bold">
+        {/* Số đơn tại các cửa hàng */}
+        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+            Số đơn tại các cửa hàng
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
+            <table className="min-w-[700px] w-full text-xs sm:text-sm">
+              <thead className="sticky top-0 z-10 bg-yellow-200">
+                <tr className="bg-yellow-200 font-bold text-gray-900">
+                  <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
+                  <th className="px-3 py-3 text-left">Locations</th>
+                  <th className="px-3 py-3 text-right ">Số đơn hàng</th>
+                  <th className="px-3 py-3 text-right">Δ</th>
+                  <th className="px-3 py-3 text-right ">Đơn mua thẻ</th>
+                  <th className="px-3 py-3 text-right">Δ</th>
+                  <th className="px-3 py-3 text-right ">Đơn dịch vụ lẻ</th>
+                  <th className="px-3 py-3 text-right">Δ</th>
+                  <th className="px-3 py-3 text-right ">
+                    Đơn trả bằng thẻ Foxie
+                  </th>
+                  <th className="px-3 py-3 text-right rounded-tr-xl">Δ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {storeOrderTableData.map((row, idx) => (
+                  <tr key={row.location}>
+                    <td className="px-3 py-2 text-left">{idx + 1}</td>
+                    <td className="px-3 py-2 text-left">{row.location}</td>
+                    <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">
+                      {row.totalOrders}
+                    </td>
                     <td
-                      colSpan={2}
-                      className="px-3 py-2 text-left rounded-bl-xl"
+                      className={`px-3 py-2 text-right ${
+                        row.totalOrdersDelta !== null
+                          ? row.totalOrdersDelta > 0
+                            ? "text-green-600"
+                            : row.totalOrdersDelta < 0
+                            ? "text-red-500"
+                            : ""
+                          : ""
+                      }`}
                     >
-                      Tổng cộng
-                    </td>
-                    <td className="px-3 py-2 text-right bg-[#f8a0ca]">
-                      {totalOrderSumAll.totalOrders}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      {totalOrderSumAll.totalOrdersDelta}
+                      {row.totalOrdersDelta === null
+                        ? "N/A"
+                        : `${row.totalOrdersDelta > 0 ? "+" : ""}${
+                            row.totalOrdersDelta
+                          }`}
                     </td>
                     <td className="px-3 py-2 text-right bg-[#8ed1fc]">
-                      {totalOrderSumAll.cardOrders}
+                      {row.cardOrders}
                     </td>
-                    <td className="px-3 py-2 text-right">
-                      {totalOrderSumAll.cardOrdersDelta}
+                    <td
+                      className={`px-3 py-2 text-right ${
+                        row.cardOrdersDelta !== null
+                          ? row.cardOrdersDelta > 0
+                            ? "text-green-600"
+                            : row.cardOrdersDelta < 0
+                            ? "text-red-500"
+                            : ""
+                          : ""
+                      }`}
+                    >
+                      {row.cardOrdersDelta === null
+                        ? "N/A"
+                        : `${row.cardOrdersDelta > 0 ? "+" : ""}${
+                            row.cardOrdersDelta
+                          }`}
                     </td>
                     <td className="px-3 py-2 text-right bg-[#fcb900]">
-                      {totalOrderSumAll.retailOrders}
+                      {row.retailOrders}
                     </td>
-                    <td className="px-3 py-2 text-right">
-                      {totalOrderSumAll.retailOrdersDelta}
+                    <td
+                      className={`px-3 py-2 text-right ${
+                        row.retailOrdersDelta !== null
+                          ? row.retailOrdersDelta > 0
+                            ? "text-green-600"
+                            : row.retailOrdersDelta < 0
+                            ? "text-red-500"
+                            : ""
+                          : ""
+                      }`}
+                    >
+                      {row.retailOrdersDelta === null
+                        ? "N/A"
+                        : `${row.retailOrdersDelta > 0 ? "+" : ""}${
+                            row.retailOrdersDelta
+                          }`}
                     </td>
                     <td className="px-3 py-2 text-right bg-[#a9b8c3]">
-                      {totalOrderSumAll.foxieOrders}
+                      {row.foxieOrders}
                     </td>
-                    <td className="px-3 py-2 text-right rounded-br-xl">
-                      {totalOrderSumAll.foxieOrdersDelta}
+                    <td
+                      className={`px-3 py-2 text-right ${
+                        row.foxieOrdersDelta !== null
+                          ? row.foxieOrdersDelta > 0
+                            ? "text-green-600"
+                            : row.foxieOrdersDelta < 0
+                            ? "text-red-500"
+                            : ""
+                          : ""
+                      }`}
+                    >
+                      {row.foxieOrdersDelta === null
+                        ? "N/A"
+                        : `${row.foxieOrdersDelta > 0 ? "+" : ""}${
+                            row.foxieOrdersDelta
+                          }`}
                     </td>
                   </tr>
-                </tfoot>
-              </table>
+                ))}
+              </tbody>
+              <tfoot className="sticky bottom-0 bg-gray-100 z-20">
+                <tr className="font-bold">
+                  <td colSpan={2} className="px-3 py-2 text-left rounded-bl-xl">
+                    Tổng cộng
+                  </td>
+                  <td className="px-3 py-2 text-right bg-[#f8a0ca]">
+                    {totalOrderSumAll.totalOrders}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {totalOrderSumAll.totalOrdersDelta}
+                  </td>
+                  <td className="px-3 py-2 text-right bg-[#8ed1fc]">
+                    {totalOrderSumAll.cardOrders}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {totalOrderSumAll.cardOrdersDelta}
+                  </td>
+                  <td className="px-3 py-2 text-right bg-[#fcb900]">
+                    {totalOrderSumAll.retailOrders}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {totalOrderSumAll.retailOrdersDelta}
+                  </td>
+                  <td className="px-3 py-2 text-right bg-[#a9b8c3]">
+                    {totalOrderSumAll.foxieOrders}
+                  </td>
+                  <td className="px-3 py-2 text-right rounded-br-xl">
+                    {totalOrderSumAll.foxieOrdersDelta}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        {/* 5 bảng tổng số liệu */}
+        <div className="grid grid-cols-2 gap-3 w-full mb-5 mt-5 sm:grid-cols-3 md:grid-cols-5">
+          <StatCard
+            title="Tổng đơn hàng"
+            value={totalOrdersThisWeek}
+            delta={deltaOrders}
+            className="border-[#f8a0ca] border text-sm"
+            valueColor="text-[#f8a0ca]"
+          />
+          <StatCard
+            title="Đơn mua thẻ"
+            value={cardOrdersThisWeek}
+            delta={deltaCardOrders}
+            className="border-[#8ed1fc] border text-sm"
+            valueColor="text-[#8ed1fc]"
+          />
+          <StatCard
+            title="Đơn dịch vụ/sản phẩm"
+            value={retailOrdersThisWeek}
+            delta={deltaRetailOrders}
+            className="border-[#fcb900] border text-sm"
+            valueColor="text-[#fcb900]"
+          />
+          <StatCard
+            title="Đơn trả bằng thẻ Foxie"
+            value={foxieOrdersThisWeek}
+            delta={deltaFoxieOrders}
+            className="border-[#a9b8c3] border text-sm"
+            valueColor="text-[#a9b8c3]"
+          />
+          <StatCard
+            title="Đơn mua sản phẩm"
+            value={productOrdersThisWeek}
+            delta={deltaProductOrders}
+            className="border-[#b6d47a] border text-sm"
+            valueColor="text-[#b6d47a]"
+          />
+        </div>
+        {/* PieChart tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ */}
+        <div className="w-full flex flex-col md:flex-row justify-center mt-8">
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 flex flex-col md:flex-row items-center gap-4 md:gap-8 max-w-3xl w-full">
+            <div className="flex-1 flex justify-center">
+              <ResponsiveContainer
+                width="100%"
+                height={isMobile ? 180 : 320}
+                minWidth={180}
+              >
+                <PieChart>
+                  <Pie
+                    data={piePaymentData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={isMobile ? 60 : 120}
+                    label={renderPieLabel}
+                  >
+                    {piePaymentData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value) =>
+                      `${value} (${(
+                        (Number(value) / totalAllPie) *
+                        100
+                      ).toFixed(1)}%)`
+                    }
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex-1 flex flex-col items-center md:items-start">
+              <div className="text-base sm:text-xl font-semibold text-gray-700 mb-4 text-center md:text-left">
+                Tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ
+              </div>
+              <ul className="space-y-2">
+                {piePaymentData.map((item) => (
+                  <li key={item.name} className="flex items-center gap-3">
+                    <span
+                      className="inline-block w-5 h-5 rounded-full"
+                      style={{ background: item.color }}
+                    ></span>
+                    <span className="font-medium text-gray-800">
+                      {item.name}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
-
-          {/* 5 bảng tổng số liệu */}
-
-          <div className="flex justify-between gap-2  mt-5 w-full">
-            <StatCard
-              title="Tổng đơn hàng"
-              value={totalOrdersThisWeek}
-              delta={deltaOrders}
-              className="border-[#f8a0ca] border w-1/5 text-sm"
-              valueColor="text-[#f8a0ca]"
-            />
-            <StatCard
-              title="Đơn mua thẻ"
-              value={cardOrdersThisWeek}
-              delta={deltaCardOrders}
-              className="border-[#8ed1fc] border w-1/5 text-sm"
-              valueColor="text-[#8ed1fc]"
-            />
-            <StatCard
-              title="Đơn dịch vụ/sản phẩm"
-              value={retailOrdersThisWeek}
-              delta={deltaRetailOrders}
-              className="border-[#fcb900] border w-1/5 text-sm"
-              valueColor="text-[#fcb900]"
-            />
-            <StatCard
-              title="Đơn trả bằng thẻ Foxie"
-              value={foxieOrdersThisWeek}
-              delta={deltaFoxieOrders}
-              className="border-[#a9b8c3] border w-1/5 text-sm"
-              valueColor="text-[#a9b8c3]"
-            />
-            <StatCard
-              title="Đơn mua sản phẩm"
-              value={productOrdersThisWeek}
-              delta={deltaProductOrders}
-              className="border-[#b6d47a] border w-1/5 text-sm"
-              valueColor="text-[#b6d47a]"
-            />
+        </div>
+        <div className="w-full bg-white rounded-xl shadow-lg mt-8 p-4 sm:p-6">
+          <div className="text-base sm:text-2xl font-semibold text-gray-800 mb-4">
+            Hình thức thanh toán theo vùng
           </div>
-          {/* PieChart tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ */}
-          <div className="w-full flex justify-center mt-8">
-            <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col md:flex-row items-center gap-8 max-w-3xl w-full">
-              <div className="flex-1 flex justify-center">
-                <ResponsiveContainer width={400} height={320}>
-                  <PieChart>
-                    <Pie
-                      data={piePaymentData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={120}
-                      label={({ percent }) =>
-                        percent !== undefined ? `${(percent * 100).toFixed(1)}%` : ""
-                      }
-                    >
-                      {piePaymentData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value) =>
-                        `${value} (${((Number(value) / totalAllPie) * 100).toFixed(1)}%)`
-                      }
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex-1 flex flex-col items-center md:items-start">
-                <div className="text-xl font-semibold text-gray-700 mb-4 text-center md:text-left">
-                  Tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ
-                </div>
-                <ul className="space-y-2">
-                  {piePaymentData.map((item) => (
-                    <li key={item.name} className="flex items-center gap-3">
-                      <span
-                        className="inline-block w-5 h-5 rounded-full"
-                        style={{ background: item.color }}
-                      ></span>
-                      <span className="font-medium text-gray-800">{item.name}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full bg-white rounded-xl shadow-lg mt-8 p-6">
-            <div className="text-2xl font-semibold text-gray-800 mb-4">Hình thức thanh toán theo vùng</div>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={paymentRegionData} margin={{ top: 20, right: 40, left: 20, bottom: 20 }}>
+          <div className="w-full overflow-x-auto">
+            <ResponsiveContainer width="100%" height={350} minWidth={320}>
+              <BarChart
+                data={paymentRegionData}
+                margin={{ top: 20, right: 40, left: 20, bottom: 20 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="region" />
-                <YAxis tickFormatter={v => (v >= 1000 ? `${v / 1000} N` : v)} />
+                <YAxis
+                  tickFormatter={(v) => (v >= 1000 ? `${v / 1000} N` : v)}
+                />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="bank" name="Bank Transfer" fill="#795548" barSize={40} />
+                <Bar
+                  dataKey="bank"
+                  name="Bank Transfer"
+                  fill="#795548"
+                  barSize={40}
+                />
                 <Bar dataKey="cash" name="Cash" fill="#c5e1a5" barSize={40} />
-                <Bar dataKey="card" name="Credit/Debit card" fill="#ff7f7f" barSize={40} />
+                <Bar
+                  dataKey="card"
+                  name="Credit/Debit card"
+                  fill="#ff7f7f"
+                  barSize={40}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
-
-        
-        
         </div>
       </div>
     </div>
