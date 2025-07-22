@@ -1850,8 +1850,8 @@ export default function CustomerReportPage() {
                         if (typeof value !== "number" || value === 0) return null;
                         return (
                           <text
-                            x={x}
-                            y={y - 6}
+                          x={Number(x)}
+                          y={Number(y) - 6}
                             fontSize={10}
                             fill="#ff7f7f"
                             textAnchor="middle"
@@ -1873,8 +1873,8 @@ export default function CustomerReportPage() {
                         if (typeof value !== "number" || value === 0) return null;
                         return (
                           <text
-                            x={x}
-                            y={y - 6}
+                          x={Number(x)}
+  y={Number(y) - 6}
                             fontSize={10}
                             fill="#b39ddb"
                             textAnchor="middle"
@@ -1896,8 +1896,8 @@ export default function CustomerReportPage() {
                         if (typeof value !== "number" || value === 0) return null;
                         return (
                           <text
-                            x={x}
-                            y={y - 6}
+                          x={Number(x)}
+                          y={Number(y) - 6}
                             fontSize={10}
                             fill="#8d6e63"
                             textAnchor="middle"
@@ -1919,8 +1919,8 @@ export default function CustomerReportPage() {
                         if (typeof value !== "number" || value === 0) return null;
                         return (
                           <text
-                            x={x}
-                            y={y - 6}
+                          x={Number(x)}
+                          y={Number(y) - 6}
                             fontSize={10}
                             fill="#c5e1a5"
                             textAnchor="middle"
@@ -1942,8 +1942,8 @@ export default function CustomerReportPage() {
                         if (typeof value !== "number" || value === 0) return null;
                         return (
                           <text
-                            x={x}
-                            y={y - 6}
+                          x={Number(x)}
+  y={Number(y) - 6}
                             fontSize={10}
                             fill="#81d4fa"
                             textAnchor="middle"
