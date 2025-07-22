@@ -517,27 +517,27 @@ allRawData.forEach((d) => {
 
   // Trung bình đơn dịch vụ (Nam)
   const maleServiceOrders = filteredData.filter(
-    (d) => d.gender === "Nam" && d.value > 0
-  );
-  const maleServiceOrderAvg =
-    maleServiceOrders.length > 0
-      ? Math.round(
-          maleServiceOrders.reduce((sum, d) => sum + d.value, 0) /
-            maleServiceOrders.length
-        )
-      : 0;
+    (d) => d.gender === "Nam" && d.type === "KH trải nghiệm" && d.value > 0
+);
+const maleServiceOrderAvg =
+  maleServiceOrders.length > 0
+    ? Math.round(
+        maleServiceOrders.reduce((sum, d) => sum + d.value, 0) /
+          maleServiceOrders.length
+      )
+    : 0;
 
-  // Trung bình đơn dịch vụ (Nữ)
-  const femaleServiceOrders = filteredData.filter(
-    (d) => d.gender === "Nữ" && d.value > 0
-  );
-  const femaleServiceOrderAvg =
-    femaleServiceOrders.length > 0
-      ? Math.round(
-          femaleServiceOrders.reduce((sum, d) => sum + d.value, 0) /
-            femaleServiceOrders.length
-        )
-      : 0;
+// Trung bình đơn dịch vụ (Nữ)
+const femaleServiceOrders = filteredData.filter(
+  (d) => d.gender === "Nữ" && d.type === "KH trải nghiệm" && d.value > 0
+);
+const femaleServiceOrderAvg =
+  femaleServiceOrders.length > 0
+    ? Math.round(
+        femaleServiceOrders.reduce((sum, d) => sum + d.value, 0) /
+          femaleServiceOrders.length
+      )
+    : 0;
 
   // Dữ liệu cho PieChart tỷ lệ tải app
   const appCustomerPieData = [
@@ -894,7 +894,7 @@ allRawData.forEach((d) => {
               <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
                 Trung bình đơn thực thu (Nam)
               </div>
-              <div className="text-3xl lg:text-5xl font-bold text-[#f66035] mb-2">
+              <div className="text-2xl font-bold text-[#f66035] mb-2">
                 {maleActualOrderAvg.toLocaleString()}{" "}
                 <span className="text-lg lg:text-2xl">đ</span>
               </div>
@@ -904,7 +904,7 @@ allRawData.forEach((d) => {
               <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
                 Trung bình đơn thực thu (Nữ)
               </div>
-              <div className="text-3xl lg:text-5xl font-bold text-[#0693e3] mb-2">
+              <div className="text-2xl font-bold text-[#0693e3] mb-2">
                 {femaleActualOrderAvg.toLocaleString()}{" "}
                 <span className="text-lg lg:text-2xl">đ</span>
               </div>
@@ -914,7 +914,7 @@ allRawData.forEach((d) => {
               <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
                 Trung bình đơn dịch vụ (Nam)
               </div>
-              <div className="text-3xl lg:text-5xl font-bold text-[#00d082] mb-2">
+              <div className="text-2xl font-bold text-[#00d082] mb-2">
                 {maleServiceOrderAvg.toLocaleString()}{" "}
                 <span className="text-lg lg:text-2xl">đ</span>
               </div>
@@ -924,7 +924,7 @@ allRawData.forEach((d) => {
               <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
                 Trung bình đơn dịch vụ (Nữ)
               </div>
-              <div className="text-3xl lg:text-5xl font-bold text-[#9b51e0] mb-2">
+              <div className="text-2xl font-bold text-[#9b51e0] mb-2">
                 {femaleServiceOrderAvg.toLocaleString()}{" "}
                 <span className="text-lg lg:text-2xl">đ</span>
               </div>
