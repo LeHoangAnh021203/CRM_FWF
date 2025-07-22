@@ -22,6 +22,10 @@ import {
   ResponsiveContainer,
   LabelList,
 } from "recharts";
+import salesData1 from "../../data/danh_sach_ban_hang.json";
+import salesData2 from "../../data/ban_hang_doanh_so.json";
+import salesData3 from "../../data/dich_vu_ban_hang.json";
+import khAppData from "../../data/khach_hang_su_dung_app.json";
 
 interface DataPoint {
   date: string;
@@ -29,9 +33,13 @@ interface DataPoint {
   value2: number;
   type: string;
   status: string;
-  gender: "Nam" | "Nữ";
+  gender: "Nam" | "Nữ" | "#N/A";
   region?: string;
   branch?: string;
+}
+
+interface RawDataRow {
+  [key: string]: string | number | undefined;
 }
 
 interface MultiTypeCustomerDataPoint {
@@ -166,89 +174,238 @@ export default function CustomerReportPage() {
     "Trần Phú Đà Nẵng": "Đà Nẵng",
     "Vincom Quang Trung": "HCM",
   };
-  const data: DataPoint[] = [
-    ...Array.from({ length: 30 }, (_, i) => {
-      const day = i + 1;
-      const dateStr = `${day} thg 6`;
-      const allLocations = [
-        "Crescent Mall Q7",
-        "Vincom Thảo Điền",
-        "Vista Verde",
-        "Aeon Mall Tân Phú Celadon",
-        "Westpoint Phạm Hùng",
-        "Aeon Mall Bình Tân",
-        "Vincom Phan Văn Trị",
-        "Vincom Landmark 81",
-        "TTTM Estella Place",
-        "Võ Thị Sáu Q.1",
-        "The Sun Avenue",
-        "Trương Định Q.3",
-        "Hoa Lan Q.PN",
-        "Nowzone Q.1",
-        "Everrich Infinity Q.5",
-        "SC VivoCity",
-        "Đảo Ngọc Ngũ Xã HN",
-        "Vincom Lê Văn Việt",
-        "The Bonatica Q.TB",
-        "Midtown Q.7",
-        "Trần Phú Đà Nẵng",
-        "Vincom Quang Trung",
-        "Vincom Bà Triệu",
-        "Imperia Sky Garden HN",
-        "Gold Coast Nha Trang",
-        "Riviera Point Q7",
-        "Saigon Ofice",
-        "Millenium Apartment Q.4",
-        "Parc Mall Q.8",
-        "Saigon Mia Trung Sơn",
-      ];
-      return [
-        {
-          date: dateStr,
-          value: 1200000 + (i % 5) * 20000 + i * 1000,
-          value2: 1000000 + (i % 3) * 15000 + i * 800,
-          type: "KH trải nghiệm",
-          status: "New",
-          gender: "Nam" as const,
-          region: locationRegionMap[allLocations[i % allLocations.length]],
-          branch: allLocations[i % allLocations.length],
-        },
-        {
-          date: dateStr,
-          value: 1250000 + (i % 4) * 18000 + i * 1200,
-          value2: 1050000 + (i % 2) * 17000 + i * 900,
-          type: "KH trải nghiệm",
-          status: "New",
-          gender: "Nữ" as const,
-          region:
-            locationRegionMap[allLocations[(i + 1) % allLocations.length]],
-          branch: allLocations[(i + 1) % allLocations.length],
-        },
-        {
-          date: dateStr,
-          value: 1300000 + (i % 6) * 22000 + i * 1100,
-          value2: 1100000 + (i % 4) * 13000 + i * 700,
-          type: "Khách hàng Thành viên",
-          status: "New",
-          gender: "Nam" as const,
-          region:
-            locationRegionMap[allLocations[(i + 2) % allLocations.length]],
-          branch: allLocations[(i + 2) % allLocations.length],
-        },
-        {
-          date: dateStr,
-          value: 1350000 + (i % 3) * 25000 + i * 900,
-          value2: 1150000 + (i % 5) * 12000 + i * 600,
-          type: "Khách hàng Thành viên",
-          status: "New",
-          gender: "Nữ" as const,
-          region:
-            locationRegionMap[allLocations[(i + 3) % allLocations.length]],
-          branch: allLocations[(i + 3) % allLocations.length],
-        },
-      ];
-    }).flat(),
+
+  const INVALID_DATES = [
+    "NGÀY TẠO",
+    "MÃ ĐƠN HÀNG",
+    "TÊN KHÁCH HÀNG",
+    "SỐ ĐIỆN THOẠI",
   ];
+
+  function parseVNDate(str: string): CalendarDate | null {
+    if (!str || typeof str !== "string") return null;
+    str = str.trim();
+    let match;
+
+    // hh:mm dd/mm/yyyy
+    match = str.match(
+      /^([0-9]{1,2}):[0-9]{2}\s([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{4})$/
+    );
+    if (match) {
+      try {
+        return parseDate(
+          `${match[4]}-${match[3].padStart(2, "0")}-${match[2].padStart(
+            2,
+            "0"
+          )}`
+        );
+      } catch {
+        return null;
+      }
+    }
+
+    // dd thg mm, yyyy
+    match = str.match(/^([0-9]{1,2}) thg ([0-9]{1,2}), ([0-9]{4})$/);
+    if (match) {
+      try {
+        return parseDate(
+          `${match[3]}-${match[2].padStart(2, "0")}-${match[1].padStart(
+            2,
+            "0"
+          )}`
+        );
+      } catch {
+        return null;
+      }
+    }
+
+    // dd/mm/yyyy
+    match = str.match(/^([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{4})$/);
+    if (match) {
+      try {
+        return parseDate(
+          `${match[3]}-${match[2].padStart(2, "0")}-${match[1].padStart(
+            2,
+            "0"
+          )}`
+        );
+      } catch {
+        return null;
+      }
+    }
+
+    // yyyy-mm-dd (ISO)
+    match = str.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/);
+    if (match) {
+      try {
+        return parseDate(str);
+      } catch {
+        return null;
+      }
+    }
+
+    // MM-DD-YY (e.g., 06-30-23)
+    match = str.match(/^([0-9]{2})-([0-9]{2})-([0-9]{2})$/);
+    if (match) {
+      const month = Number(match[1]);
+      const day = Number(match[2]);
+      const year = Number(match[3]);
+      if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+      const fullYear = year < 50 ? 2000 + year : 1900 + year;
+      const iso = `${fullYear}-${String(month).padStart(2, "0")}-${String(
+        day
+      ).padStart(2, "0")}`;
+      try {
+        return parseDate(iso);
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
+  }
+
+  const getRegionForBranch = (branchName: string) => {
+    if (locationRegionMap[branchName]) {
+      return locationRegionMap[branchName];
+    }
+    const lowerBranch = (branchName || "").toLowerCase();
+    if (
+      [
+        "q1",
+        "q3",
+        "q5",
+        "q7",
+        "q8",
+        "tân phú",
+        "bình tân",
+        "thảo điền",
+        "landmark",
+        "crescent mall",
+        "vincom",
+        "vista verde",
+        "aeon",
+        "estella",
+        "nowzone",
+        "sc vivocity",
+        "sun avenue",
+        "saigon mia",
+        "parc mall",
+        "millenium",
+        "riviera point",
+        "midtown",
+        "the bonatica",
+        "hoa lan",
+        "trương định",
+        "võ thị sáu",
+      ].some((k) => lowerBranch.includes(k))
+    )
+      return "HCM";
+    if (
+      [
+        "hà nội",
+        "tây hồ",
+        "bà triệu",
+        "imperia sky garden",
+        "đảo ngọc ngũ xã",
+      ].some((k) => lowerBranch.includes(k))
+    )
+      return "Hà Nội";
+    if (lowerBranch.includes("đà nẵng")) return "Đà Nẵng";
+    if (lowerBranch.includes("nha trang")) return "Nha Trang";
+    if (lowerBranch.includes("đã đóng cửa")) return "Đã Đóng Cửa";
+    return "Khác";
+  };
+
+  const allRawData: RawDataRow[] = React.useMemo(
+    () => [
+      ...(Array.isArray(salesData1) ? salesData1 : []),
+      ...(Array.isArray(salesData2) ? salesData2 : []),
+      ...(Array.isArray(salesData3) ? salesData3 : []),
+      ...(Array.isArray(khAppData) ? khAppData : []),
+    ],
+    []
+  );
+
+  const realData: DataPoint[] = React.useMemo(
+    () =>
+      allRawData
+        .map((d): Partial<DataPoint> | null => {
+          const dateStr = String(d["Unnamed: 1"] || d["Unnamed: 3"] || "");
+          if (
+            !dateStr ||
+            INVALID_DATES.includes(dateStr.trim().toUpperCase())
+          ) {
+            return null;
+          }
+          let gender = d["Unnamed: 7"];
+          if (gender !== "Nam" && gender !== "Nữ") gender = "#N/A";
+          const branch = String(d["Unnamed: 11"] || "");
+
+          return {
+            date: dateStr,
+            value:
+              Number(
+                d["Unnamed: 18"] ?? d["Unnamed: 16"] ?? d["Unnamed: 9"]
+              ) || 0,
+            value2: Number(d["Unnamed: 19"] ?? d["Unnamed: 10"]) || 0,
+            type: String(d["Unnamed: 12"] || "N/A"),
+            status: String(d["Unnamed: 13"] || "N/A"),
+            gender: gender as "Nam" | "Nữ" | "#N/A",
+            branch: branch,
+            region: getRegionForBranch(branch),
+          };
+        })
+        .filter((d): d is DataPoint => !!d && !!d.date),
+    [allRawData]
+  );
+
+  function isInWeek(d: DataPoint, start: CalendarDate, end: CalendarDate) {
+    const dDate = parseVNDate(d.date);
+    return dDate ? dDate.compare(start) >= 0 && dDate.compare(end) <= 0 : false;
+  }
+  
+  const regionalSalesByDay = React.useMemo(() => {
+    const filtered = realData.filter((d) => {
+      const dDate = parseVNDate(d.date);
+      return (
+        dDate && dDate.compare(startDate) >= 0 && dDate.compare(endDate) <= 0
+      );
+    });
+
+    const map: Record<string, TotalRegionalSales> = {};
+    filtered.forEach((d) => {
+      const date = (() => {
+        const parsed = parseVNDate(d.date);
+        return parsed ? parsed.toString() : d.date;
+      })();
+      const region = getRegionForBranch(d.branch || "");
+      if (!map[date]) {
+        map[date] = {
+          date,
+          HCM: 0,
+          HaNoi: 0,
+          DaNang: 0,
+          NhaTrang: 0,
+          DaDongCua: 0,
+          type: "Tổng",
+          status: "All",
+        };
+      }
+      if (region === "HCM") map[date].HCM += d.value;
+      else if (region === "Hà Nội") map[date].HaNoi += d.value;
+      else if (region === "Đà Nẵng") map[date].DaNang += d.value;
+      else if (region === "Nha Trang") map[date].NhaTrang += d.value;
+      else if (region === "Đã Đóng Cửa") map[date].DaDongCua += d.value;
+    });
+
+    return Object.values(map).sort((a, b) => {
+      const d1 = parseVNDate(a.date);
+      const d2 = parseVNDate(b.date);
+      if (d1 && d2) return d1.compare(d2);
+      return 0;
+    });
+  }, [realData, startDate, endDate]);
 
   // kindOfCustomer: đủ cho 365 ngày trong năm 2025
   const kindOfCustomer: MultiTypeCustomerDataPoint[] = Array.from(
@@ -461,10 +618,8 @@ export default function CustomerReportPage() {
   ];
   // Định nghĩa lại hàm formatMoneyShort trước khi dùng cho BarChart
   function formatMoneyShort(val: number) {
-    if (val >= 1_000_000_000_000)
-      return (val / 1_000_000_000_000).toFixed(1) + " T";
-    if (val >= 1_000_000_000) return (val / 1_000_000_000).toFixed(1) + " T";
-    if (val >= 1_000_000) return (val / 1_000_000).toFixed(1) + " Tr";
+    if (val >= 1_000_000) return (val / 1_000_000).toFixed(1) + 'M';
+    if (val >= 1_000) return (val / 1_000).toFixed(1) + 'K';
     return val.toLocaleString();
   }
 
@@ -476,11 +631,6 @@ export default function CustomerReportPage() {
     "Đã Đóng Cửa",
     "Khác",
   ];
-
-  function isInWeek(d: DataPoint, start: CalendarDate, end: CalendarDate) {
-    const dDate = parseVNDate(d.date);
-    return dDate.compare(start) >= 0 && dDate.compare(end) <= 0;
-  }
 
   // Đặt các biến tuần lên trước
   const weekStart = startDate;
@@ -520,10 +670,10 @@ export default function CustomerReportPage() {
   }
 
   const regionStats = REGIONS.map((region) => {
-    const ordersThisWeek = data.filter(
+    const ordersThisWeek = realData.filter(
       (d) => d.region === region && isInWeek(d, weekStart, weekEnd)
     ).length;
-    const ordersLastWeek = data.filter(
+    const ordersLastWeek = realData.filter(
       (d) => d.region === region && isInWeek(d, prevWeekStart, prevWeekEnd)
     ).length;
     const deltaOrders = ordersThisWeek - ordersLastWeek;
@@ -552,10 +702,10 @@ export default function CustomerReportPage() {
 
   // --- TÍNH TOÁN SỐ LIỆU TỔNG HỢP ---
   // 1. Tổng thực thu tuần này và tuần trước
-  const totalRevenueThisWeek = data
+  const totalRevenueThisWeek = realData
     .filter((d) => isInWeek(d, weekStart, weekEnd))
     .reduce((sum, d) => sum + d.value, 0);
-  const totalRevenueLastWeek = data
+  const totalRevenueLastWeek = realData
     .filter((d) => isInWeek(d, prevWeekStart, prevWeekEnd))
     .reduce((sum, d) => sum + d.value, 0);
   const percentRevenue =
@@ -565,12 +715,12 @@ export default function CustomerReportPage() {
         100;
 
   // 2. Thực thu của dịch vụ lẻ (giả lập: tổng value2 của type 'KH trải nghiệm')
-  const retailThisWeek = data
+  const retailThisWeek = realData
     .filter(
       (d) => d.type === "KH trải nghiệm" && isInWeek(d, weekStart, weekEnd)
     )
     .reduce((sum, d) => sum + d.value2, 0);
-  const retailLastWeek = data
+  const retailLastWeek = realData
     .filter(
       (d) =>
         d.type === "KH trải nghiệm" && isInWeek(d, prevWeekStart, prevWeekEnd)
@@ -582,13 +732,13 @@ export default function CustomerReportPage() {
       : ((retailThisWeek - retailLastWeek) / retailLastWeek) * 100;
 
   // 3. Thực thu mua sản phẩm (giả lập: tổng value2 của type 'Khách hàng Thành viên')
-  const productThisWeek = data
+  const productThisWeek = realData
     .filter(
       (d) =>
         d.type === "Khách hàng Thành viên" && isInWeek(d, weekStart, weekEnd)
     )
     .reduce((sum, d) => sum + d.value2, 0);
-  const productLastWeek = data
+  const productLastWeek = realData
     .filter(
       (d) =>
         d.type === "Khách hàng Thành viên" &&
@@ -601,22 +751,22 @@ export default function CustomerReportPage() {
       : ((productThisWeek - productLastWeek) / productLastWeek) * 100;
 
   // 4. Thực thu của mua thẻ (giả lập: tổng value của type 'Khách hàng Thành viên')
-  const cardOrdersThisWeek = data.filter(
+  const cardOrdersThisWeek = realData.filter(
     (d) => d.type === "Khách hàng Thành viên" && isInWeek(d, weekStart, weekEnd)
   ).length;
-  const cardOrdersLastWeek = data.filter(
+  const cardOrdersLastWeek = realData.filter(
     (d) =>
       d.type === "Khách hàng Thành viên" &&
       isInWeek(d, prevWeekStart, prevWeekEnd)
   ).length;
   const deltaCardOrders = cardOrdersThisWeek - cardOrdersLastWeek;
-  const cardThisWeek = data
+  const cardThisWeek = realData
     .filter(
       (d) =>
         d.type === "Khách hàng Thành viên" && isInWeek(d, weekStart, weekEnd)
     )
     .reduce((sum, d) => sum + d.value, 0);
-  const cardLastWeek = data
+  const cardLastWeek = realData
     .filter(
       (d) =>
         d.type === "Khách hàng Thành viên" &&
@@ -629,10 +779,10 @@ export default function CustomerReportPage() {
       : ((cardThisWeek - cardLastWeek) / cardLastWeek) * 100;
 
   // Move these lines up
-  const totalOrdersThisWeek = data.filter((d) =>
+  const totalOrdersThisWeek = realData.filter((d) =>
     isInWeek(d, weekStart, weekEnd)
   ).length;
-  const totalOrdersLastWeek = data.filter((d) =>
+  const totalOrdersLastWeek = realData.filter((d) =>
     isInWeek(d, prevWeekStart, prevWeekEnd)
   ).length;
   const deltaOrders = totalOrdersThisWeek - totalOrdersLastWeek;
@@ -709,26 +859,6 @@ export default function CustomerReportPage() {
         </div>
       </div>
     );
-  }
-
-  function parseVNDate(str: string): CalendarDate {
-    let match = str.match(/^(\d{1,2}) thg (\d{1,2}), (\d{4})$/);
-    if (match) {
-      const [, day, month, year] = match;
-      return parseDate(
-        `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-      );
-    }
-
-    match = str.match(/^(\d{1,2}) thg (\d{1,2})$/);
-    if (match) {
-      const [, day, month] = match;
-      const year = String(new Date().getFullYear());
-      return parseDate(
-        `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-      );
-    }
-    throw new Error("Invalid date format: " + str);
   }
 
   // Sửa filterData để lọc theo region/branch nếu có
@@ -874,7 +1004,7 @@ export default function CustomerReportPage() {
   // Tính top 10 location (chi nhánh/cửa hàng) theo thực thu tuần này
   const locationRevenueMap: Record<string, number> = {};
   locationOptions.forEach((loc) => {
-    locationRevenueMap[loc] = data
+    locationRevenueMap[loc] = realData
       .filter((d) => d.branch === loc && isInWeek(d, weekStart, weekEnd))
       .reduce((sum, d) => sum + d.value, 0);
   });
@@ -946,10 +1076,10 @@ export default function CustomerReportPage() {
 
   const storeTableData = locationOptions.map((loc) => {
     // Lọc data tuần này và tuần trước cho từng cửa hàng
-    const thisWeek = data.filter(
+    const thisWeek = realData.filter(
       (d) => d.branch === loc && isInWeek(d, weekStart, weekEnd)
     );
-    const lastWeek = data.filter(
+    const lastWeek = realData.filter(
       (d) => d.branch === loc && isInWeek(d, prevWeekStart, prevWeekEnd)
     );
     // Tổng thực thu
@@ -981,7 +1111,7 @@ export default function CustomerReportPage() {
 
   // Tính số lượng đơn hàng theo ngày (loại bỏ đơn mua thẻ)
   const ordersByDay: Record<string, { count: number; avgPerShop: number }> = {};
-  data.forEach((d) => {
+  realData.forEach((d) => {
     if (d.type !== "Khách hàng Thành viên") {
       if (!ordersByDay[d.date]) {
         ordersByDay[d.date] = { count: 0, avgPerShop: 0 };
@@ -993,7 +1123,7 @@ export default function CustomerReportPage() {
   Object.keys(ordersByDay).forEach((date) => {
     // Đếm số shop có đơn trong ngày đó
     const shops = new Set(
-      data
+      realData
         .filter((d) => d.date === date && d.type !== "Khách hàng Thành viên")
         .map((d) => d.branch)
     );
@@ -1030,7 +1160,7 @@ export default function CustomerReportPage() {
   });
 
   const storeOrderStats = locationOptions.map((loc) => {
-    const orders = data.filter(
+    const orders = realData.filter(
       (d) => d.branch === loc && isInWeek(d, weekStart, weekEnd)
     );
     return {
@@ -1058,10 +1188,10 @@ export default function CustomerReportPage() {
 
   // Tính dữ liệu bảng số đơn tại các cửa hàng (top 10 + tổng cộng)
   const storeOrderTableData = locationOptions.map((loc) => {
-    const thisWeek = data.filter(
+    const thisWeek = realData.filter(
       (d) => d.branch === loc && isInWeek(d, weekStart, weekEnd)
     );
-    const lastWeek = data.filter(
+    const lastWeek = realData.filter(
       (d) => d.branch === loc && isInWeek(d, prevWeekStart, prevWeekEnd)
     );
     const totalOrders = thisWeek.length;
@@ -1142,32 +1272,32 @@ export default function CustomerReportPage() {
     0
   );
 
-  const retailOrdersThisWeek = data.filter(
+  const retailOrdersThisWeek = realData.filter(
     (d) => d.type === "KH trải nghiệm" && isInWeek(d, weekStart, weekEnd)
   ).length;
-  const retailOrdersLastWeek = data.filter(
+  const retailOrdersLastWeek = realData.filter(
     (d) =>
       d.type === "KH trải nghiệm" && isInWeek(d, prevWeekStart, prevWeekEnd)
   ).length;
   const deltaRetailOrders = retailOrdersThisWeek - retailOrdersLastWeek;
 
-  const productOrdersThisWeek = data.filter(
+  const productOrdersThisWeek = realData.filter(
     (d) => d.type === "Mua sản phẩm" && isInWeek(d, weekStart, weekEnd)
   ).length;
-  const productOrdersLastWeek = data.filter(
+  const productOrdersLastWeek = realData.filter(
     (d) => d.type === "Mua sản phẩm" && isInWeek(d, prevWeekStart, prevWeekEnd)
   ).length;
   const deltaProductOrders = productOrdersThisWeek - productOrdersLastWeek;
 
   // --- Chuẩn bị data cho PieChart tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ ---
-  const totalMembership = data.filter(
+  const totalMembership = realData.filter(
     (d) => d.type === "Khách hàng Thành viên"
   ).length;
-  const totalNormal = data.filter((d) => d.type === "KH trải nghiệm").length;
+  const totalNormal = realData.filter((d) => d.type === "KH trải nghiệm").length;
   const totalFoxiePie = Math.round(
     (totalMembership + totalNormal + productOrdersThisWeek) * 0.218
   ); // Giả lập 21.8% như ảnh
-  const totalProduct = data.filter((d) => d.type === "Mua sản phẩm").length;
+  const totalProduct = realData.filter((d) => d.type === "Mua sản phẩm").length;
   const totalAllPie =
     totalMembership + totalNormal + totalFoxiePie + totalProduct;
   const piePaymentData = [
@@ -1178,7 +1308,7 @@ export default function CustomerReportPage() {
   ];
 
   const paymentRegionData = REGIONS.map((region) => {
-    const regionData = data.filter((d) => d.region === region);
+    const regionData = realData.filter((d) => d.region === region);
     return {
       region,
       bank: regionData.filter((d) => d.type === "Khách hàng Thành viên").length,
@@ -1214,6 +1344,109 @@ export default function CustomerReportPage() {
       </text>
     );
   };
+
+  const formatAxisDate = (dateString: string) => {
+    if (!dateString || typeof dateString !== 'string') return dateString;
+    const parsed = parseVNDate(dateString);
+    if (parsed) {
+      return `${String(parsed.day).padStart(2, '0')}/${String(parsed.month).padStart(2, '0')}`;
+    }
+    return dateString; // fallback
+  };
+
+  const getStoreTypeForBranch = (branchName: string) => {
+    if (locationRegionMap[branchName]) {
+      return locationRegionMap[branchName];
+    }
+    const lowerBranch = (branchName || "").toLowerCase();
+    if (
+      [
+        "q1",
+        "q3",
+        "q5",
+        "q7",
+        "q8",
+        "tân phú",
+        "bình tân",
+        "thảo điền",
+        "landmark",
+        "crescent mall",
+        "vincom",
+        "vista verde",
+        "aeon",
+        "estella",
+        "nowzone",
+        "sc vivocity",
+        "sun avenue",
+        "saigon mia",
+        "parc mall",
+        "millenium",
+        "riviera point",
+        "midtown",
+        "the bonatica",
+        "hoa lan",
+        "trương định",
+        "võ thị sáu",
+      ].some((k) => lowerBranch.includes(k))
+    )
+      return "HCM";
+    if (
+      [
+        "hà nội",
+        "tây hồ",
+        "bà triệu",
+        "imperia sky garden",
+        "đảo ngọc ngũ xã",
+      ].some((k) => lowerBranch.includes(k))
+    )
+      return "Hà Nội";
+    if (lowerBranch.includes("đà nẵng")) return "Đà Nẵng";
+    if (lowerBranch.includes("nha trang")) return "Nha Trang";
+    if (lowerBranch.includes("đã đóng cửa")) return "Đã Đóng Cửa";
+    return "Khác";
+  };
+
+  const storeTypeSalesByDay = React.useMemo(() => {
+    const filtered = realData.filter((d) => {
+      const dDate = parseVNDate(d.date);
+      return (
+        dDate && dDate.compare(startDate) >= 0 && dDate.compare(endDate) <= 0
+      );
+    });
+
+    const map: Record<string, TotalSaleOfStores> = {};
+    filtered.forEach((d) => {
+      const date = (() => {
+        const parsed = parseVNDate(d.date);
+        return parsed ? parsed.toString() : d.date;
+      })();
+      const storeType = getStoreTypeForBranch(d.branch || "");
+      if (!map[date]) {
+        map[date] = {
+          date,
+          Mall: 0,
+          Shophouse: 0,
+          NhaPho: 0,
+          DaDongCua: 0,
+          Khac: 0,
+          type: "Tổng",
+          status: "All",
+        };
+      }
+      if (storeType === "Mall") map[date].Mall += d.value;
+      else if (storeType === "Shophouse") map[date].Shophouse += d.value;
+      else if (storeType === "NhaPho") map[date].NhaPho += d.value;
+      else if (storeType === "DaDongCua") map[date].DaDongCua += d.value;
+      else map[date].Khac += d.value;
+    });
+
+    return Object.values(map).sort((a, b) => {
+      const d1 = parseVNDate(a.date);
+      const d2 = parseVNDate(b.date);
+      if (d1 && d2) return d1.compare(d2);
+      return 0;
+    });
+  }, [realData, startDate, endDate]);
 
   return (
     <div className="p-2 sm:p-4 md:p-6 max-w-full">
@@ -1385,7 +1618,7 @@ export default function CustomerReportPage() {
         </div>
 
         {/* Tổng doanh số vùng */}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5">
+        <div className=" w-full bg-white rounded-xl shadow-lg mt-5">
           <div className="text-base sm:text-xl font-medium text-gray-700 text-center mt-5">
             Tổng doanh số vùng
           </div>
@@ -1395,71 +1628,169 @@ export default function CustomerReportPage() {
                 <BarChart
                   width={1000}
                   height={400}
-                  data={filterData(
-                    TotalRegionalSales,
-                    selectedRegions,
-                    selectedBranches
-                  )}
+                  data={regionalSalesByDay}
                   margin={{ top: 50, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend
-                    wrapperStyle={{
-                      paddingTop: 5,
-                      paddingBottom: 10,
-                      display: "flex",
-                      justifyContent: "center",
-                      flexWrap: "wrap",
-                      width: "100%",
+                  <XAxis dataKey="date" tickFormatter={formatAxisDate} />
+                  <YAxis
+                    tickFormatter={(v) => {
+                      if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
+                      if (typeof v === 'number') return v.toLocaleString();
+                      return v;
                     }}
                   />
+                  <Tooltip
+                    formatter={(value) => {
+                      if (typeof value === 'number') {
+                        if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+                        return value.toLocaleString();
+                      }
+                      return value;
+                    }}
+                  />
+                  <Legend />
                   <Bar
                     dataKey="HCM"
                     fill="#ff7f7f"
                     name="HCM"
-                    label={{ position: "top" }}
+                    label={{
+                      position: "top",
+                      content: (props) => {
+                        const { value, x, y } = props;
+                        if (typeof value === 'number' && value < 1_000_000) return null;
+                        const xNum = typeof x === 'number' ? x : 0;
+                        const yNum = typeof y === 'number' ? y : 0;
+                        return (
+                          <text
+                            x={xNum}
+                            y={yNum - 6}
+                            fontSize={10}
+                            fill="#ff7f7f"
+                            textAnchor="middle"
+                          >
+                            {typeof value === 'number' ? formatMoneyShort(value) : ''}
+                          </text>
+                        );
+                      }
+                    }}
                   />
                   <Bar
                     dataKey="HaNoi"
                     fill="#b39ddb"
                     name="Hà Nội"
-                    label={{ position: "top" }}
+                    label={{
+                      position: "top",
+                      content: (props) => {
+                        const { value, x, y } = props;
+                        if (typeof value === 'number' && value < 1_000_000) return null;
+                        const xNum = typeof x === 'number' ? x : 0;
+                        const yNum = typeof y === 'number' ? y : 0;
+                        return (
+                          <text
+                            x={xNum}
+                            y={yNum - 6}
+                            fontSize={10}
+                            fill="#b39ddb"
+                            textAnchor="middle"
+                          >
+                            {typeof value === 'number' ? formatMoneyShort(value) : ''}
+                          </text>
+                        );
+                      }
+                    }}
                   />
                   <Bar
                     dataKey="DaNang"
                     fill="#8d6e63"
                     name="Đà Nẵng"
-                    label={{ position: "top" }}
+                    label={{
+                      position: "top",
+                      content: (props) => {
+                        const { value, x, y } = props;
+                        if (typeof value === 'number' && value < 1_000_000) return null;
+                        const xNum = typeof x === 'number' ? x : 0;
+                        const yNum = typeof y === 'number' ? y : 0;
+                        return (
+                          <text
+                            x={xNum}
+                            y={yNum - 6}
+                            fontSize={10}
+                            fill="#8d6e63"
+                            textAnchor="middle"
+                          >
+                            {typeof value === 'number' ? formatMoneyShort(value) : ''}
+                          </text>
+                        );
+                      }
+                    }}
                   />
                   <Bar
                     dataKey="NhaTrang"
                     fill="#c5e1a5"
                     name="Nha Trang"
-                    label={{ position: "top" }}
+                    label={{
+                      position: "top",
+                      content: (props) => {
+                        const { value, x, y } = props;
+                        if (typeof value === 'number' && value < 1_000_000) return null;
+                        const xNum = typeof x === 'number' ? x : 0;
+                        const yNum = typeof y === 'number' ? y : 0;
+                        return (
+                          <text
+                            x={xNum}
+                            y={yNum - 6}
+                            fontSize={10}
+                            fill="#c5e1a5"
+                            textAnchor="middle"
+                          >
+                            {typeof value === 'number' ? formatMoneyShort(value) : ''}
+                          </text>
+                        );
+                      }
+                    }}
                   />
                   <Bar
                     dataKey="DaDongCua"
                     stackId="a"
                     fill="#f0bf4c"
                     name="Đã đóng cửa"
-                    label={{ position: "top" }}
-                  >
-                    <LabelList
-                      dataKey="total"
-                      position="top"
-                      formatter={(value) =>
-                        value ? value.toLocaleString() : ""
+                    label={{
+                      position: "top",
+                      content: (props) => {
+                        const { value, x, y } = props;
+                        if (typeof value === 'number' && value < 1_000_000) return null;
+                        const xNum = typeof x === 'number' ? x : 0;
+                        const yNum = typeof y === 'number' ? y : 0;
+                        return (
+                          <text
+                            x={xNum}
+                            y={yNum - 6}
+                            fontSize={10}
+                            fill="#f0bf4c"
+                            textAnchor="middle"
+                          >
+                            {typeof value === 'number' ? formatMoneyShort(value) : ''}
+                          </text>
+                        );
                       }
-                      style={{
-                        fontWeight: "bold",
-                        fill: "#f0bf4c",
-                        fontSize: 16,
-                      }}
-                    />
-                  </Bar>
+                    }}
+                  />
+                  <LabelList
+                    dataKey="total"
+                    position="top"
+                    formatter={(label: React.ReactNode) => {
+                      if (typeof label === 'number') {
+                        return label.toLocaleString();
+                      }
+                      return '';
+                    }}
+                    style={{
+                      fontWeight: "bold",
+                      fill: "#f0bf4c",
+                      fontSize: 16,
+                    }}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -1477,17 +1808,27 @@ export default function CustomerReportPage() {
                 <BarChart
                   width={1000}
                   height={400}
-                  data={filterData(
-                    TotalSaleOfStores,
-                    selectedRegions,
-                    selectedBranches
-                  )}
+                  data={storeTypeSalesByDay}
                   margin={{ top: 50, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
+                  <XAxis dataKey="date" tickFormatter={formatAxisDate} />
+                  <YAxis
+                    tickFormatter={(v) => {
+                      if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
+                      if (typeof v === 'number') return v.toLocaleString();
+                      return v;
+                    }}
+                  />
+                  <Tooltip
+                    formatter={(value) => {
+                      if (typeof value === 'number') {
+                        if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+                        return value.toLocaleString();
+                      }
+                      return value;
+                    }}
+                  />
                   <Legend
                     wrapperStyle={{
                       paddingTop: 5,
@@ -1502,31 +1843,116 @@ export default function CustomerReportPage() {
                     dataKey="Mall"
                     fill="#ff7f7f"
                     name="Mall"
-                    label={{ position: "top" }}
+                    label={{
+                      position: "top",
+                      content: (props) => {
+                        const { value, x, y } = props;
+                        if (typeof value !== "number" || value === 0) return null;
+                        return (
+                          <text
+                            x={x}
+                            y={y - 6}
+                            fontSize={10}
+                            fill="#ff7f7f"
+                            textAnchor="middle"
+                          >
+                            {formatMoneyShort(value)}
+                          </text>
+                        );
+                      },
+                    }}
                   />
                   <Bar
                     dataKey="Shophouse"
                     fill="#b39ddb"
                     name="Shophouse"
-                    label={{ position: "top" }}
+                    label={{
+                      position: "top",
+                      content: (props) => {
+                        const { value, x, y } = props;
+                        if (typeof value !== "number" || value === 0) return null;
+                        return (
+                          <text
+                            x={x}
+                            y={y - 6}
+                            fontSize={10}
+                            fill="#b39ddb"
+                            textAnchor="middle"
+                          >
+                            {formatMoneyShort(value)}
+                          </text>
+                        );
+                      },
+                    }}
                   />
                   <Bar
                     dataKey="NhaPho"
                     fill="#8d6e63"
                     name="Nhà phố"
-                    label={{ position: "top" }}
+                    label={{
+                      position: "top",
+                      content: (props) => {
+                        const { value, x, y } = props;
+                        if (typeof value !== "number" || value === 0) return null;
+                        return (
+                          <text
+                            x={x}
+                            y={y - 6}
+                            fontSize={10}
+                            fill="#8d6e63"
+                            textAnchor="middle"
+                          >
+                            {formatMoneyShort(value)}
+                          </text>
+                        );
+                      },
+                    }}
                   />
                   <Bar
                     dataKey="DaDongCua"
                     fill="#c5e1a5"
                     name="Đã đóng cửa"
-                    label={{ position: "top" }}
+                    label={{
+                      position: "top",
+                      content: (props) => {
+                        const { value, x, y } = props;
+                        if (typeof value !== "number" || value === 0) return null;
+                        return (
+                          <text
+                            x={x}
+                            y={y - 6}
+                            fontSize={10}
+                            fill="#c5e1a5"
+                            textAnchor="middle"
+                          >
+                            {formatMoneyShort(value)}
+                          </text>
+                        );
+                      },
+                    }}
                   />
                   <Bar
                     dataKey="Khac"
                     fill="#81d4fa"
                     name="Khác"
-                    label={{ position: "top" }}
+                    label={{
+                      position: "top",
+                      content: (props) => {
+                        const { value, x, y } = props;
+                        if (typeof value !== "number" || value === 0) return null;
+                        return (
+                          <text
+                            x={x}
+                            y={y - 6}
+                            fontSize={10}
+                            fill="#81d4fa"
+                            textAnchor="middle"
+                          >
+                            {formatMoneyShort(value)}
+                          </text>
+                        );
+                      },
+                    }}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -1539,7 +1965,7 @@ export default function CustomerReportPage() {
           {/* Tổng doanh số trong tuần */}
           <div className="flex-1 bg-white rounded-xl shadow-lg p-4 sm:p-6 flex flex-col items-center justify-center min-w-[180px]">
             <div className="text-base sm:text-xl font-medium text-gray-700 mb-2 text-center">
-              Tổng doanh số trong tuần
+              Tổng doanh số 
             </div>
             <div className="text-3xl sm:text-5xl font-bold text-black mb-2">
               {totalWeekSales.toLocaleString()}
@@ -1561,10 +1987,10 @@ export default function CustomerReportPage() {
           {/* Tổng thực thu trong tuần */}
           <div className="flex-1 bg-white rounded-xl shadow-lg p-4 sm:p-6 flex flex-col items-center justify-center min-w-[180px]">
             <div className="text-base sm:text-xl font-medium text-gray-700 mb-2 text-center">
-              Tổng thực thu trong tuần
+              Tổng thực thu 
             </div>
             <div className="text-3xl sm:text-5xl font-bold text-black mb-2">
-              {totalWeekRevenue.toLocaleString()}
+              {totalRevenueThisWeek.toLocaleString()}
             </div>
             <div
               className={`flex items-center gap-1 text-lg sm:text-2xl font-semibold ${
@@ -1720,7 +2146,15 @@ export default function CustomerReportPage() {
                       />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip
+                    formatter={(value) => {
+                      if (typeof value === 'number') {
+                        if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+                        return value.toLocaleString();
+                      }
+                      return value;
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
               <ul className="space-y-2 mb-2">
@@ -1773,8 +2207,22 @@ export default function CustomerReportPage() {
                   height={isMobile ? 40 : 60}
                   tick={{ fontSize: isMobile ? 10 : 14 }}
                 />
-                <YAxis tick={{ fontSize: isMobile ? 10 : 14 }} />
-                <Tooltip />
+                <YAxis
+                  tickFormatter={(v) => {
+                    if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
+                    if (typeof v === 'number') return v.toLocaleString();
+                    return v;
+                  }}
+                />
+                <Tooltip
+                  formatter={(value) => {
+                    if (typeof value === 'number') {
+                      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+                      return value.toLocaleString();
+                    }
+                    return value;
+                  }}
+                />
                 <Legend
                   wrapperStyle={{
                     paddingTop: isMobile ? 0 : 10,
@@ -1834,11 +2282,7 @@ export default function CustomerReportPage() {
           <div className="w-full overflow-x-auto">
             <ResponsiveContainer width="100%" height={400} minWidth={320}>
               <LineChart
-                data={filterData(
-                  TotalSaleOfStores,
-                  selectedRegions,
-                  selectedBranches
-                )}
+                data={storeTypeSalesByDay}
                 margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
@@ -1847,9 +2291,24 @@ export default function CustomerReportPage() {
                   angle={-30}
                   textAnchor="end"
                   height={60}
+                  tickFormatter={formatAxisDate}
                 />
-                <YAxis />
-                <Tooltip />
+                <YAxis
+                  tickFormatter={(v) => {
+                    if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
+                    if (typeof v === 'number') return v.toLocaleString();
+                    return v;
+                  }}
+                />
+                <Tooltip
+                  formatter={(value) => {
+                    if (typeof value === 'number') {
+                      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+                      return value.toLocaleString();
+                    }
+                    return value;
+                  }}
+                />
                 <Legend
                   wrapperStyle={{
                     paddingTop: 10,
@@ -1886,17 +2345,17 @@ export default function CustomerReportPage() {
                 />
                 <Line
                   type="monotone"
-                  dataKey="Khac"
-                  name="Khác"
-                  stroke="#81d4fa"
+                  dataKey="DaDongCua"
+                  name="Đã đóng cửa"
+                  stroke="#f0bf4c"
                   strokeWidth={3}
                   dot={false}
                 />
                 <Line
                   type="monotone"
-                  dataKey="DaDongCua"
-                  name="Đã đóng cửa"
-                  stroke="#f0bf4c"
+                  dataKey="Khac"
+                  name="Khác"
+                  stroke="#81d4fa"
                   strokeWidth={3}
                   dot={false}
                 />
@@ -1923,8 +2382,22 @@ export default function CustomerReportPage() {
                   textAnchor="end"
                   height={60}
                 />
-                <YAxis />
-                <Tooltip />
+                <YAxis
+                  tickFormatter={(v) => {
+                    if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
+                    if (typeof v === 'number') return v.toLocaleString();
+                    return v;
+                  }}
+                />
+                <Tooltip
+                  formatter={(value) => {
+                    if (typeof value === 'number') {
+                      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+                      return value.toLocaleString();
+                    }
+                    return value;
+                  }}
+                />
                 <Legend
                   wrapperStyle={{
                     paddingTop: 10,
@@ -2215,7 +2688,15 @@ export default function CustomerReportPage() {
                 />
                 <YAxis yAxisId="left" orientation="left" tickCount={6} />
                 <YAxis yAxisId="right" orientation="right" tickCount={6} />
-                <Tooltip />
+                <Tooltip
+                  formatter={(value) => {
+                    if (typeof value === 'number') {
+                      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+                      return value.toLocaleString();
+                    }
+                    return value;
+                  }}
+                />
                 <Legend />
                 <Bar
                   yAxisId="left"
@@ -2263,7 +2744,15 @@ export default function CustomerReportPage() {
                   width={140}
                   tick={{ fontWeight: 400, fontSize: 14 }}
                 />
-                <Tooltip />
+                <Tooltip
+                  formatter={(value) => {
+                    if (typeof value === 'number') {
+                      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+                      return value.toLocaleString();
+                    }
+                    return value;
+                  }}
+                />
                 <Legend
                   wrapperStyle={{
                     display: isMobile ? "none" : "flex",
@@ -2555,9 +3044,21 @@ export default function CustomerReportPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="region" />
                 <YAxis
-                  tickFormatter={(v) => (v >= 1000 ? `${v / 1000} N` : v)}
+                  tickFormatter={(v) => {
+                    if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
+                    if (typeof v === 'number') return v.toLocaleString();
+                    return v;
+                  }}
                 />
-                <Tooltip />
+                <Tooltip
+                  formatter={(value) => {
+                    if (typeof value === 'number') {
+                      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+                      return value.toLocaleString();
+                    }
+                    return value;
+                  }}
+                />
                 <Legend />
                 <Bar
                   dataKey="bank"
