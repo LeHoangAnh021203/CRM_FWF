@@ -2162,8 +2162,8 @@ export default function CustomerReportPage() {
           <div className="w-full overflow-x-auto">
             <div className="min-w-[600px] md:min-w-0 ">
               <ResponsiveContainer
-                width={window.innerWidth < 640 ? 500 : "100%"}
-                height={window.innerWidth < 640 ? 400 : 500}
+                width={isMobile ? 500 : "100%"}
+                height={isMobile ? 400 : 500}
               >
                 <BarChart
                   data={storeServiceChartData}
@@ -2171,7 +2171,7 @@ export default function CustomerReportPage() {
                   margin={{
                     top: 20,
                     right: 30,
-                    left: window.innerWidth < 640 ? 40 : 100,
+                    left: isMobile ? 40 : 100,
                     bottom: 20,
                   }}
                 >
@@ -2179,18 +2179,18 @@ export default function CustomerReportPage() {
                   <XAxis
                     type="number"
                     tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)}
-                    tick={{ fontSize: window.innerWidth < 640 ? 10 : 14 }}
+                    tick={{ fontSize: isMobile ? 10 : 14 }}
                   />
                   <YAxis
                     dataKey="store"
                     type="category"
-                    tick={{ fontSize: window.innerWidth < 640 ? 10 : 12 }}
-                    width={window.innerWidth < 640 ? 120 : 150}
+                    tick={{ fontSize: isMobile ? 10 : 12 }}
+                    width={isMobile ? 120 : 150}
                   />
                   <Tooltip />
                   <Legend
                     wrapperStyle={{
-                      fontSize: window.innerWidth < 640 ? 10 : 14,
+                      fontSize: isMobile ? 10 : 14,
                     }}
                   />
                   <Bar
