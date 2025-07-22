@@ -129,18 +129,19 @@ export default function CustomerReportPage() {
   // Chuẩn hóa lại mảng data từ allRawData về DataPoint[]
   const data: DataPoint[] = allRawData
     .map((d) => {
-      let gender = d["Unnamed: 7"];
+      const row = d as Record<string, unknown>;
+      let gender = row["Unnamed: 7"] as string;
       if (gender !== "Nam" && gender !== "Nữ") gender = "#N/A";
       return {
-        date: d["Unnamed: 1"] || d["Unnamed: 3"] || "",
-        value: Number(d["Unnamed: 18"] ?? d["Unnamed: 9"]) || 0,
-        value2: Number(d["Unnamed: 19"] ?? d["Unnamed: 10"]) || 0,
-        type: d["Unnamed: 12"] || "",
-        status: d["Unnamed: 13"] || "",
+        date: String(row["Unnamed: 1"] || row["Unnamed: 3"] || ""),
+        value: Number(row["Unnamed: 18"] ?? row["Unnamed: 9"]) || 0,
+        value2: Number(row["Unnamed: 19"] ?? row["Unnamed: 10"]) || 0,
+        type: String(row["Unnamed: 12"] || ""),
+        status: String(row["Unnamed: 13"] || ""),
         gender: gender as "Nam" | "Nữ" | "#N/A",
-        region: d["Unnamed: 10"] || "",
-        branch: d["Unnamed: 11"] || "",
-        source: d["Unnamed: 13"] || "",
+        region: String(row["Unnamed: 10"] || ""),
+        branch: String(row["Unnamed: 11"] || ""),
+        source: String(row["Unnamed: 13"] || ""),
       };
     })
     .filter((d) => d.date && (d.gender === "Nam" || d.gender === "Nữ"));
@@ -331,7 +332,7 @@ export default function CustomerReportPage() {
 
   const filteredRawDataByDate = allRawData.filter((d) => {
     const dateStr = d["Unnamed: 1"] || d["Unnamed: 3"] || "";
-    if (INVALID_DATES.includes(dateStr.trim().toUpperCase())) return false;
+    if (INVALID_DATES.includes(String(dateStr).trim().toUpperCase())) return false;
     const dDate = parseVNDate(dateStr);
     return dDate.compare(startDate) >= 0 && dDate.compare(endDate) <= 0;
   });
@@ -380,7 +381,7 @@ export default function CustomerReportPage() {
 const oldCustomerPhones = new Set<string>();
 allRawData.forEach((d) => {
   const dateStr = d["Unnamed: 1"] || d["Unnamed: 3"] || "";
-  if (INVALID_DATES.includes(dateStr.trim().toUpperCase())) return;
+  if (INVALID_DATES.includes(String(dateStr).trim().toUpperCase())) return;
   const dDate = parseVNDate(dateStr);
   const phone = d["Unnamed: 4"]?.toString().trim();
   if (phone && dDate.compare(startDateForNewOldRatio) < 0) {
@@ -576,8 +577,9 @@ allRawData.forEach((d) => {
 
   const dateRange = getDateRangeArray(startDate, endDate);
 
-  const chartData = dateRange.map((dateObj) => {
-    const dateStr = dateObj.toString(); // dạng YYYY-MM-DD
+  // Định nghĩa kiểu cho chartData phù hợp với LineChart này
+  const chartData: { date: string; value: number; value2: number }[] = dateRange.map((dateObj) => {
+    const dateStr = dateObj.toString(); // luôn là string
 
     // Số khách mới của ngày này
     const value = filterData(
@@ -603,7 +605,7 @@ allRawData.forEach((d) => {
     ).length;
 
     return {
-      date: dateStr,
+      date: dateStr, // đảm bảo là string
       value,
       value2,
     };
