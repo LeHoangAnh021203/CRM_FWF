@@ -39,7 +39,7 @@ interface DataPoint {
 }
 
 interface RawDataRow {
-  [key: string]: string | number | undefined;
+  [key: string]: string | number | undefined | null;
 }
 
 interface MultiTypeCustomerDataPoint {
@@ -405,7 +405,7 @@ export default function CustomerReportPage() {
       if (d1 && d2) return d1.compare(d2);
       return 0;
     });
-  }, [realData, startDate, endDate]);
+  }, [realData, startDate, endDate, getRegionForBranch]);
 
   // kindOfCustomer: đủ cho 365 ngày trong năm 2025
   const kindOfCustomer: MultiTypeCustomerDataPoint[] = Array.from(
@@ -1446,7 +1446,7 @@ export default function CustomerReportPage() {
       if (d1 && d2) return d1.compare(d2);
       return 0;
     });
-  }, [realData, startDate, endDate]);
+  }, [realData, startDate, endDate, getStoreTypeForBranch]);
 
   return (
     <div className="p-2 sm:p-4 md:p-6 max-w-full">

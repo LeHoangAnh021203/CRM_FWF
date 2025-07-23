@@ -1629,7 +1629,11 @@ export default function CustomerReportPage() {
               <div className="text-red-500">{errorFacilityHour}</div>
             ) : (
               <div className="overflow-x-auto mt-4">
+
                 <div className="max-h-[320px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+
+                <div className="max-h-[320px] overflow-y-auto">
+
                   <table className="min-w-[600px] w-full border text-center">
                     <thead>
                       <tr>
@@ -1668,8 +1672,20 @@ export default function CustomerReportPage() {
                   </table>
                 </div>
               </div>
-            )}
-          </div>
+              </div>
+              
+            
+
+            
+                    )
+        
+        
+      
+  
+  
+
+                  }
+</div>
         </div>
       </div>
     </div>
