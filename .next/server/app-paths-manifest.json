@@ -1,5 +1,8 @@
 {
   "/favicon.ico/route": "app/favicon.ico/route.js",
+<<<<<<< HEAD
   "/_not-found/page": "app/_not-found/page.js",
+=======
+>>>>>>> 475611eba24db52a8a600e6de536a388cbc86e96
   "/customers/page": "app/customers/page.js"
 }
