@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   CalendarDate,
   today,
@@ -21,73 +21,56 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import salesData1 from "../../data/danh_sach_ban_hang.json";
-import salesData2 from "../../data/ban_hang_doanh_so.json";
-import salesData3 from "../../data/dich_vu_ban_hang.json";
-import khAppData from "../../data/khach_hang_su_dung_app.json";
 
-interface DataPoint {
-  date: string;
-  value: number;
-  value2: number;
-  type: string;
-  status: string;
-  gender: "Nam" | "Nữ" | "#N/A";
-  region?: string;
-  branch?: string;
-  source?: string;
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+// Custom hook dùng chung cho fetch API động
+function useApiData<T>(url: string, fromDate: string, toDate: string) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fromDate, toDate }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("API error: " + res.status);
+        return res.json();
+      })
+      .then((data) => {
+        setData(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, [url, fromDate, toDate]);
+
+  return { data, loading, error };
 }
 
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: unknown[];
-  label?: string | number;
+// Hook lấy width window
+function useWindowWidth() {
+  const [width, setWidth] = useState(1024);
+  useEffect(() => {
+    function handleResize() {
+      setWidth(window.innerWidth);
+    }
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  return width;
 }
-
-interface MultiTypeCustomerDataPoint {
-  date: string;
-  KHTraiNghiem: number;
-  KHThanhVien: number;
-  KHBac: number;
-  KHVang: number;
-  KHDong: number;
-  KHKimcuong: number;
-  type: string;
-  status: string;
-}
-
-interface OriginOfOrderDataPoint {
-  date: string;
-  vangLai: number;
-  fanpage: number;
-  chuaXacDinh: number;
-  facebook: number;
-  app: number;
-  web: number;
-  tiktok: number;
-  type: string;
-  status: string;
-}
-
-const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
-        <p className=" text-sm font-semibold text-gray-700">{`Ngày: ${label}`}</p>
-        {(payload as Array<{ color: string; name: string; value: number }>).map(
-          (entry, index) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {`${entry.name}: ${entry.value}`}
-            </p>
-          )
-        )}
-      </div>
-    );
-  }
-  return null;
-};
 
 export default function CustomerReportPage() {
+  const [customerSaleData] = useState([]);
   const [selectedType, setSelectedType] = useState<string[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
@@ -98,15 +81,275 @@ export default function CustomerReportPage() {
   const [endDate, setEndDate] = useState<CalendarDate>(
     today(getLocalTimeZone())
   );
-
-  // Thêm state cho Region và Branch
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
-  const allRegions = ["Đã đóng cửa", "Đà Nẵng", "Nha Trang", "Hà Nội", "HCM"];
-
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+  const COLORS = [
+    "#5bd1d7", "#eb94cf", "#f66035", "#00d084", "#9b51e0", "#0693e3",
+    "#ff7f7f", "#b39ddb", "#8d6e63", "#c5e1a5", "#81d4fa", "#fff176", "#d81b60"
+  ];
+
+  const allRegions = ["Đã đóng cửa", "Đà Nẵng", "Nha Trang", "Hà Nội", "HCM"];
   const allBranches = ["Branch 1", "Branch 2", "Branch 3"];
+
+  const fromDate = startDate
+    ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
+        startDate.day
+      ).padStart(2, "0")}T00:00:00`
+    : "";
+  const toDate = endDate
+    ? `${endDate.year}-${String(endDate.month).padStart(2, "0")}-${String(
+        endDate.day
+      ).padStart(2, "0")}T23:59:59`
+    : "";
+
+  const {
+    data: newCustomerRaw,
+    loading: loadingNewCustomer,
+    error: errorNewCustomer,
+  } = useApiData<{
+    currentRange: { date: string; count: number }[];
+    previousRange: { date: string; count: number }[];
+  }>(
+    `${API_BASE_URL}/api/customer-sale/new-customer-lineChart`,
+    fromDate,
+    toDate
+  );
+  const {
+    data: genderRatioRaw,
+    loading: loadingGenderRatio,
+    error: errorGenderRatio,
+  } = useApiData<{ male: number; female: number }>(
+    `${API_BASE_URL}/api/customer-sale/gender-ratio`,
+    fromDate,
+    toDate
+  );
+  const { data: customerTypeRaw } = useApiData<
+    Record<string, { date: string; count: number }[]>
+  >(`${API_BASE_URL}/api/customer-sale/customer-type-trend`, fromDate, toDate);
+  const { data: customerSourceRaw } = useApiData<
+    Record<string, { date: string; count: number }[]>
+  >(
+    `${API_BASE_URL}/api/customer-sale/customer-source-trend`,
+    fromDate,
+    toDate
+  );
+  const {
+    data: appDownloadStatusRaw,
+    loading,
+    error,
+  } = useApiData<Record<string, { date: string; count: number }[]>>(
+    `${API_BASE_URL}/api/customer-sale/app-download-status`,
+    fromDate,
+    toDate
+  );
+  const {
+    data: appDownloadRaw,
+    loading: loadingAppDownload,
+    error: errorAppDownload,
+  } = useApiData<{ totalNew: number; totalOld: number }>(
+    `${API_BASE_URL}/api/customer-sale/app-download-pieChart`,
+    fromDate,
+    toDate
+  );
+
+  const {
+    data: customerOldNewOrderRaw,
+    loading: loadingCustomerOldNewOrder,
+    error: errorCustomerOldNewOrder,
+  } = useApiData<{ totalNew: number; totalOld: number }>(
+    `${API_BASE_URL}/api/customer-sale/customer-old-new-order-pieChart`,
+    fromDate,
+    toDate
+  );
+
+  const {
+    data: customerSummaryRaw,
+    loading: loadingCustomerSummary,
+    error: errorCustomerSummary,
+  } = useApiData<{
+    totalNewCustomers: number;
+    actualCustomers: number;
+    growthTotal?: number;
+    growthActual?: number;
+  }>(`${API_BASE_URL}/api/customer-sale/customer-summary`, fromDate, toDate);
+
+  const {
+    data: genderRevenueRaw,
+    loading: loadingGenderRevenue,
+    error: errorGenderRevenue,
+  } = useApiData<{
+    avgRevenueMale: number;
+    avgRevenueFemale: number;
+    avgServiceMale: number;
+    avgServiceFemale: number;
+  }>(`${API_BASE_URL}/api/customer-sale/gender-revenue`, fromDate, toDate);
+
+  const { data: paymentPercentNewRaw } = useApiData<{
+    totalCash: number;
+    totalTransfer: number;
+    totalPrepaidCard: number;
+    totalDebt: number;
+    percentCash: number;
+    percentTransfer: number;
+    percentPrepaidCard: number;
+    percentDebt: number;
+  }>(`${API_BASE_URL}/api/customer-sale/payment-percent-new`, fromDate, toDate);
+
+  const { data: paymentPercentOldRaw } = useApiData<{
+    totalCash: number;
+    totalTransfer: number;
+    totalPrepaidCard: number;
+    totalDebt: number;
+  }>(`${API_BASE_URL}/api/customer-sale/payment-percent-old`, fromDate, toDate);
+
+  const { data: uniqueCustomersComparisonRaw } = useApiData<{
+    current: number;
+    previous: number;
+    changePercent: number;
+  }>(
+    `${API_BASE_URL}/api/customer-sale/unique-customers-comparison`,
+    fromDate,
+    toDate
+  );
+
+  const { data: facilityHourServiceRaw, loading: loadingFacilityHour, error: errorFacilityHour } = useApiData<{
+    facility: string;
+    hourlyCounts: Record<string, number>;
+    total: number;
+  }[]>(`${API_BASE_URL}/api/customer-sale/facility-hour-service`, fromDate, toDate);
+
+  // 1. Số khách tạo mới
+  const newCustomerChartData = React.useMemo(() => {
+    if (!newCustomerRaw) return [];
+    const current = Array.isArray(newCustomerRaw.currentRange)
+      ? newCustomerRaw.currentRange
+      : [];
+    const previous = Array.isArray(newCustomerRaw.previousRange)
+      ? newCustomerRaw.previousRange
+      : [];
+    return current.map(
+      (item: { date: string; count: number }, idx: number) => ({
+        date: item.date || "",
+        value: item.count,
+        value2: previous[idx]?.count ?? 0,
+      })
+    );
+  }, [newCustomerRaw]);
+
+  // 2. Tỷ lệ nam/nữ
+  const genderRatioData = React.useMemo(() => {
+    if (!genderRatioRaw) return [];
+    return [
+      { gender: "Nam", count: genderRatioRaw.male || 0 },
+      { gender: "Nữ", count: genderRatioRaw.female || 0 },
+    ];
+  }, [genderRatioRaw]);
+
+  // 3. Số khách tới chia theo loại
+  const customerTypeTrendData = React.useMemo(() => {
+    if (!customerTypeRaw) return [];
+    const allDatesSet = new Set();
+    Object.values(customerTypeRaw).forEach((arr) => {
+      (arr as Array<{ date: string; count: number }>).forEach((item) => {
+        allDatesSet.add(item.date.slice(0, 10));
+      });
+    });
+    const allDates = Array.from(allDatesSet).sort();
+    const allTypes = Object.keys(customerTypeRaw);
+    return allDates.map((date) => {
+      const row: Record<string, unknown> = { date };
+      allTypes.forEach((type) => {
+        const found = (
+          customerTypeRaw[type] as Array<{ date: string; count: number }>
+        ).find((item) => item.date.slice(0, 10) === date);
+        row[type] = found ? found.count : 0;
+      });
+      return row;
+    });
+  }, [customerTypeRaw]);
+
+  // 4. Nguồn của đơn hàng
+  const customerSourceTrendData = React.useMemo(() => {
+    if (!customerSourceRaw) return [];
+    const allDatesSet = new Set();
+    Object.values(customerSourceRaw).forEach((arr) => {
+      (arr as Array<{ date: string; count: number }>).forEach((item) => {
+        allDatesSet.add(item.date.slice(0, 10));
+      });
+    });
+    const allDates = Array.from(allDatesSet).sort();
+    const allTypes = Object.keys(customerSourceRaw);
+    return allDates.map((date) => {
+      const row: Record<string, unknown> = { date };
+      allTypes.forEach((type) => {
+        const found = (
+          customerSourceRaw[type] as Array<{ date: string; count: number }>
+        ).find((item) => item.date.slice(0, 10) === date);
+        row[type] = found ? found.count : 0;
+      });
+      return row;
+    });
+  }, [customerSourceRaw]);
+
+  // 5. Khách tải app/không tải
+
+  const appDownloadStatusData = React.useMemo(() => {
+    if (!appDownloadStatusRaw) return [];
+    // Chuyển object thành mảng
+    return Object.values(appDownloadStatusRaw).flat();
+  }, [appDownloadStatusRaw]);
+
+  // 6. Tỷ lệ tải app
+  const appDownloadPieData = React.useMemo(() => {
+    if (!appDownloadRaw) return [];
+    return [
+      { name: "Đã tải app", value: appDownloadRaw.totalNew || 0 },
+      { name: "Chưa tải app", value: appDownloadRaw.totalOld || 0 },
+    ];
+  }, [appDownloadRaw]);
+
+  // 7. Tỷ lệ mới/cũ
+  const customerOldNewOrderPieData = React.useMemo(() => {
+    if (!customerOldNewOrderRaw) return [];
+    return [
+      { name: "Khách mới", value: customerOldNewOrderRaw.totalNew || 0 },
+      { name: "Khách cũ", value: customerOldNewOrderRaw.totalOld || 0 },
+    ];
+  }, [customerOldNewOrderRaw]);
+
+  // Tỉ lệ các hình thức thanh toán (khách mới)
+  const paymentPercentNewPieData = React.useMemo(() => {
+    if (!paymentPercentNewRaw) return [];
+    const tongThanhToan =
+      (paymentPercentNewRaw.totalCash || 0) +
+      (paymentPercentNewRaw.totalTransfer || 0) +
+      (paymentPercentNewRaw.totalPrepaidCard || 0);
+
+    return [
+      {
+        name: "TM+CK+QT",
+        value: tongThanhToan,
+        color: "#f66035",
+      },
+      {
+        name: "TIỀN MẶT",
+        value: paymentPercentNewRaw.totalCash || 0,
+        color: "#00d084",
+      },
+      {
+        name: "CHUYỂN KHOẢN",
+        value: paymentPercentNewRaw.totalTransfer || 0,
+        color: "#5bd1d7",
+      },
+      {
+        name: "CÒN NỢ",
+        value: paymentPercentNewRaw.totalDebt || 0,
+        color: "#eb94cf",
+      },
+    ];
+  }, [paymentPercentNewRaw]);
 
   const customerTypes = [
     "KH trải nghiệm",
@@ -119,342 +362,82 @@ export default function CustomerReportPage() {
 
   const customerStatus = ["New", "Old"];
 
+  // 1. Keep your raw data as-is (no type annotation)
   const allRawData = [
-    ...(Array.isArray(salesData1) ? salesData1 : []),
-    ...(Array.isArray(salesData2) ? salesData2 : []),
-    ...(Array.isArray(salesData3) ? salesData3 : []),
-    ...(Array.isArray(khAppData) ? khAppData : []),
+    ...(Array.isArray(customerSaleData) ? customerSaleData : []),
   ];
 
-  // Chuẩn hóa lại mảng data từ allRawData về DataPoint[]
-  const data: DataPoint[] = allRawData
-    .map((d) => {
-      const row = d as Record<string, unknown>;
-      let gender = row["Unnamed: 7"] as string;
-      if (gender !== "Nam" && gender !== "Nữ") gender = "#N/A";
-      return {
-        date: String(row["Unnamed: 1"] || row["Unnamed: 3"] || ""),
-        value: Number(row["Unnamed: 18"] ?? row["Unnamed: 9"]) || 0,
-        value2: Number(row["Unnamed: 19"] ?? row["Unnamed: 10"]) || 0,
-        type: String(row["Unnamed: 12"] || ""),
-        status: String(row["Unnamed: 13"] || ""),
-        gender: gender as "Nam" | "Nữ" | "#N/A",
-        region: String(row["Unnamed: 10"] || ""),
-        branch: String(row["Unnamed: 11"] || ""),
-        source: String(row["Unnamed: 13"] || ""),
-      };
-    })
-    .filter((d) => d.date && (d.gender === "Nam" || d.gender === "Nữ"));
 
-  // Sửa filterData để lọc theo region/branch nếu có
-  function filterData<
-    T extends {
-      type: string;
-      status: string;
-      date: string;
-      region?: string;
-      branch?: string;
-    }
-  >(
-    data: T[],
-    selectedType: string[],
-    selectedStatus: string | null,
-    start: CalendarDate,
-    end: CalendarDate,
-    selectedRegions?: string[],
-    selectedBranches?: string[]
-  ): T[] {
-    return data.filter((item) => {
-      const matchType =
-        selectedType.length === 0 || selectedType.includes(item.type);
-      const matchStatus = !selectedStatus || item.status === selectedStatus;
-      const itemDate = parseVNDate(item.date);
-      const matchDate =
-        itemDate.compare(start) >= 0 && itemDate.compare(end) <= 0;
-      const matchRegion =
-        !selectedRegions ||
-        selectedRegions.length === 0 ||
-        !item.region ||
-        selectedRegions.includes(item.region);
-      const matchBranch =
-        !selectedBranches ||
-        selectedBranches.length === 0 ||
-        !item.branch ||
-        selectedBranches.includes(item.branch);
-      return (
-        matchType && matchStatus && matchDate && matchRegion && matchBranch
-      );
-    });
-  }
 
-  const isInRange = (d: DataPoint) => {
-    const dDate = parseVNDate(d.date);
-    return dDate.compare(startDate) >= 0 && dDate.compare(endDate) <= 0;
-  };
+  
 
-  // Lọc data theo ngày đã chọn
-  const filteredData = data.filter(isInRange);
-
-  // Hàm chuẩn hóa ngày về dạng YYYY-MM-DD
-  function normalizeDateOnly(str: string): string {
-    // Format "hh:mm dd/mm/yyyy"
-    let match = str.match(/^\d{1,2}:\d{2} (\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (match) {
-      const [, day, month, year] = match;
-      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-    }
-    // Format "dd/mm/yyyy"
-    match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (match) {
-      const [, day, month, year] = match;
-      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-    }
-    // Nếu đã là YYYY-MM-DD
-    match = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (match) return str;
-    // Nếu không khớp, trả về chuỗi gốc
-    return str;
-  }
-
-  // Tổng hợp dữ liệu thực tế cho chart 'Số khách tới chia theo loại' theo ngày
-  const kindOfCustomerReal: MultiTypeCustomerDataPoint[] = Object.values(
-    filteredData.reduce((acc, cur) => {
-      const dayKey = normalizeDateOnly(cur.date);
-      if (!dayKey) return acc;
-      if (!acc[dayKey]) {
-        acc[dayKey] = {
-          date: dayKey,
-          KHTraiNghiem: 0,
-          KHThanhVien: 0,
-          KHBac: 0,
-          KHVang: 0,
-          KHDong: 0,
-          KHKimcuong: 0,
-          type: "",
-          status: "",
-        };
-      }
-      switch (cur.type) {
-        case "KH trải nghiệm":
-          acc[dayKey].KHTraiNghiem += 1;
-          break;
-        case "Khách hàng Thành viên":
-          acc[dayKey].KHThanhVien += 1;
-          break;
-        case "Khách hàng Bạc":
-          acc[dayKey].KHBac += 1;
-          break;
-        case "Khách hàng Vàng":
-          acc[dayKey].KHVang += 1;
-          break;
-        case "Khách hàng Đồng":
-          acc[dayKey].KHDong += 1;
-          break;
-        case "Khách hàng Kim cương":
-          acc[dayKey].KHKimcuong += 1;
-          break;
-        default:
-          break;
-      }
-      return acc;
-    }, {} as Record<string, MultiTypeCustomerDataPoint>)
-  );
-
-  // Tổng hợp dữ liệu thực tế cho chart 'Nguồn của đơn hàng'
-  const orderSources = [
-    {
-      key: "vangLai",
-      label: "Vãng lai",
-      match: ["Vãng lai", "vanglai", "Vang lai"],
-    },
-    { key: "fanpage", label: "Fanpage", match: ["Fanpage", "fanpage"] },
-    { key: "facebook", label: "Facebook", match: ["Facebook", "facebook"] },
-    { key: "app", label: "App", match: ["App", "app"] },
-    { key: "web", label: "Web", match: ["Web", "web"] },
-    {
-      key: "tiktok",
-      label: "Tiktok shop",
-      match: ["Tiktok", "Tiktok shop", "tiktok"],
-    },
-  ];
-
-  const originOfOrderReal = Object.values(
-    filteredData.reduce((acc, cur) => {
-      const dayKey = normalizeDateOnly(cur.date);
-      if (!dayKey) return acc;
-      if (!acc[dayKey]) {
-        acc[dayKey] = {
-          date: dayKey,
-          vangLai: 0,
-          fanpage: 0,
-          facebook: 0,
-          app: 0,
-          web: 0,
-          tiktok: 0,
-          chuaXacDinh: 0,
-          type: "",
-          status: "",
-        };
-      }
-      let found = false;
-      for (const src of orderSources) {
-        if (
-          src.match.some(
-            (m) =>
-              cur.source && cur.source.toLowerCase().includes(m.toLowerCase())
-          )
-        ) {
-          if (src.key === "vangLai") acc[dayKey].vangLai += 1;
-          else if (src.key === "fanpage") acc[dayKey].fanpage += 1;
-          else if (src.key === "facebook") acc[dayKey].facebook += 1;
-          else if (src.key === "app") acc[dayKey].app += 1;
-          else if (src.key === "web") acc[dayKey].web += 1;
-          else if (src.key === "tiktok") acc[dayKey].tiktok += 1;
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        acc[dayKey].chuaXacDinh += 1;
-      }
-      return acc;
-    }, {} as Record<string, OriginOfOrderDataPoint>)
-  );
-
-  // Lọc allRawData theo ngày đã chọn
   const INVALID_DATES = [
     "NGÀY TẠO",
     "MÃ ĐƠN HÀNG",
     "TÊN KHÁCH HÀNG",
     "SỐ ĐIỆN THOẠI",
-    "NHÓM KHÁCH HÀNG"
+    "NHÓM KHÁCH HÀNG",
   ];
 
   const filteredRawDataByDate = allRawData.filter((d) => {
     const dateStr = d["Unnamed: 1"] || d["Unnamed: 3"] || "";
-    if (INVALID_DATES.includes(String(dateStr).trim().toUpperCase())) return false;
-    const dDate = parseVNDate(dateStr);
+    if (INVALID_DATES.includes(String(dateStr).trim().toUpperCase()))
+      return false;
+    const dDate = parseVNDate(String(dateStr));
     return dDate.compare(startDate) >= 0 && dDate.compare(endDate) <= 0;
   });
 
-  // Lấy danh sách số điện thoại khách hàng từ 3 file bán hàng đã lọc ngày
   const filteredCustomerPhones = new Set<string>();
   filteredRawDataByDate.forEach((d) => {
-    if (d["Unnamed: 4"])
-      filteredCustomerPhones.add(d["Unnamed: 4"].toString().trim());
+    const phone = (d["Unnamed: 4"] as string | number | undefined)
+      ?.toString()
+      .trim();
+    if (phone) filteredCustomerPhones.add(phone);
   });
 
-  // Lấy danh sách số điện thoại khách đã sử dụng app (lọc theo khách trong khoảng ngày)
   const filteredAppPhoneSet = new Set<string>();
-  if (Array.isArray(khAppData)) {
-    khAppData.forEach((d) => {
-      const phone = d["Unnamed: 3"]?.toString().trim();
+  if (Array.isArray(customerSaleData)) {
+    customerSaleData.forEach((d) => {
+      const phone = (d["Unnamed: 3"] as string | number | undefined)
+        ?.toString()
+        .trim();
       if (phone && filteredCustomerPhones.has(phone)) {
         filteredAppPhoneSet.add(phone);
       }
     });
   }
 
-  const tongKhach = filteredCustomerPhones.size;
-  const soKhachTaiApp = filteredAppPhoneSet.size;
-  const soKhachChuaTaiApp = tongKhach - soKhachTaiApp;
-
-  const appCustomerBarData = [
-    {
-      name: "Khách hàng",
-      daTaiApp: soKhachTaiApp,
-      chuaTaiApp: soKhachChuaTaiApp,
-    },
-  ];
-
   const APP_CUSTOMER_PIE_COLORS = ["#9ee347", "#f0bf4c"];
-
-  const newOldCustomerData = [
-    { name: "Khách mới", value: 2847, color: "#5bd1d7" },
-    { name: "Khách cũ", value: 1690, color: "#eb94cf" },
-  ];
 
   const NEW_OLD_COLORS = ["#5bd1d7", "#eb94cf"];
 
   const startDateForNewOldRatio = startDate;
-  // 2. Tập hợp số điện thoại đã từng mua trước ngày lọc
-const oldCustomerPhones = new Set<string>();
-allRawData.forEach((d) => {
-  const dateStr = d["Unnamed: 1"] || d["Unnamed: 3"] || "";
-  if (INVALID_DATES.includes(String(dateStr).trim().toUpperCase())) return;
-  const dDate = parseVNDate(dateStr);
-  const phone = d["Unnamed: 4"]?.toString().trim();
-  if (phone && dDate.compare(startDateForNewOldRatio) < 0) {
-    oldCustomerPhones.add(phone);
-  }
-});
-  // 1. Lấy danh sách số điện thoại khách mới trong khoảng ngày đã chọn
-  // Xác định khách mới
+
+  const oldCustomerPhones = new Set<string>();
+  allRawData.forEach((d) => {
+    const dateStr = d["Unnamed: 1"] || d["Unnamed: 3"] || "";
+    if (INVALID_DATES.includes(String(dateStr).trim().toUpperCase())) return;
+    const dDate = parseVNDate(String(dateStr));
+    const phone = (d["Unnamed: 4"] as string | number | undefined)
+      ?.toString()
+      .trim();
+    if (phone && dDate.compare(startDateForNewOldRatio) < 0) {
+      oldCustomerPhones.add(phone);
+    }
+  });
+
   const phoneFirstSeen = new Set<string>();
   const newCustomerPhones = new Set<string>();
   filteredRawDataByDate.forEach((d) => {
-    const phone = d["Unnamed: 4"]?.toString().trim();
+    const phone = (d["Unnamed: 4"] as string | number | undefined)
+      ?.toString()
+      .trim();
     if (!phone) return;
     if (!oldCustomerPhones.has(phone) && !phoneFirstSeen.has(phone)) {
       newCustomerPhones.add(phone);
       phoneFirstSeen.add(phone);
     }
   });
-
-  // 2. Lọc các đơn của khách mới trong khoảng ngày đã chọn
-  const newCustomerOrders = filteredRawDataByDate.filter(
-    (d) => {
-      const phone = d["Unnamed: 4"]?.toString().trim();
-      return phone && newCustomerPhones.has(phone);
-    }
-  );
-
-  // 3. Đếm số đơn theo loại (khách mới)
-  const newNormalPayment = newCustomerOrders.filter(
-    (d) => d.type === "KH trải nghiệm"
-  ).length;
-  const newFoxieCard = newCustomerOrders.filter(
-    (d) => d.type === "Khách hàng Thành viên"
-  ).length;
-  const newProductPayment = newCustomerOrders.filter(
-    (d) => d.type === "Mua sản phẩm"
-  ).length;
-
-  // 4. Tạo lại pieNewGuestData
-  const pieNewGuestData = [
-    { name: "Normal payment", value: newNormalPayment, color: "#ff6900" },
-    { name: "Foxie Card Purchase", value: newFoxieCard, color: "#cf2e2e" },
-    { name: "Products Purchase payment", value: newProductPayment, color: "#00d084" },
-  ];
-
-  // --- Dùng dữ liệu thật cho khách cũ ---
-  // 5. Lọc các đơn của khách cũ trong khoảng ngày đã chọn
-  const oldCustomerOrders = filteredRawDataByDate.filter(
-    (d) => {
-      const phone = d["Unnamed: 4"]?.toString().trim();
-      return phone && oldCustomerPhones.has(phone);
-    }
-  );
-
-  // 6. Đếm số đơn theo loại (khách cũ)
-  const oldNormalPayment = oldCustomerOrders.filter(
-    (d) => d.type === "KH trải nghiệm"
-  ).length;
-  const oldFoxieCard = oldCustomerOrders.filter(
-    (d) => d.type === "Khách hàng Thành viên"
-  ).length;
-  const oldProductPayment = oldCustomerOrders.filter(
-    (d) => d.type === "Mua sản phẩm"
-  ).length;
-
-  // 7. Tạo lại pieOldGuestData
-  const pieOldGuestData = [
-    { name: "Normal payment", value: oldNormalPayment, color: "#9ee347" },
-    { name: "Foxie Card Purchase", value: oldFoxieCard, color: "#5bd1d7" },
-    { name: "Products Purchase payment", value: oldProductPayment, color: "#f0bf4c" },
-  ];
-
-  const NEW_GUEST_COLOR = ["#FF6900", "#CF2E2E", "#00D084"];
 
   function parseVNDate(str: string): CalendarDate {
     if (!str || typeof str !== "string") return today(getLocalTimeZone());
@@ -466,7 +449,7 @@ allRawData.forEach((d) => {
         `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
       );
     }
-    // Format "dd/mm/yyyy"
+
     match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (match) {
       const [, day, month, year] = match;
@@ -474,142 +457,119 @@ allRawData.forEach((d) => {
         `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
       );
     }
-    // Các format khác giữ nguyên
-    // ...
     return today(getLocalTimeZone());
   }
 
-  function getDateRangeArray(start: CalendarDate, end: CalendarDate) {
-    const arr = [];
-    let d = start;
-    while (d.compare(end) <= 0) {
-      arr.push(d);
-      d = d.add({ days: 1 });
-    }
-    return arr;
-  }
-
-  // --- HIỂN THỊ 4 CARD ---
-
-  // Trung bình đơn thực thu (Nam)
-  const maleActualOrders = filteredData.filter(
-    (d) => d.gender === "Nam" && d.value > 0
-  );
-  const maleActualOrderAvg =
-    maleActualOrders.length > 0
-      ? Math.round(
-          maleActualOrders.reduce((sum, d) => sum + d.value, 0) /
-            maleActualOrders.length
-        )
-      : 0;
-
-  // Trung bình đơn thực thu (Nữ)
-  const femaleActualOrders = filteredData.filter(
-    (d) => d.gender === "Nữ" && d.value > 0
-  );
-  const femaleActualOrderAvg =
-    femaleActualOrders.length > 0
-      ? Math.round(
-          femaleActualOrders.reduce((sum, d) => sum + d.value, 0) /
-            femaleActualOrders.length
-        )
-      : 0;
-
-  // Trung bình đơn dịch vụ (Nam)
-  const maleServiceOrders = filteredData.filter(
-    (d) => d.gender === "Nam" && d.type === "KH trải nghiệm" && d.value > 0
-);
-const maleServiceOrderAvg =
-  maleServiceOrders.length > 0
-    ? Math.round(
-        maleServiceOrders.reduce((sum, d) => sum + d.value, 0) /
-          maleServiceOrders.length
-      )
-    : 0;
-
-// Trung bình đơn dịch vụ (Nữ)
-const femaleServiceOrders = filteredData.filter(
-  (d) => d.gender === "Nữ" && d.type === "KH trải nghiệm" && d.value > 0
-);
-const femaleServiceOrderAvg =
-  femaleServiceOrders.length > 0
-    ? Math.round(
-        femaleServiceOrders.reduce((sum, d) => sum + d.value, 0) /
-          femaleServiceOrders.length
-      )
-    : 0;
-
-  // Dữ liệu cho PieChart tỷ lệ tải app
-  const appCustomerPieData = [
-    { name: "Đã tải app", value: soKhachTaiApp },
-    { name: "Chưa tải app", value: soKhachChuaTaiApp },
-  ];
-
-  // 1. Lấy ngày bắt đầu lọc
-  
-
-  // 2. Tập hợp số điện thoại đã từng mua trước ngày lọc
-  
-
-  // 3. Duyệt các giao dịch trong khoảng ngày đã chọn
-  const phoneFirstSeenForNewOldRatio = new Set<string>();
-  let newCount = 0, oldCount = 0;
+  const phoneFirstSeenInRange = new Set<string>();
 
   filteredRawDataByDate.forEach((d) => {
-    const phone = d["Unnamed: 4"]?.toString().trim();
+    const phone = (d["Unnamed: 4"] as string | number | undefined)
+      ?.toString()
+      .trim();
     if (!phone) return;
     if (oldCustomerPhones.has(phone)) {
-      oldCount++;
-    } else if (!phoneFirstSeenForNewOldRatio.has(phone)) {
-      // Lần đầu tiên xuất hiện trong khoảng ngày lọc, là khách mới
-      newCount++;
-      phoneFirstSeenForNewOldRatio.add(phone);
+    } else if (!phoneFirstSeenInRange.has(phone)) {
+      phoneFirstSeenInRange.add(phone);
     } else {
-      // Xuất hiện lần thứ 2 trở lên trong khoảng ngày lọc, là khách cũ
-      oldCount++;
     }
   });
 
-  const newOldCustomerDataForChart = [
-    { name: "Khách mới", value: newCount },
-    { name: "Khách cũ", value: oldCount },
-  ];
+  const windowWidth = useWindowWidth();
+  const isMobile = windowWidth < 640;
 
-  const dateRange = getDateRangeArray(startDate, endDate);
+  const paymentPercentOldPieData = React.useMemo(() => {
+    if (!paymentPercentOldRaw) return [];
+    const tongThanhToan =
+      (paymentPercentOldRaw.totalCash || 0) +
+      (paymentPercentOldRaw.totalTransfer || 0) +
+      (paymentPercentOldRaw.totalPrepaidCard || 0);
 
-  // Định nghĩa kiểu cho chartData phù hợp với LineChart này
-  const chartData: { date: string; value: number; value2: number }[] = dateRange.map((dateObj) => {
-    const dateStr = dateObj.toString(); // luôn là string
+    return [
+      {
+        name: "TM+CK+QT",
+        value: tongThanhToan,
+        color: "#f66035",
+      },
+      {
+        name: "TIỀN MẶT",
+        value: paymentPercentOldRaw.totalCash || 0,
+        color: "#00d084",
+      },
+      {
+        name: "CHUYỂN KHOẢN",
+        value: paymentPercentOldRaw.totalTransfer || 0,
+        color: "#5bd1d7",
+      },
+      {
+        name: "CÒN NỢ",
+        value: paymentPercentOldRaw.totalDebt || 0,
+        color: "#eb94cf",
+      },
+    ];
+  }, [paymentPercentOldRaw]);
 
-    // Số khách mới của ngày này
-    const value = filterData(
-      data,
-      selectedType,
-      selectedStatus,
-      dateObj,
-      dateObj,
-      selectedRegions,
-      selectedBranches
-    ).length;
 
-    // Số khách mới của ngày này nhưng lùi lại 30 ngày
-    const date30DaysAgo = dateObj.subtract({ days: 30 });
-    const value2 = filterData(
-      data,
-      selectedType,
-      selectedStatus,
-      date30DaysAgo,
-      date30DaysAgo,
-      selectedRegions,
-      selectedBranches
-    ).length;
+  const allHourRanges = React.useMemo(() => {
+    if (!facilityHourServiceRaw) return [];
+    const set = new Set<string>();
+    facilityHourServiceRaw.forEach(item => {
+      Object.keys(item.hourlyCounts).forEach(hour => set.add(hour));
+    });
+    // Sắp xếp theo thứ tự giờ tăng dần (nếu muốn)
+    return Array.from(set).sort((a, b) => {
+      // Tách số đầu tiên để so sánh
+      const getStart = (s: string) => parseInt(s.split('-')[0], 10);
+      return getStart(a) - getStart(b);
+    });
+  }, [facilityHourServiceRaw]);
 
-    return {
-      date: dateStr, // đảm bảo là string
-      value,
-      value2,
-    };
-  });
+  const facilityHourTableData = React.useMemo(() => {
+    if (!facilityHourServiceRaw) return [];
+    return facilityHourServiceRaw.map(item => ({
+      facility: item.facility,
+      ...item.hourlyCounts, // mỗi key là 1 khung giờ, value là số lượng
+      total: item.total,
+    }) as { facility: string; total: number; [key: string]: number | string });
+  }, [facilityHourServiceRaw]);
+
+  const customerTypeKeys = customerTypeTrendData.length > 0
+    ? Object.keys(customerTypeTrendData[0]).filter((k) => k !== "date")
+    : [];
+
+  // Before rendering the BarChart for 'Nguồn của đơn hàng', define the dynamic list of sources and assign colors by index
+  const customerSourceKeys = React.useMemo(() => {
+    if (customerSourceTrendData.length === 0) return [];
+    return Object.keys(customerSourceTrendData[0]).filter((key) => key !== "date");
+  }, [customerSourceTrendData]);
+
+  // Calculate peak hours and facilities for coloring
+  const hourTotals = React.useMemo(() => {
+    const totals: Record<string, number> = {};
+    facilityHourTableData.forEach(row => {
+      allHourRanges.forEach(hour => {
+        const val = Number(row[hour] ?? 0);
+        totals[hour] = (totals[hour] || 0) + val;
+      });
+    });
+    return totals;
+  }, [facilityHourTableData, allHourRanges]);
+  const maxHourTotal = Math.max(...Object.values(hourTotals));
+  const peakHours = Object.keys(hourTotals).filter(h => hourTotals[h] === maxHourTotal);
+
+  const maxFacilityTotal = React.useMemo(() => {
+    return Math.max(...facilityHourTableData.map(row => Number(row.total ?? 0)));
+  }, [facilityHourTableData]);
+  const peakFacilities = facilityHourTableData.filter(row => Number(row.total ?? 0) === maxFacilityTotal).map(row => row.facility);
+
+  // Helper for cell color scale
+  function getCellBg(val: number, max: number) {
+    if (!max || max === 0) return '';
+    const percent = val / max;
+    if (percent > 0.85) return 'bg-[#ffe5e5]'; // very high
+    if (percent > 0.6) return 'bg-[#fff3cd]'; // high
+    if (percent > 0.3) return 'bg-[#e3fcec]'; // medium
+    return '';
+  }
 
   return (
     <div className="p-4 lg:p-6">
@@ -783,7 +743,7 @@ const femaleServiceOrderAvg =
                       />
                       Tất cả
                     </label>
-                    {allRegions.map((region) => (
+                    {allRegions.map((region: string) => (
                       <label
                         key={region}
                         className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100"
@@ -839,7 +799,7 @@ const femaleServiceOrderAvg =
                       />
                       Tất cả
                     </label>
-                    {allBranches.map((branch) => (
+                    {allBranches.map((branch: string) => (
                       <label
                         key={branch}
                         className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100"
@@ -881,51 +841,93 @@ const femaleServiceOrderAvg =
                 Tổng số khách trong khoảng ngày đã chọn
               </div>
               <div className="text-3xl lg:text-5xl font-bold text-[#f66035] mb-2">
-                {filteredData.length.toLocaleString()}{" "}
+                {uniqueCustomersComparisonRaw?.current?.toLocaleString() ?? 0}{" "}
                 <span className="text-lg lg:text-2xl">khách</span>
+              </div>
+              <div
+                className={`text-base lg:text-xl font-semibold ${
+                  uniqueCustomersComparisonRaw?.changePercent !== undefined
+                    ? uniqueCustomersComparisonRaw.changePercent > 0
+                      ? "text-green-600"
+                      : uniqueCustomersComparisonRaw.changePercent < 0
+                      ? "text-red-500"
+                      : "text-gray-500"
+                    : "text-gray-500"
+                }`}
+              >
+                {uniqueCustomersComparisonRaw?.changePercent !== undefined
+                  ? uniqueCustomersComparisonRaw.changePercent > 0
+                    ? "↑"
+                    : "↓"
+                  : ""}{" "}
+                {Math.abs(uniqueCustomersComparisonRaw?.changePercent ?? 0).toFixed(2)}%
               </div>
             </div>
           </div>
 
           {/* 4 bảng thống kê */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-4 lg:mb-6">
-            {/* Card 1: Trung bình đơn thực thu Nam */}
+            {/* Trung bình đơn thực thu (Nam) */}
             <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center">
               <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
                 Trung bình đơn thực thu (Nam)
               </div>
               <div className="text-2xl font-bold text-[#f66035] mb-2">
-                {maleActualOrderAvg.toLocaleString()}{" "}
+                {loadingGenderRevenue ? (
+                  <span>Đang tải...</span>
+                ) : errorGenderRevenue ? (
+                  <span className="text-red-500">{errorGenderRevenue}</span>
+                ) : (
+                  genderRevenueRaw?.avgRevenueMale?.toLocaleString() ?? 0
+                )}
                 <span className="text-lg lg:text-2xl">đ</span>
               </div>
             </div>
-            {/* Card 2: Trung bình đơn thực thu Nữ */}
+            {/* Trung bình đơn thực thu (Nữ) */}
             <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center">
               <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
                 Trung bình đơn thực thu (Nữ)
               </div>
               <div className="text-2xl font-bold text-[#0693e3] mb-2">
-                {femaleActualOrderAvg.toLocaleString()}{" "}
+                {loadingGenderRevenue ? (
+                  <span>Đang tải...</span>
+                ) : errorGenderRevenue ? (
+                  <span className="text-red-500">{errorGenderRevenue}</span>
+                ) : (
+                  genderRevenueRaw?.avgRevenueFemale?.toLocaleString() ?? 0
+                )}
                 <span className="text-lg lg:text-2xl">đ</span>
               </div>
             </div>
-            {/* Card 3: Trung bình đơn dịch vụ Nam */}
+            {/* Trung bình đơn dịch vụ (Nam) */}
             <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center">
               <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
                 Trung bình đơn dịch vụ (Nam)
               </div>
               <div className="text-2xl font-bold text-[#00d082] mb-2">
-                {maleServiceOrderAvg.toLocaleString()}{" "}
+                {loadingGenderRevenue ? (
+                  <span>Đang tải...</span>
+                ) : errorGenderRevenue ? (
+                  <span className="text-red-500">{errorGenderRevenue}</span>
+                ) : (
+                  genderRevenueRaw?.avgServiceMale?.toLocaleString() ?? 0
+                )}
                 <span className="text-lg lg:text-2xl">đ</span>
               </div>
             </div>
-            {/* Card 4: Trung bình đơn dịch vụ Nữ */}
+            {/* Trung bình đơn dịch vụ (Nữ) */}
             <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center">
               <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
                 Trung bình đơn dịch vụ (Nữ)
               </div>
               <div className="text-2xl font-bold text-[#9b51e0] mb-2">
-                {femaleServiceOrderAvg.toLocaleString()}{" "}
+                {loadingGenderRevenue ? (
+                  <span>Đang tải...</span>
+                ) : errorGenderRevenue ? (
+                  <span className="text-red-500">{errorGenderRevenue}</span>
+                ) : (
+                  genderRevenueRaw?.avgServiceFemale?.toLocaleString() ?? 0
+                )}
                 <span className="text-lg lg:text-2xl">đ</span>
               </div>
             </div>
@@ -934,153 +936,202 @@ const femaleServiceOrderAvg =
           <div className="flex flex-col lg:flex-row w-full gap-4 lg:gap-4">
             {/* Số khách tạo mới*/}
 
-            <div className="w-full lg:w-1/2 bg-white p-4 rounded-xl shadow-lg">
-              <h2 className="text-lg lg:text-xl text-center font-semibold text-gray-800 mb-4">
-                Số khách tạo mới
-              </h2>
-              <ResponsiveContainer width="100%" height={350}>
-                <LineChart
-                  data={chartData}
-                  margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
-                >
-                  <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#6b7280"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={{ stroke: "#d1d5db" }}
-                    tickFormatter={(date) => {
-                      // date dạng 'YYYY-MM-DD' => 'DD/MM'
-                      const match = date.match(/^\d{4}-(\d{2})-(\d{2})$/);
-                      if (match) {
-                        const [, month, day] = match;
-                        return `${day}/${month}`;
-                      }
-                      // date dạng 'dd/mm/yyyy' => 'dd/mm'
-                      const match2 = date.match(
-                        /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
-                      );
-                      if (match2) {
-                        const [, day, month] = match2;
-                        return `${day}/${month}`;
-                      }
-                      // date dạng 'hh:mm dd/mm/yyyy' => 'dd/mm'
-                      const match3 = date.match(
-                        /^\d{1,2}:\d{2} (\d{1,2})\/(\d{1,2})\/(\d{4})$/
-                      );
-                      if (match3) {
-                        const [, day, month] = match3;
-                        return `${day}/${month}`;
-                      }
-                      return date;
-                    }}
-                  />
-                  <YAxis
-                    stroke="#6b7280"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={{ stroke: "#d1d5db" }}
-                    tickFormatter={(value) =>
-                      value > 0 ? `${value} khách` : value
-                    }
-                    padding={{ bottom: 10, top: 10 }}
-                  />
-                  <Tooltip content={CustomTooltip} />
-                  <Legend
-                    wrapperStyle={{
-                      paddingTop: "20px",
-                      fontSize: "14px",
-                      color: "#4b5563",
-                    }}
-                    iconType="circle"
-                    iconSize={10}
-                  />
-                  <Line
-                    type="natural"
-                    dataKey="value"
-                    name="Số khách mới"
-                    stroke="#5bd1d7"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{
-                      r: 6,
-                      fill: "#5bd1d7",
-                      stroke: "#fff",
-                      strokeWidth: 2,
-                    }}
-                    animationDuration={1500}
-                  />
-                  <Line
-                    type="natural"
-                    dataKey="value2"
-                    name="Số khách mới (30 ngày trước)"
-                    stroke="#eb94cf"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{
-                      r: 6,
-                      fill: "#eb94cf",
-                      stroke: "#fff",
-                      strokeWidth: 2,
-                    }}
-                    animationDuration={1500}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <div
+              className={`bg-white rounded-xl shadow p-2 ${
+                isMobile
+                  ? "w-full flex justify-center items-center mx-auto"
+                  : "lg:w-1/2"
+              } ${isMobile ? "max-w-xs" : ""}`}
+              style={{ minWidth: isMobile ? 220 : undefined }}
+            >
+              <div className="w-full">
+                <h2 className="text-base lg:text-xl text-center font-semibold text-gray-800 mb-2">
+                  Số khách tạo mới
+                </h2>
+                {loadingNewCustomer ? (
+                  <div>Đang tải dữ liệu...</div>
+                ) : errorNewCustomer ? (
+                  <div className="text-red-500">{errorNewCustomer}</div>
+                ) : (
+                  <ResponsiveContainer
+                    width="100%"
+                    height={isMobile ? 220 : 350}
+                    minWidth={220}
+                  >
+                    <LineChart
+                      data={newCustomerChartData}
+                      margin={{
+                        top: isMobile ? 10 : 30,
+                        right: 10,
+                        left: 10,
+                        bottom: isMobile ? 20 : 40,
+                      }}
+                    >
+                      <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
+                      <XAxis
+                        dataKey="date"
+                        stroke="#6b7280"
+                        fontSize={isMobile ? 10 : 12}
+                        tickLine={false}
+                        axisLine={{ stroke: "#d1d5db" }}
+                        angle={isMobile ? -20 : 0}
+                        textAnchor={isMobile ? "end" : "middle"}
+                        height={isMobile ? 40 : 60}
+                        tickFormatter={(date) => {
+                          if (!date) return "";
+                          const match = String(date).match(
+                            /^\d{4}-(\d{2})-(\d{2})$/
+                          );
+                          if (match) {
+                            const [, month, day] = match;
+                            return `${day}/${month}`;
+                          }
+                          return String(date);
+                        }}
+                      />
+                      <YAxis
+                        stroke="#6b7280"
+                        fontSize={isMobile ? 10 : 12}
+                        tickLine={false}
+                        axisLine={{ stroke: "#d1d5db" }}
+                        tickFormatter={(value) =>
+                          value > 0 ? `${value} ` : value
+                        }
+                        padding={{ bottom: 10, top: 10 }}
+                      />
+                      <Tooltip />
+                      <Legend
+                        wrapperStyle={{
+                          paddingTop: isMobile ? 0 : "20px",
+                          fontSize: isMobile ? "10px" : "14px",
+                          color: "#4b5563",
+                          display: isMobile ? "none" : undefined,
+                        }}
+                        iconType="circle"
+                        iconSize={isMobile ? 8 : 10}
+                      />
+                      <Line
+                        type="natural"
+                        dataKey="value"
+                        name="Số khách mới trong hệ thống"
+                        stroke="#5bd1d7"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{
+                          r: 6,
+                          fill: "#5bd1d7",
+                          stroke: "#fff",
+                          strokeWidth: 2,
+                        }}
+                        animationDuration={1500}
+                      />
+                      <Line
+                        type="natural"
+                        dataKey="value2"
+                        name="Số khách mới trong hệ thống (31 ngày trước)"
+                        stroke="#eb94cf"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{
+                          r: 6,
+                          fill: "#eb94cf",
+                          stroke: "#fff",
+                          strokeWidth: 2,
+                        }}
+                        animationDuration={1500}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
             </div>
 
             {/* Tỉ lệ nam/nữ */}
 
-            <div className="w-full lg:w-1/2 bg-white p-4 rounded-xl shadow-lg">
-              <h2 className="text-lg lg:text-xl font-semibold text-gray-800 mb-4 text-center">
+            <div
+              className={`bg-white rounded-xl shadow p-2 ${
+                isMobile
+                  ? "w-full max-w-xs mx-auto flex flex-col items-center"
+                  : "lg:w-1/2"
+              }`}
+              style={{ minWidth: isMobile ? 220 : undefined }}
+            >
+              <h2 className="text-base lg:text-xl font-semibold text-gray-800 mb-2 text-center">
                 Tỷ lệ nam/nữ khách mới tạo
               </h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={[
-                      {
-                        name: "Nam",
-                        value: filteredData.filter((d) => d.gender === "Nam")
-                          .length,
-                      },
-                      {
-                        name: "Nữ",
-                        value: filteredData.filter((d) => d.gender === "Nữ")
-                          .length,
-                      },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius="0%"
-                    outerRadius="80%"
-                    fill="#f933347"
-                    dataKey="value"
-                    labelLine={false}
-                    label={({ percent }) =>
-                      ` ${percent ? (percent * 100).toFixed(0) : 0}%`
-                    }
+              <div className="w-full flex justify-center">
+                {loadingGenderRatio ? (
+                  <div>Loading...</div>
+                ) : errorGenderRatio ? (
+                  <div className="text-red-500">{errorGenderRatio}</div>
+                ) : (
+                  <ResponsiveContainer
+                    width="100%"
+                    height={isMobile ? 180 : 350}
+                    minWidth={220}
                   >
-                    {[
-                      "#f59794", // Nam
-                      "#9ee347", // Nữ
-                    ].map((color, idx) => (
-                      <Cell key={idx} fill={color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend
-                    wrapperStyle={{
-                      paddingTop: "10px",
-                      fontSize: "12px",
-                      color: "#4b5563",
-                    }}
-                    iconType="circle"
-                    iconSize={8}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={genderRatioData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={isMobile ? "0%" : "0%"}
+                        outerRadius={isMobile ? "40%" : "80%"}
+                        fill="#f933347"
+                        dataKey="count"
+                        nameKey="gender"
+                        labelLine={false}
+                        label={({
+                          cx = 0,
+                          cy = 0,
+                          midAngle = 0,
+                          innerRadius = 0,
+                          outerRadius = 0,
+                          percent = 0,
+                          gender = "",
+                          index = 0,
+                        }) => {
+                          const RADIAN = Math.PI / 180;
+                          const radius = (innerRadius + outerRadius) / 0.8;
+                          const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                          const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                          return (
+                            <text
+                              x={x}
+                              y={y}
+                              fill={COLORS[index % COLORS.length]}
+                              fontSize={isMobile ? 12 : 16}
+                              textAnchor={x > cx ? "start" : "end"}
+                              dominantBaseline="central"
+                              fontWeight={600}
+                            >
+                              {`${gender}: ${(percent * 100).toFixed(1)}%`}
+                            </text>
+                          );
+                        }}
+                      >
+                        {genderRatioData.map((entry, idx) => (
+                          <Cell
+                            key={entry.gender}
+                            fill={COLORS[idx % COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend
+                        wrapperStyle={{
+                          paddingTop: isMobile ? 0 : "20px",
+                          fontSize: isMobile ? "10px" : "14px",
+                          color: "#4b5563",
+                          display: isMobile ? "none" : undefined,
+                        }}
+                        iconType="circle"
+                        iconSize={isMobile ? 8 : 10}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
             </div>
           </div>
           {/* Tổng số khách mới */}
@@ -1091,7 +1142,13 @@ const femaleServiceOrderAvg =
                 Tổng số khách mới trong hệ thống
               </div>
               <div className="text-5xl font-bold text-black mb-2">
-                {filteredData.length.toLocaleString()}
+                {loadingCustomerSummary ? (
+                  <span>Đang tải dữ liệu...</span>
+                ) : errorCustomerSummary ? (
+                  <span className="text-red-500">{errorCustomerSummary}</span>
+                ) : (
+                  customerSummaryRaw?.totalNewCustomers?.toLocaleString() ?? 0
+                )}
               </div>
             </div>
             {/* Tổng số khách mới thực đi */}
@@ -1100,171 +1157,135 @@ const femaleServiceOrderAvg =
                 Tổng số khách mới thực đi
               </div>
               <div className="text-5xl font-bold text-black mb-2">
-                {filteredData
-                  .filter((d) => d.value > 0)
-                  .length.toLocaleString()}
+                {loadingCustomerSummary ? (
+                  <span>Đang tải dữ liệu...</span>
+                ) : errorCustomerSummary ? (
+                  <span className="text-red-500">{errorCustomerSummary}</span>
+                ) : (
+                  customerSummaryRaw?.actualCustomers?.toLocaleString() ?? 0
+                )}
               </div>
             </div>
           </div>
           {/* Số khách tới chia theo phân loại */}
-          <div className="w-full bg-white pt-2 mt-5 rounded-xl shadow-lg">
-            <h2 className="text-xl text-center font-semibold text-gray-800 mt-4">
+          <div
+            className={`bg-white pt-2 mt-5 rounded-xl shadow-lg ${
+              isMobile
+                ? "w-full max-w-xs mx-auto flex flex-col items-center"
+                : ""
+            }`}
+            style={{ minWidth: isMobile ? 220 : undefined }}
+          >
+            <h2 className="text-base lg:text-xl text-center font-semibold text-gray-800 p-3">
               Số khách tới chia theo loại
             </h2>
-            <ResponsiveContainer width="100%" height={350}>
-              <LineChart
-                data={kindOfCustomerReal}
-                margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
+            <div className="w-full flex justify-center">
+              <ResponsiveContainer
+                width="100%"
+                height={isMobile ? 180 : 350}
+                minWidth={220}
               >
-                <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#6b7280"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={{ stroke: "#d1d5db" }}
-                  tickFormatter={(date) => {
-                    // date dạng 'YYYY-MM-DD' => 'DD/MM'
-                    const match = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-                    if (match) {
-                      const [, , month, day] = match;
-                      return `${day}/${month}`;
+                <LineChart
+                  data={customerTypeTrendData}
+                  margin={{
+                    top: isMobile ? 10 : 30,
+                    right: 10,
+                    left: 10,
+                    bottom: isMobile ? 20 : 40,
+                  }}
+                >
+                  <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#6b7280"
+                    fontSize={isMobile ? 10 : 12}
+                    tickLine={false}
+                    axisLine={{ stroke: "#d1d5db" }}
+                    angle={isMobile ? -20 : 0}
+                    textAnchor={isMobile ? "end" : "middle"}
+                    height={isMobile ? 40 : 60}
+                    tickFormatter={(date) => {
+                      if (!date) return "";
+                      const match = String(date).match(
+                        /^\d{4}-(\d{2})-(\d{2})$/
+                      );
+                      if (match) {
+                        const [, month, day] = match;
+                        return `${day}/${month}`;
+                      }
+                      return String(date);
+                    }}
+                  />
+                  <YAxis
+                    stroke="#6b7280"
+                    fontSize={isMobile ? 10 : 12}
+                    tickLine={false}
+                    axisLine={{ stroke: "#d1d5db" }}
+                    tickFormatter={(value) =>
+                      value > 0 ? `${value} khách` : value
                     }
-                    return date;
-                  }}
-                />
-                <YAxis
-                  stroke="#6b7280"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={{ stroke: "#d1d5db" }}
-                  tickFormatter={(value) =>
-                    value > 0 ? `${value} khách` : value
-                  }
-                  padding={{ bottom: 10, top: 10 }}
-                />
-                <Tooltip content={CustomTooltip} />
-                <Legend
-                  wrapperStyle={{
-                    paddingTop: "20px",
-                    fontSize: "14px",
-                    color: "#4b5563",
-                    gap: "5px",
-                  }}
-                  iconType="circle"
-                  iconSize={10}
-                />
-                <Line
-                  type="natural"
-                  dataKey="KHTraiNghiem"
-                  name="KH Trải Nghiệm"
-                  stroke="#5bd1d7"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 6,
-                    fill: "#5bd1d7",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  animationDuration={1500}
-                />
-                <Line
-                  type="natural"
-                  dataKey="KHThanhVien"
-                  name="KH Thành Viên"
-                  stroke="#eb94cf"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 6,
-                    fill: "#eb94cf",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  animationDuration={1500}
-                />
-                <Line
-                  type="natural"
-                  dataKey="KHDong"
-                  name="KH Đồng"
-                  stroke="#9ee347"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 6,
-                    fill: "#9ee347",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  animationDuration={1500}
-                />
-                <Line
-                  type="natural"
-                  dataKey="KHBac"
-                  name="KH Bạc"
-                  stroke="#f59794"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 6,
-                    fill: "#f59794",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  animationDuration={1500}
-                />
-                <Line
-                  type="natural"
-                  dataKey="KHVang"
-                  name="KH Vàng"
-                  stroke="#f0bf4c"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 6,
-                    fill: "#f0bf4c",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  animationDuration={1500}
-                />
-                <Line
-                  type="natural"
-                  dataKey="KHKimcuong"
-                  name="KH Kim Cuơng"
-                  stroke="#bccefb"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 6,
-                    fill: "#bccefb",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  animationDuration={1500}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+                    padding={{ bottom: 10, top: 10 }}
+                  />
+                  <Tooltip />
+                  <Legend
+                    wrapperStyle={{
+                      paddingTop: isMobile ? "" : "20px",
+                      fontSize: isMobile ? "10px" : "14px",
+                      color: "#4b5563",
+                      display: "flex",
+                      flexDirection: isMobile ? "column" : "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexWrap: isMobile ? "nowrap" : "wrap",
+                      width: "100%",
+                      maxHeight: isMobile ? 80 : undefined,
+                      overflowY: isMobile ? "auto" : undefined,
+                    }}
+                    iconType="circle"
+                    iconSize={isMobile ? 8 : 10}
+                    verticalAlign={isMobile ? "bottom" : undefined}
+                  />
+                  {customerTypeKeys.map((type, idx) => (
+                    <Line
+                      key={type}
+                      type="natural"
+                      dataKey={type}
+                      name={type}
+                      stroke={COLORS[idx % COLORS.length]}
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{
+                        r: 6,
+                        fill: COLORS[idx % COLORS.length],
+                        stroke: "#fff",
+                        strokeWidth: 2,
+                      }}
+                      animationDuration={1500}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Nguồn của đơn hàng */}
 
-          <div className="w-full bg-white rounded-xl shadow-lg">
-            <div className="text-xl font-medium text-gray-700 text-center">
+          <div className="w-full bg-white rounded-xl shadow-lg mt-5">
+            <div className="text-xl font-medium text-gray-700 text-center pt-5">
               Nguồn của đơn hàng
             </div>
             <div className="w-full bg-white rounded-xl shadow-lg">
-              <ResponsiveContainer width="100%" height={400}>
+              <ResponsiveContainer width="100%" height={350}>
                 <BarChart
                   width={1000}
                   height={400}
-                  data={originOfOrderReal}
+                  data={customerSourceTrendData}
                   margin={{ top: 50, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="date"
+                    fontSize={isMobile ? 10 : 12}
                     tickFormatter={(date) => {
                       // date dạng 'YYYY-MM-DD' => 'DD/MM'
                       const match = date.match(/^\d{4}-(\d{2})-(\d{2})$/);
@@ -1285,239 +1306,40 @@ const femaleServiceOrderAvg =
                       justifyContent: "center",
                       flexWrap: "wrap",
                       width: "100%",
+                      fontSize: "14px",
                     }}
                   />
-                  <Bar
-                    dataKey="vangLai"
-                    fill="#ff7f7f"
-                    name="Vãng lai"
-                    label={(props) => {
-                      const { x, y, width, value, index } = props;
-                      const d = originOfOrderReal[index];
-                      if (!d) return <></>;
-                      const max = Math.max(
-                        d.vangLai,
-                        d.fanpage,
-                        d.chuaXacDinh,
-                        d.facebook,
-                        d.app,
-                        d.web,
-                        d.tiktok
-                      );
-                      return value === max && value > 0 ? (
-                        <text
-                          x={x + width / 2}
-                          y={y - 5}
-                          textAnchor="middle"
-                          fill="#ff7f7f"
-                          fontSize={12}
-                          fontWeight={600}
-                        >
-                          {value}
-                        </text>
-                      ) : (
-                        <></>
-                      );
-                    }}
-                  />
-                  <Bar
-                    dataKey="fanpage"
-                    fill="#b39ddb"
-                    name="Fanpage"
-                    label={(props) => {
-                      const { x, y, width, value, index } = props;
-                      const d = originOfOrderReal[index];
-                      if (!d) return <></>;
-                      const max = Math.max(
-                        d.vangLai,
-                        d.fanpage,
-                        d.chuaXacDinh,
-                        d.facebook,
-                        d.app,
-                        d.web,
-                        d.tiktok
-                      );
-                      return value === max && value > 0 ? (
-                        <text
-                          x={x + width / 2}
-                          y={y - 5}
-                          textAnchor="middle"
-                          fill="#b39ddb"
-                          fontSize={12}
-                          fontWeight={600}
-                        >
-                          {value}
-                        </text>
-                      ) : (
-                        <></>
-                      );
-                    }}
-                  />
-                  <Bar
-                    dataKey="chuaXacDinh"
-                    fill="#8d6e63"
-                    name="Chưa xác định"
-                    label={(props) => {
-                      const { x, y, width, value, index } = props;
-                      const d = originOfOrderReal[index];
-                      if (!d) return <></>;
-                      const max = Math.max(
-                        d.vangLai,
-                        d.fanpage,
-                        d.chuaXacDinh,
-                        d.facebook,
-                        d.app,
-                        d.web,
-                        d.tiktok
-                      );
-                      return value === max && value > 0 ? (
-                        <text
-                          x={x + width / 2}
-                          y={y - 5}
-                          textAnchor="middle"
-                          fill="#8d6e63"
-                          fontSize={12}
-                          fontWeight={600}
-                        >
-                          {value}
-                        </text>
-                      ) : (
-                        <></>
-                      );
-                    }}
-                  />
-                  <Bar
-                    dataKey="facebook"
-                    fill="#c5e1a5"
-                    name="Facebook"
-                    label={(props) => {
-                      const { x, y, width, value, index } = props;
-                      const d = originOfOrderReal[index];
-                      if (!d) return <></>;
-                      const max = Math.max(
-                        d.vangLai,
-                        d.fanpage,
-                        d.chuaXacDinh,
-                        d.facebook,
-                        d.app,
-                        d.web,
-                        d.tiktok
-                      );
-                      return value === max && value > 0 ? (
-                        <text
-                          x={x + width / 2}
-                          y={y - 5}
-                          textAnchor="middle"
-                          fill="#c5e1a5"
-                          fontSize={12}
-                          fontWeight={600}
-                        >
-                          {value}
-                        </text>
-                      ) : (
-                        <></>
-                      );
-                    }}
-                  />
-                  <Bar
-                    dataKey="app"
-                    fill="#81d4fa"
-                    name="App"
-                    label={(props) => {
-                      const { x, y, width, value, index } = props;
-                      const d = originOfOrderReal[index];
-                      if (!d) return <></>;
-                      const max = Math.max(
-                        d.vangLai,
-                        d.fanpage,
-                        d.chuaXacDinh,
-                        d.facebook,
-                        d.app,
-                        d.web,
-                        d.tiktok
-                      );
-                      return value === max && value > 0 ? (
-                        <text
-                          x={x + width / 2}
-                          y={y - 5}
-                          textAnchor="middle"
-                          fill="#81d4fa"
-                          fontSize={12}
-                          fontWeight={600}
-                        >
-                          {value}
-                        </text>
-                      ) : (
-                        <></>
-                      );
-                    }}
-                  />
-                  <Bar
-                    dataKey="web"
-                    fill="#fff176"
-                    name="Web"
-                    label={(props) => {
-                      const { x, y, width, value, index } = props;
-                      const d = originOfOrderReal[index];
-                      if (!d) return <></>;
-                      const max = Math.max(
-                        d.vangLai,
-                        d.fanpage,
-                        d.chuaXacDinh,
-                        d.facebook,
-                        d.app,
-                        d.web,
-                        d.tiktok
-                      );
-                      return value === max && value > 0 ? (
-                        <text
-                          x={x + width / 2}
-                          y={y - 5}
-                          textAnchor="middle"
-                          fill="#fff176"
-                          fontSize={12}
-                          fontWeight={600}
-                        >
-                          {value}
-                        </text>
-                      ) : (
-                        <></>
-                      );
-                    }}
-                  />
-                  <Bar
-                    dataKey="tiktok"
-                    fill="#d81b60"
-                    name="Tiktok shop"
-                    label={(props) => {
-                      const { x, y, width, value, index } = props;
-                      const d = originOfOrderReal[index];
-                      if (!d) return <></>;
-                      const max = Math.max(
-                        d.vangLai,
-                        d.fanpage,
-                        d.chuaXacDinh,
-                        d.facebook,
-                        d.app,
-                        d.web,
-                        d.tiktok
-                      );
-                      return value === max && value > 0 ? (
-                        <text
-                          x={x + width / 2}
-                          y={y - 5}
-                          textAnchor="middle"
-                          fill="#d81b60"
-                          fontSize={12}
-                          fontWeight={600}
-                        >
-                          {value}
-                        </text>
-                      ) : (
-                        <></>
-                      );
-                    }}
-                  />
+                  {customerSourceKeys.map((source, idx) => (
+                    <Bar
+                      key={source}
+                      dataKey={source}
+                      fill={COLORS[idx % COLORS.length]}
+                      name={source}
+                      label={(props) => {
+                        const { x, y, width, value, index } = props;
+                        const d = customerSourceTrendData[index] as Record<string, number>;
+                        if (!d) return <></>;
+                        // Tìm giá trị lớn nhất trong các nguồn tại ngày đó
+                        const max = Math.max(
+                          ...customerSourceKeys.map((k) => Number(d[k] || 0))
+                        );
+                        return value === max && value > 0 ? (
+                          <text
+                            x={x + width / 2}
+                            y={y - 5}
+                            textAnchor="middle"
+                            fill={COLORS[idx % COLORS.length]}
+                            fontSize={14}
+                            fontWeight={600}
+                          >
+                            {value}
+                          </text>
+                        ) : (
+                          <></>
+                        );
+                      }}
+                    />
+                  ))}
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -1529,41 +1351,48 @@ const femaleServiceOrderAvg =
               Khách tải app/không tải
             </div>
             <div className="flex justify-center items-center py-4 lg:py-8">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={appCustomerBarData}
-                  margin={{ top: 20, right: 20, left: 20, bottom: 20 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Legend
-                    wrapperStyle={{
-                      paddingTop: 10,
-                      paddingBottom: 10,
-                      display: "flex",
-                      justifyContent: "center",
-                      flexWrap: "wrap",
-                      width: "100%",
-                    }}
-                  />
-                  <Bar
-                    dataKey="daTaiApp"
-                    fill="#b39ddb"
-                    name="Đã tải app"
-                    label={{ position: "top" }}
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="chuaTaiApp"
-                    fill="#ff7f7f"
-                    name="Chưa tải app"
-                    label={{ position: "top" }}
-                    isAnimationActive={false}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              {loading ? (
+                <div>Đang tải dữ liệu...</div>
+              ) : error ? (
+                <div className="text-red-500">{error}</div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={300} minWidth={220}>
+                    <BarChart data={appDownloadStatusData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="date"
+                        tickFormatter={(date) => {
+                          if (!date) return "";
+                          // Lấy ngày/tháng từ chuỗi ISO (YYYY-MM-DDTHH:mm:ss)
+                          const match = String(date).match(
+                            /^(\d{4})-(\d{2})-(\d{2})/
+                          );
+                          if (match) {
+                            const [, , month, day] = match;
+                            return `${day}/${month}`;
+                          }
+                          return String(date);
+                        }}
+                        fontSize={isMobile ? 10 : 12}
+                      />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Legend fontSize={isMobile ? 10 : 12} />
+                      <Bar
+                        dataKey="downloaded"
+                        fill="#9ee347"
+                        name="Đã tải app"
+                      />
+                      <Bar
+                        dataKey="notDownloaded"
+                        fill="#f0bf4c"
+                        name="Chưa tải app"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </>
+              )}
             </div>
           </div>
 
@@ -1574,35 +1403,154 @@ const femaleServiceOrderAvg =
                 Tỷ lệ tải app
               </div>
               <div className="flex justify-center items-center py-4 lg:py-8">
+                {loadingAppDownload ? (
+                  <div>Đang tải dữ liệu...</div>
+                ) : errorAppDownload ? (
+                  <div className="text-red-500">{errorAppDownload}</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={appDownloadPieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="30%"
+                        outerRadius="60%"
+                        label={({ percent }) =>
+                          percent && percent > 0.05
+                            ? `${(percent * 100).toFixed(0)}%`
+                            : ""
+                        }
+                        labelLine={false}
+                      >
+                        {appDownloadPieData.map((entry, idx) => (
+                          <Cell
+                            key={entry.name}
+                            fill={
+                              APP_CUSTOMER_PIE_COLORS[
+                                idx % APP_CUSTOMER_PIE_COLORS.length
+                              ]
+                            }
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend
+                        wrapperStyle={{
+                          paddingTop: 10,
+                          paddingBottom: 10,
+                          display: "flex",
+                          justifyContent: "center",
+                          flexWrap: "wrap",
+                          width: "100%",
+                          fontSize: "11px",
+                        }}
+                        layout="horizontal"
+                        verticalAlign="bottom"
+                        align="center"
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            {/* Chart tỉ lệ khách mới/cũ */}
+            <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
+              <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
+                Tỉ lệ khách mới/cũ
+              </div>
+              <div className="flex justify-center items-center py-4 lg:py-8">
+                {loadingCustomerOldNewOrder ? (
+                  <div>Đang tải dữ liệu...</div>
+                ) : errorCustomerOldNewOrder ? (
+                  <div className="text-red-500">{errorCustomerOldNewOrder}</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={customerOldNewOrderPieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="30%"
+                        outerRadius="60%"
+                        label={({ percent }) =>
+                          percent && percent > 0.05
+                            ? `${(percent * 100).toFixed(0)}%`
+                            : ""
+                        }
+                        labelLine={false}
+                      >
+                        {customerOldNewOrderPieData.map((entry, idx) => (
+                          <Cell
+                            key={entry.name}
+                            fill={NEW_OLD_COLORS[idx % NEW_OLD_COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend
+                        wrapperStyle={{
+                          paddingTop: 10,
+                          paddingBottom: 10,
+                          display: "flex",
+                          justifyContent: "center",
+                          flexWrap: "wrap",
+                          width: "100%",
+                          fontSize: "11px",
+                        }}
+                        layout="horizontal"
+                        verticalAlign="bottom"
+                        align="center"
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới) */}
+          <div className="flex flex-col lg:flex-row gap-2">
+            <div className="w-full bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
+              <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
+                Tỉ lệ các hình thức thanh toán ( khách mới )
+              </div>
+              <div className="flex justify-center items-center 18 lg:py-8">
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={appCustomerPieData}
+                      data={paymentPercentNewPieData}
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
                       cy="50%"
                       innerRadius="30%"
                       outerRadius="60%"
-                      label={({ percent }) =>
+                      label={({ percent, name }) =>
                         percent && percent > 0.05
-                          ? `${(percent * 100).toFixed(0)}%`
+                          ? `${name}: ${(percent * 100).toFixed(1)}%`
                           : ""
                       }
                       labelLine={false}
                     >
-                      {appCustomerPieData.map((entry, idx) => (
-                        <Cell
-                          key={entry.name}
-                          fill={
-                            APP_CUSTOMER_PIE_COLORS[
-                              idx % APP_CUSTOMER_PIE_COLORS.length
-                            ]
-                          }
-                        />
+                      {paymentPercentNewPieData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip
+                      formatter={(value, name, props) =>
+                        `${Number(
+                          value
+                        ).toLocaleString()} (${props.payload.percent?.toFixed(
+                          2
+                        )}%)`
+                      }
+                    />
                     <Legend
                       wrapperStyle={{
                         paddingTop: 10,
@@ -1611,7 +1559,7 @@ const femaleServiceOrderAvg =
                         justifyContent: "center",
                         flexWrap: "wrap",
                         width: "100%",
-                        fontSize: "11px",
+                        fontSize: "12px",
                       }}
                       layout="horizontal"
                       verticalAlign="bottom"
@@ -1622,46 +1570,40 @@ const femaleServiceOrderAvg =
               </div>
             </div>
 
-            {/* Chart tỉ lệ khách mới/cũ */}
-            <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
+            {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách cũ) */}
+
+            <div className="w-full bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
               <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
-                Tỉ lệ khách mới/cũ
+                Tỉ lệ các hình thức thanh toán ( khách cũ )
               </div>
               <div className="flex justify-center items-center py-4 lg:py-8">
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={newOldCustomerDataForChart}
+                      data={paymentPercentOldPieData}
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
                       cy="50%"
                       innerRadius="30%"
                       outerRadius="60%"
-                      label={({ percent }) =>
+                      label={({ percent, name }) =>
                         percent && percent > 0.05
-                          ? `${(percent * 100).toFixed(0)}%`
+                          ? `${name}: ${(percent * 100).toFixed(1)}%`
                           : ""
                       }
                       labelLine={false}
                     >
-                      {newOldCustomerDataForChart.map((entry, idx) => (
-                        <Cell
-                          key={entry.name}
-                          fill={NEW_OLD_COLORS[idx % NEW_OLD_COLORS.length]}
-                        />
+                      {paymentPercentOldPieData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
                       ))}
                     </Pie>
                     <Tooltip />
                     <Legend
-                      wrapperStyle={{
-                        paddingTop: 10,
-                        paddingBottom: 10,
-                        display: "flex",
-                        justifyContent: "center",
-                        flexWrap: "wrap",
-                        width: "100%",
-                      }}
+                      wrapperStyle={{ fontSize: "12px" }}
+                      layout="horizontal"
+                      verticalAlign="bottom"
+                      align="center"
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -1669,88 +1611,65 @@ const femaleServiceOrderAvg =
             </div>
           </div>
 
-          {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới) */}
-
-          <div className="w-full bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
-            <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
-              Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới)
+          {/* Thời gian đơn hàng được tạo */}
+          <div className="w-full bg-white rounded-xl shadow-lg p-4 mt-5">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-5 gap-4">
+              <h2 className="text-lg sm:text-xl font-semibold">
+                Thời gian đơn hàng được tạo
+              </h2>
+              <div className="flex flex-wrap gap-2 text-xs mt-2 sm:mt-0">
+                <span className="inline-flex items-center px-2 py-1 rounded bg-[#ffe5e5]">Khung giờ cao điểm</span>
+                <span className="inline-flex items-center px-2 py-1 rounded bg-[#fff3cd]">Giá trị cao</span>
+                <span className="inline-flex items-center px-2 py-1 rounded bg-[#e3fcec]">Giá trị trung bình</span>
+                <span className="inline-flex items-center px-2 py-1 rounded bg-[#d1e7dd] border border-[#0f5132]">Chi nhánh cao điểm</span>
+              </div>
             </div>
-            <div className="flex justify-center items-center 18 lg:py-8">
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={pieNewGuestData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius="30%"
-                    outerRadius="40%"
-                    cornerRadius={10}
-                    paddingAngle={5}
-                    label={({ percent }) =>
-                      `${percent ? (percent * 100).toFixed(0) : 0}%`
-                    }
-                  >
-                    {newOldCustomerData.map((entry, idx) => (
-                      <Cell
-                        key={entry.name}
-                        fill={NEW_GUEST_COLOR[idx % NEW_GUEST_COLOR.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend
-                    wrapperStyle={{
-                      paddingTop: 10,
-                      paddingBottom: 10,
-                      display: "flex",
-                      justifyContent: "center",
-                      flexWrap: "wrap",
-                      width: "100%",
-                      fontSize: "12px",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách cũ) */}
-
-          <div className="w-full bg-white rounded-xl shadow-lg mt-2">
-            <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
-              Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách cũ)
-            </div>
-            <div className="flex justify-center items-center py-4 lg:py-8">
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={pieOldGuestData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius="30%"
-                    outerRadius="40%"
-                    cornerRadius={10}
-                    paddingAngle={5}
-                    label={({ percent }) =>
-                      `${percent ? (percent * 100).toFixed(0) : 0}%`
-                    }
-                  >
-                    {newOldCustomerData.map((entry, idx) => (
-                      <Cell
-                        key={entry.name}
-                        fill={NEW_OLD_COLORS[idx % NEW_OLD_COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: "12px" }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            {loadingFacilityHour ? (
+              <div>Đang tải dữ liệu...</div>
+            ) : errorFacilityHour ? (
+              <div className="text-red-500">{errorFacilityHour}</div>
+            ) : (
+              <div className="overflow-x-auto mt-4">
+                <div className="max-h-[320px] overflow-y-auto">
+                  <table className="min-w-[600px] w-full border text-center">
+                    <thead>
+                      <tr>
+                        <th className="border px-2 py-1 bg-gray-100 text-left">Cơ sở</th>
+                        {allHourRanges.map((hour) => (
+                          <th
+                            key={hour}
+                            className={`border px-2 py-1 font-bold ${peakHours.includes(hour) ? 'bg-[#ffe5e5]' : ''}`}
+                          >
+                            {hour}
+                          </th>
+                        ))}
+                        <th className="border px-2 py-1 bg-gray-100 font-bold">Tổng</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {facilityHourTableData.map((row) => (
+                        <tr key={row.facility} className={peakFacilities.includes(row.facility) ? 'bg-[#d1e7dd] border border-[#0f5132]' : ''}>
+                          <td className="border px-2 py-1 text-left font-semibold">{row.facility}</td>
+                          {allHourRanges.map((hour) => {
+                            const val = Number(row[hour] ?? 0);
+                            const maxVal = hourTotals[hour] || 1;
+                            return (
+                              <td
+                                key={hour}
+                                className={`border px-2 py-1 ${peakHours.includes(hour) ? 'bg-[#ffe5e5]' : ''} ${getCellBg(val, maxVal)}`}
+                              >
+                                {val}
+                              </td>
+                            );
+                          })}
+                          <td className="border px-2 py-1 font-bold">{row.total}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
