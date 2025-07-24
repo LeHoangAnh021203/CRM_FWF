@@ -67,3 +67,21 @@
 [data-rac-popover] ~ .recharts-wrapper {
   pointer-events: none !important;
 }
+
+
+.custom-scrollbar {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #a0aec0 #f3f4f6; /* thumb, track */
+}
+.custom-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 0px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #a0aec0;
+  border-radius: 1px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 1px;
+}

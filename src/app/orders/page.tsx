@@ -36,6 +36,7 @@ interface DataPoint {
   gender: "Nam" | "Nữ" | "#N/A";
   region?: string;
   branch?: string;
+  calendarDate: CalendarDate;
 }
 
 interface RawDataRow {
@@ -76,6 +77,38 @@ interface TotalSaleOfStores {
   status: string;
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+// Custom hook dùng chung cho fetch API động
+function useApiData<T>(url: string, fromDate: string, toDate: string) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fromDate, toDate }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("API error: " + res.status);
+        return res.json();
+      })
+      .then((data) => {
+        setData(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, [url, fromDate, toDate]);
+
+  return { data, loading, error };
+}
+
 // Hook lấy width window
 function useWindowWidth() {
   const [width, setWidth] = useState(1024);
@@ -99,6 +132,16 @@ export default function CustomerReportPage() {
   );
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
 
+  const fromDate = startDate
+    ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
+        startDate.day
+      ).padStart(2, "0")}T00:00:00`
+    : "";
+  const toDate = endDate
+    ? `${endDate.year}-${String(endDate.month).padStart(2, "0")}-${String(
+        endDate.day
+      ).padStart(2, "0")}T23:59:59`
+    : "";
   // Thêm state cho Region và Branch
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
@@ -330,20 +373,17 @@ export default function CustomerReportPage() {
   const realData: DataPoint[] = React.useMemo(
     () =>
       allRawData
-        .map((d): Partial<DataPoint> | null => {
+        .map((d): DataPoint | null => {
           const dateStr = String(d["Unnamed: 1"] || d["Unnamed: 3"] || "");
-          if (
-            !dateStr ||
-            INVALID_DATES.includes(dateStr.trim().toUpperCase())
-          ) {
-            return null;
-          }
+          if (!dateStr || INVALID_DATES.includes(dateStr.trim().toUpperCase())) return null;
+          const parsedDate = parseVNDate(dateStr); // <-- parse 1 lần
+          if (!parsedDate) return null;
           let gender = d["Unnamed: 7"];
           if (gender !== "Nam" && gender !== "Nữ") gender = "#N/A";
           const branch = String(d["Unnamed: 11"] || "");
-
           return {
             date: dateStr,
+            calendarDate: parsedDate, // <-- chỉ dùng trường này cho so sánh ngày
             value:
               Number(
                 d["Unnamed: 18"] ?? d["Unnamed: 16"] ?? d["Unnamed: 9"]
@@ -361,28 +401,24 @@ export default function CustomerReportPage() {
   );
 
   function isInWeek(d: DataPoint, start: CalendarDate, end: CalendarDate) {
-    const dDate = parseVNDate(d.date);
-    return dDate ? dDate.compare(start) >= 0 && dDate.compare(end) <= 0 : false;
+    return d.calendarDate.compare(start) >= 0 && d.calendarDate.compare(end) <= 0;
   }
   
-  const regionalSalesByDay = React.useMemo(() => {
-    const filtered = realData.filter((d) => {
-      const dDate = parseVNDate(d.date);
-      return (
-        dDate && dDate.compare(startDate) >= 0 && dDate.compare(endDate) <= 0
-      );
-    });
+  // Helper: chuẩn hóa ngày về yyyy-MM-dd
+  function normalizeDate(date: CalendarDate): string {
+    return `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+  }
 
+  // Tối ưu hóa group data cho chart Tổng doanh số vùng
+  const regionalSalesByDay = React.useMemo(() => {
+    // Group theo ngày chuẩn hóa
     const map: Record<string, TotalRegionalSales> = {};
-    filtered.forEach((d) => {
-      const date = (() => {
-        const parsed = parseVNDate(d.date);
-        return parsed ? parsed.toString() : d.date;
-      })();
+    realData.forEach((d) => {
+      const dateNorm = normalizeDate(d.calendarDate);
       const region = getRegionForBranch(d.branch || "");
-      if (!map[date]) {
-        map[date] = {
-          date,
+      if (!map[dateNorm]) {
+        map[dateNorm] = {
+          date: dateNorm,
           HCM: 0,
           HaNoi: 0,
           DaNang: 0,
@@ -392,20 +428,15 @@ export default function CustomerReportPage() {
           status: "All",
         };
       }
-      if (region === "HCM") map[date].HCM += d.value;
-      else if (region === "Hà Nội") map[date].HaNoi += d.value;
-      else if (region === "Đà Nẵng") map[date].DaNang += d.value;
-      else if (region === "Nha Trang") map[date].NhaTrang += d.value;
-      else if (region === "Đã Đóng Cửa") map[date].DaDongCua += d.value;
+      if (region === "HCM") map[dateNorm].HCM += d.value;
+      else if (region === "Hà Nội") map[dateNorm].HaNoi += d.value;
+      else if (region === "Đà Nẵng") map[dateNorm].DaNang += d.value;
+      else if (region === "Nha Trang") map[dateNorm].NhaTrang += d.value;
+      else if (region === "Đã Đóng Cửa") map[dateNorm].DaDongCua += d.value;
     });
-
-    return Object.values(map).sort((a, b) => {
-      const d1 = parseVNDate(a.date);
-      const d2 = parseVNDate(b.date);
-      if (d1 && d2) return d1.compare(d2);
-      return 0;
-    });
-  }, [realData, startDate, endDate, getRegionForBranch]);
+    // Trả về mảng đã sort theo ngày tăng dần
+    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+  }, [realData, getRegionForBranch]);
 
   // kindOfCustomer: đủ cho 365 ngày trong năm 2025
   const kindOfCustomer: MultiTypeCustomerDataPoint[] = Array.from(
@@ -1110,11 +1141,11 @@ export default function CustomerReportPage() {
   });
 
   // Tính số lượng đơn hàng theo ngày (loại bỏ đơn mua thẻ)
-  const ordersByDay: Record<string, { count: number; avgPerShop: number }> = {};
+  const ordersByDay: Record<string, { count: number; avgPerShop: number; calendarDate: CalendarDate }> = {};
   realData.forEach((d) => {
     if (d.type !== "Khách hàng Thành viên") {
       if (!ordersByDay[d.date]) {
-        ordersByDay[d.date] = { count: 0, avgPerShop: 0 };
+        ordersByDay[d.date] = { count: 0, avgPerShop: 0, calendarDate: d.calendarDate };
       }
       ordersByDay[d.date].count++;
     }
@@ -1130,15 +1161,12 @@ export default function CustomerReportPage() {
     ordersByDay[date].avgPerShop =
       shops.size > 0 ? Math.round(ordersByDay[date].count / shops.size) : 0;
   });
+  // Sắp xếp theo calendarDate tăng dần
   const ordersByDayArr = Object.entries(ordersByDay).sort((a, b) => {
-    // Sort theo ngày tăng dần
-    const [d1, m1] = a[0].split(" thg ");
-    const [d2, m2] = b[0].split(" thg ");
-    return Number(m1) !== Number(m2)
-      ? Number(m1) - Number(m2)
-      : Number(d1) - Number(d2);
+    const d1 = a[1].calendarDate;
+    const d2 = b[1].calendarDate;
+    return d1.compare(d2);
   });
-
   // Chuẩn bị data cho chart
   const ordersChartData = ordersByDayArr.map(([date, val]) => ({
     date,
@@ -1407,19 +1435,12 @@ export default function CustomerReportPage() {
   };
 
   const storeTypeSalesByDay = React.useMemo(() => {
-    const filtered = realData.filter((d) => {
-      const dDate = parseVNDate(d.date);
-      return (
-        dDate && dDate.compare(startDate) >= 0 && dDate.compare(endDate) <= 0
-      );
-    });
-
+    const filtered = realData.filter((d) =>
+      d.calendarDate.compare(startDate) >= 0 && d.calendarDate.compare(endDate) <= 0
+    );
     const map: Record<string, TotalSaleOfStores> = {};
     filtered.forEach((d) => {
-      const date = (() => {
-        const parsed = parseVNDate(d.date);
-        return parsed ? parsed.toString() : d.date;
-      })();
+      const date = d.date;
       const storeType = getStoreTypeForBranch(d.branch || "");
       if (!map[date]) {
         map[date] = {
@@ -1439,12 +1460,8 @@ export default function CustomerReportPage() {
       else if (storeType === "DaDongCua") map[date].DaDongCua += d.value;
       else map[date].Khac += d.value;
     });
-
     return Object.values(map).sort((a, b) => {
-      const d1 = parseVNDate(a.date);
-      const d2 = parseVNDate(b.date);
-      if (d1 && d2) return d1.compare(d2);
-      return 0;
+      return a.date.localeCompare(b.date);
     });
   }, [realData, startDate, endDate, getStoreTypeForBranch]);
 
@@ -1632,7 +1649,7 @@ export default function CustomerReportPage() {
                   margin={{ top: 50, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tickFormatter={formatAxisDate} />
+                  <XAxis dataKey="date" tickFormatter={formatAxisDate} fontSize={12}/>
                   <YAxis
                     tickFormatter={(v) => {
                       if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';

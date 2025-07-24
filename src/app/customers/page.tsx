@@ -85,8 +85,19 @@ export default function CustomerReportPage() {
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   const COLORS = [
-    "#5bd1d7", "#eb94cf", "#f66035", "#00d084", "#9b51e0", "#0693e3",
-    "#ff7f7f", "#b39ddb", "#8d6e63", "#c5e1a5", "#81d4fa", "#fff176", "#d81b60"
+    "#5bd1d7",
+    "#eb94cf",
+    "#f66035",
+    "#00d084",
+    "#9b51e0",
+    "#0693e3",
+    "#ff7f7f",
+    "#b39ddb",
+    "#8d6e63",
+    "#c5e1a5",
+    "#81d4fa",
+    "#fff176",
+    "#d81b60",
   ];
 
   const allRegions = ["Đã đóng cửa", "Đà Nẵng", "Nha Trang", "Hà Nội", "HCM"];
@@ -213,11 +224,21 @@ export default function CustomerReportPage() {
     toDate
   );
 
-  const { data: facilityHourServiceRaw, loading: loadingFacilityHour, error: errorFacilityHour } = useApiData<{
-    facility: string;
-    hourlyCounts: Record<string, number>;
-    total: number;
-  }[]>(`${API_BASE_URL}/api/customer-sale/facility-hour-service`, fromDate, toDate);
+  const {
+    data: facilityHourServiceRaw,
+    loading: loadingFacilityHour,
+    error: errorFacilityHour,
+  } = useApiData<
+    {
+      facility: string;
+      hourlyCounts: Record<string, number>;
+      total: number;
+    }[]
+  >(
+    `${API_BASE_URL}/api/customer-sale/facility-hour-service`,
+    fromDate,
+    toDate
+  );
 
   // 1. Số khách tạo mới
   const newCustomerChartData = React.useMemo(() => {
@@ -366,10 +387,6 @@ export default function CustomerReportPage() {
     ...(Array.isArray(customerSaleData) ? customerSaleData : []),
   ];
 
-
-
-  
-
   const INVALID_DATES = [
     "NGÀY TẠO",
     "MÃ ĐƠN HÀNG",
@@ -507,45 +524,54 @@ export default function CustomerReportPage() {
     ];
   }, [paymentPercentOldRaw]);
 
-
   const allHourRanges = React.useMemo(() => {
     if (!facilityHourServiceRaw) return [];
     const set = new Set<string>();
-    facilityHourServiceRaw.forEach(item => {
-      Object.keys(item.hourlyCounts).forEach(hour => set.add(hour));
+    facilityHourServiceRaw.forEach((item) => {
+      Object.keys(item.hourlyCounts).forEach((hour) => set.add(hour));
     });
     // Sắp xếp theo thứ tự giờ tăng dần (nếu muốn)
     return Array.from(set).sort((a, b) => {
       // Tách số đầu tiên để so sánh
-      const getStart = (s: string) => parseInt(s.split('-')[0], 10);
+      const getStart = (s: string) => parseInt(s.split("-")[0], 10);
       return getStart(a) - getStart(b);
     });
   }, [facilityHourServiceRaw]);
 
   const facilityHourTableData = React.useMemo(() => {
     if (!facilityHourServiceRaw) return [];
-    return facilityHourServiceRaw.map(item => ({
-      facility: item.facility,
-      ...item.hourlyCounts, // mỗi key là 1 khung giờ, value là số lượng
-      total: item.total,
-    }) as { facility: string; total: number; [key: string]: number | string });
+    return facilityHourServiceRaw.map(
+      (item) =>
+        ({
+          facility: item.facility,
+          ...item.hourlyCounts, // mỗi key là 1 khung giờ, value là số lượng
+          total: item.total,
+        } as {
+          facility: string;
+          total: number;
+          [key: string]: number | string;
+        })
+    );
   }, [facilityHourServiceRaw]);
 
-  const customerTypeKeys = customerTypeTrendData.length > 0
-    ? Object.keys(customerTypeTrendData[0]).filter((k) => k !== "date")
-    : [];
+  const customerTypeKeys =
+    customerTypeTrendData.length > 0
+      ? Object.keys(customerTypeTrendData[0]).filter((k) => k !== "date")
+      : [];
 
   // Before rendering the BarChart for 'Nguồn của đơn hàng', define the dynamic list of sources and assign colors by index
   const customerSourceKeys = React.useMemo(() => {
     if (customerSourceTrendData.length === 0) return [];
-    return Object.keys(customerSourceTrendData[0]).filter((key) => key !== "date");
+    return Object.keys(customerSourceTrendData[0]).filter(
+      (key) => key !== "date"
+    );
   }, [customerSourceTrendData]);
 
   // Calculate peak hours and facilities for coloring
   const hourTotals = React.useMemo(() => {
     const totals: Record<string, number> = {};
-    facilityHourTableData.forEach(row => {
-      allHourRanges.forEach(hour => {
+    facilityHourTableData.forEach((row) => {
+      allHourRanges.forEach((hour) => {
         const val = Number(row[hour] ?? 0);
         totals[hour] = (totals[hour] || 0) + val;
       });
@@ -553,22 +579,56 @@ export default function CustomerReportPage() {
     return totals;
   }, [facilityHourTableData, allHourRanges]);
   const maxHourTotal = Math.max(...Object.values(hourTotals));
-  const peakHours = Object.keys(hourTotals).filter(h => hourTotals[h] === maxHourTotal);
+  const peakHours = Object.keys(hourTotals).filter(
+    (h) => hourTotals[h] === maxHourTotal
+  );
 
   const maxFacilityTotal = React.useMemo(() => {
-    return Math.max(...facilityHourTableData.map(row => Number(row.total ?? 0)));
+    return Math.max(
+      ...facilityHourTableData.map((row) => Number(row.total ?? 0))
+    );
   }, [facilityHourTableData]);
-  const peakFacilities = facilityHourTableData.filter(row => Number(row.total ?? 0) === maxFacilityTotal).map(row => row.facility);
+  const peakFacilities = facilityHourTableData
+    .filter((row) => Number(row.total ?? 0) === maxFacilityTotal)
+    .map((row) => row.facility);
 
-  // Helper for cell color scale
+  // Tính max cho từng hàng (chi nhánh)
+  const rowMaxMap = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    facilityHourTableData.forEach(row => {
+      const max = Math.max(...allHourRanges.map(hour => Number(row[hour] ?? 0)));
+      map[row.facility] = max;
+    });
+    return map;
+  }, [facilityHourTableData, allHourRanges]);
+
+  // Helper for cell color scale (dùng max của từng hàng)
   function getCellBg(val: number, max: number) {
-    if (!max || max === 0) return '';
+    if (!max || max === 0) return "";
     const percent = val / max;
-    if (percent > 0.85) return 'bg-[#ffe5e5]'; // very high
-    if (percent > 0.6) return 'bg-[#fff3cd]'; // high
-    if (percent > 0.3) return 'bg-[#e3fcec]'; // medium
-    return '';
+    if (percent > 0.85) return "bg-[#ffe5e5]"; // very high
+    if (percent > 0.6) return "bg-[#fff3cd]"; // high
+    if (percent > 0.3) return "bg-[#e3fcec]"; // medium
+    return "";
   }
+
+  const sortedAppDownloadStatusData = React.useMemo(() => {
+    if (!appDownloadStatusData) return [];
+    // Giả sử trường date là ISO string hoặc có thể parse được
+    return [...appDownloadStatusData].sort((a, b) => {
+      // Ưu tiên parse dạng YYYY-MM-DD hoặc YYYY-MM-DDTHH:mm:ss
+      const getDate = (d: { date?: string }) => {
+        if (!d.date) return 0;
+        const match = String(d.date).match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) return new Date(`${match[1]}-${match[2]}-${match[3]}`).getTime();
+        // Nếu là dạng DD/MM/YYYY
+        const match2 = String(d.date).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (match2) return new Date(`${match2[3]}-${match2[2]}-${match2[1]}`).getTime();
+        return new Date(d.date).getTime();
+      };
+      return getDate(a) - getDate(b);
+    });
+  }, [appDownloadStatusData]);
 
   return (
     <div className="p-4 lg:p-6">
@@ -859,7 +919,10 @@ export default function CustomerReportPage() {
                     ? "↑"
                     : "↓"
                   : ""}{" "}
-                {Math.abs(uniqueCustomersComparisonRaw?.changePercent ?? 0).toFixed(2)}%
+                {Math.abs(
+                  uniqueCustomersComparisonRaw?.changePercent ?? 0
+                ).toFixed(2)}
+                %
               </div>
             </div>
           </div>
@@ -1274,17 +1337,15 @@ export default function CustomerReportPage() {
               Nguồn của đơn hàng
             </div>
             <div className="w-full bg-white rounded-xl shadow-lg">
-              <ResponsiveContainer width="100%" height={350}>
+              <ResponsiveContainer width="100%" height={isMobile ? 220 : 350} minWidth={isMobile ? 180 : 320}>
                 <BarChart
-                  width={1000}
-                  height={400}
                   data={customerSourceTrendData}
-                  margin={{ top: 50, right: 30, left: 20, bottom: 5 }}
+                  margin={{ top: isMobile ? 20 : 50, right: 10, left: 10, bottom: isMobile ? 20 : 40 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="date"
-                    fontSize={isMobile ? 10 : 12}
+                    fontSize={isMobile ? 9 : 12}
                     tickFormatter={(date) => {
                       // date dạng 'YYYY-MM-DD' => 'DD/MM'
                       const match = date.match(/^\d{4}-(\d{2})-(\d{2})$/);
@@ -1295,17 +1356,17 @@ export default function CustomerReportPage() {
                       return date;
                     }}
                   />
-                  <YAxis />
+                  <YAxis fontSize={isMobile ? 9 : 12} />
                   <Tooltip />
                   <Legend
                     wrapperStyle={{
-                      paddingTop: 5,
-                      paddingBottom: 10,
+                      paddingTop: isMobile ? 0 : 5,
+                      paddingBottom: isMobile ? 0 : 10,
                       display: "flex",
                       justifyContent: "center",
                       flexWrap: "wrap",
                       width: "100%",
-                      fontSize: "14px",
+                      fontSize: isMobile ? 9 : 14,
                     }}
                   />
                   {customerSourceKeys.map((source, idx) => (
@@ -1314,29 +1375,30 @@ export default function CustomerReportPage() {
                       dataKey={source}
                       fill={COLORS[idx % COLORS.length]}
                       name={source}
-                      label={(props) => {
-                        const { x, y, width, value, index } = props;
-                        const d = customerSourceTrendData[index] as Record<string, number>;
-                        if (!d) return <></>;
-                        // Tìm giá trị lớn nhất trong các nguồn tại ngày đó
-                        const max = Math.max(
-                          ...customerSourceKeys.map((k) => Number(d[k] || 0))
-                        );
-                        return value === max && value > 0 ? (
-                          <text
-                            x={x + width / 2}
-                            y={y - 5}
-                            textAnchor="middle"
-                            fill={COLORS[idx % COLORS.length]}
-                            fontSize={14}
-                            fontWeight={600}
-                          >
-                            {value}
-                          </text>
-                        ) : (
-                          <></>
-                        );
-                      }}
+                      label={isMobile
+                        ? undefined // Ẩn label trên mobile
+                        : (props) => {
+                            const { x, y, width, value, index } = props;
+                            const d = customerSourceTrendData[index] as Record<string, number>;
+                            if (!d) return <></>;
+                            // Tìm giá trị lớn nhất trong các nguồn tại ngày đó
+                            const max = Math.max(...customerSourceKeys.map((k) => Number(d[k] || 0)));
+                            return value === max && value > 0 ? (
+                              <text
+                                x={x + width / 2}
+                                y={y - 5}
+                                textAnchor="middle"
+                                fill={COLORS[idx % COLORS.length]}
+                                fontSize={14}
+                                fontWeight={600}
+                              >
+                                {value}
+                              </text>
+                            ) : (
+                              <></>
+                            );
+                          }
+                      }
                     />
                   ))}
                 </BarChart>
@@ -1355,42 +1417,39 @@ export default function CustomerReportPage() {
               ) : error ? (
                 <div className="text-red-500">{error}</div>
               ) : (
-                <>
-                  <ResponsiveContainer width="100%" height={300} minWidth={220}>
-                    <BarChart data={appDownloadStatusData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="date"
-                        tickFormatter={(date) => {
-                          if (!date) return "";
-                          // Lấy ngày/tháng từ chuỗi ISO (YYYY-MM-DDTHH:mm:ss)
-                          const match = String(date).match(
-                            /^(\d{4})-(\d{2})-(\d{2})/
-                          );
-                          if (match) {
-                            const [, , month, day] = match;
-                            return `${day}/${month}`;
-                          }
-                          return String(date);
-                        }}
-                        fontSize={isMobile ? 10 : 12}
-                      />
-                      <YAxis allowDecimals={false} />
-                      <Tooltip />
-                      <Legend fontSize={isMobile ? 10 : 12} />
-                      <Bar
-                        dataKey="downloaded"
-                        fill="#9ee347"
-                        name="Đã tải app"
-                      />
-                      <Bar
-                        dataKey="notDownloaded"
-                        fill="#f0bf4c"
-                        name="Chưa tải app"
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </>
+                <ResponsiveContainer width="100%" height={isMobile ? 220 : 300} minWidth={isMobile ? 180 : 320}>
+                  <BarChart data={sortedAppDownloadStatusData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="date"
+                      fontSize={isMobile ? 9 : 12}
+                      tickFormatter={(date) => {
+                        if (!date) return "";
+                        // Xử lý chuẩn: YYYY-MM-DD hoặc YYYY-MM-DDTHH:mm:ss
+                        const match = String(date).match(/^(\d{4})-(\d{2})-(\d{2})/);
+                        if (match) {
+                          const [, , month, day] = match;
+                          return `${day}/${month}`;
+                        }
+                        // Nếu là dạng DD/MM/YYYY hoặc DD/MM
+                        const match2 = String(date).match(/^(\d{2})\/(\d{2})(?:\/\d{4})?$/);
+                        if (match2) {
+                          return `${match2[1]}/${match2[2]}`;
+                        }
+                        // Nếu là dạng ISO nhưng không match trên
+                        if (typeof date === "string" && date.length >= 10) {
+                          return date.slice(8, 10) + "/" + date.slice(5, 7);
+                        }
+                        return date;
+                      }}
+                    />
+                    <YAxis allowDecimals={false} fontSize={isMobile ? 9 : 12} />
+                    <Tooltip />
+                    <Legend fontSize={isMobile ? 9 : 12} />
+                    <Bar dataKey="downloaded" fill="#9ee347" name="Đã tải app" label={isMobile ? undefined : { position: "top", fontSize: 14, fontWeight: 600, fill: "#9ee347" }} />
+                    <Bar dataKey="notDownloaded" fill="#f0bf4c" name="Chưa tải app" label={isMobile ? undefined : { position: "top", fontSize: 14, fontWeight: 600, fill: "#f0bf4c" }} />
+                  </BarChart>
+                </ResponsiveContainer>
               )}
             </div>
           </div>
@@ -1478,7 +1537,7 @@ export default function CustomerReportPage() {
                         innerRadius="30%"
                         outerRadius="60%"
                         label={({ percent }) =>
-                          percent && percent > 0.05
+                          percent && percent > 0
                             ? `${(percent * 100).toFixed(0)}%`
                             : ""
                         }
@@ -1520,7 +1579,7 @@ export default function CustomerReportPage() {
                 Tỉ lệ các hình thức thanh toán ( khách mới )
               </div>
               <div className="flex justify-center items-center 18 lg:py-8">
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={isMobile ? 220 : 300} minWidth={isMobile ? 180 : 320}>
                   <PieChart>
                     <Pie
                       data={paymentPercentNewPieData}
@@ -1530,10 +1589,43 @@ export default function CustomerReportPage() {
                       cy="50%"
                       innerRadius="30%"
                       outerRadius="60%"
-                      label={({ percent, name }) =>
-                        percent && percent > 0.05
-                          ? `${name}: ${(percent * 100).toFixed(1)}%`
-                          : ""
+                      label={isMobile
+                        ? (props) => {
+                            const { percent, x, y, index } = props;
+                            if (!percent || percent <= 0 || typeof index !== 'number' || index < 0) return null;
+                            const color = paymentPercentNewPieData[index]?.color || "#333";
+                            return (
+                              <text
+                                x={x}
+                                y={y}
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fontSize={10}
+                                fontWeight={600}
+                                fill={color}
+                              >
+                                {`${(percent * 100).toFixed(1)}%`}
+                              </text>
+                            );
+                          }
+                        : (props) => {
+                            const { percent, x, y, index } = props;
+                            if (!percent || percent <= 0 || typeof index !== 'number' || index < 0) return null;
+                            const color = paymentPercentNewPieData[index]?.color || "#333";
+                            return (
+                              <text
+                                x={x}
+                                y={y}
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fontSize={14}
+                                fontWeight={600}
+                                fill={color}
+                              >
+                                {`${(percent * 100).toFixed(1)}%`}
+                              </text>
+                            );
+                          }
                       }
                       labelLine={false}
                     >
@@ -1543,11 +1635,7 @@ export default function CustomerReportPage() {
                     </Pie>
                     <Tooltip
                       formatter={(value, name, props) =>
-                        `${Number(
-                          value
-                        ).toLocaleString()} (${props.payload.percent?.toFixed(
-                          2
-                        )}%)`
+                        `${Number(value).toLocaleString()} (${props.payload.percent?.toFixed(2)}%)`
                       }
                     />
                     <Legend
@@ -1558,7 +1646,7 @@ export default function CustomerReportPage() {
                         justifyContent: "center",
                         flexWrap: "wrap",
                         width: "100%",
-                        fontSize: "12px",
+                        fontSize: isMobile ? 9 : 12,
                       }}
                       layout="horizontal"
                       verticalAlign="bottom"
@@ -1586,10 +1674,43 @@ export default function CustomerReportPage() {
                       cy="50%"
                       innerRadius="30%"
                       outerRadius="60%"
-                      label={({ percent, name }) =>
-                        percent && percent > 0.05
-                          ? `${name}: ${(percent * 100).toFixed(1)}%`
-                          : ""
+                      label={isMobile
+                        ? (props) => {
+                            const { percent, x, y, index } = props;
+                            if (!percent || percent <= 0 || typeof index !== 'number' || index < 0) return null;
+                            const color = paymentPercentOldPieData[index]?.color || "#333";
+                            return (
+                              <text
+                                x={x}
+                                y={y}
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fontSize={10}
+                                fontWeight={600}
+                                fill={color}
+                              >
+                                {`${(percent * 100).toFixed(1)}%`}
+                              </text>
+                            );
+                          }
+                        : (props) => {
+                            const { percent, x, y, index } = props;
+                            if (!percent || percent <= 0 || typeof index !== 'number' || index < 0) return null;
+                            const color = paymentPercentOldPieData[index]?.color || "#333";
+                            return (
+                              <text
+                                x={x}
+                                y={y}
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fontSize={14}
+                                fontWeight={600}
+                                fill={color}
+                              >
+                                {`${(percent * 100).toFixed(1)}%`}
+                              </text>
+                            );
+                          }
                       }
                       labelLine={false}
                     >
@@ -1599,7 +1720,15 @@ export default function CustomerReportPage() {
                     </Pie>
                     <Tooltip />
                     <Legend
-                      wrapperStyle={{ fontSize: "12px" }}
+                      wrapperStyle={{
+                        paddingTop: 10,
+                        paddingBottom: 10,
+                        display: "flex",
+                        justifyContent: "center",
+                        flexWrap: "wrap",
+                        width: "100%",
+                        fontSize: isMobile ? 9 : 12,
+                      }}
                       layout="horizontal"
                       verticalAlign="bottom"
                       align="center"
@@ -1617,10 +1746,18 @@ export default function CustomerReportPage() {
                 Thời gian đơn hàng được tạo
               </h2>
               <div className="flex flex-wrap gap-2 text-xs mt-2 sm:mt-0">
-                <span className="inline-flex items-center px-2 py-1 rounded bg-[#ffe5e5]">Khung giờ cao điểm</span>
-                <span className="inline-flex items-center px-2 py-1 rounded bg-[#fff3cd]">Giá trị cao</span>
-                <span className="inline-flex items-center px-2 py-1 rounded bg-[#e3fcec]">Giá trị trung bình</span>
-                <span className="inline-flex items-center px-2 py-1 rounded bg-[#d1e7dd] border border-[#0f5132]">Chi nhánh cao điểm</span>
+                <span className="inline-flex items-center px-2 py-1 rounded bg-[#ffe5e5]">
+                  Khung giờ cao điểm
+                </span>
+                <span className="inline-flex items-center px-2 py-1 rounded bg-[#fff3cd]">
+                  Giá trị cao
+                </span>
+                <span className="inline-flex items-center px-2 py-1 rounded bg-[#e3fcec]">
+                  Giá trị trung bình
+                </span>
+                <span className="inline-flex items-center px-2 py-1 rounded bg-[#d1e7dd] border border-[#0f5132]">
+                  Chi nhánh cao điểm
+                </span>
               </div>
             </div>
             {loadingFacilityHour ? (
@@ -1628,64 +1765,57 @@ export default function CustomerReportPage() {
             ) : errorFacilityHour ? (
               <div className="text-red-500">{errorFacilityHour}</div>
             ) : (
-              <div className="overflow-x-auto mt-4">
-
-                <div className="max-h-[320px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
-
-                <div className="max-h-[320px] overflow-y-auto">
-
-                  <table className="min-w-[600px] w-full border text-center">
-                    <thead>
-                      <tr>
-                        <th className="border px-2 py-1 bg-gray-100 text-left">Cơ sở</th>
-                        {allHourRanges.map((hour) => (
-                          <th
-                            key={hour}
-                            className={`border px-2 py-1 font-bold ${peakHours.includes(hour) ? 'bg-[#ffe5e5]' : ''}`}
-                          >
-                            {hour}
-                          </th>
-                        ))}
-                        <th className="border px-2 py-1 bg-gray-100 font-bold">Tổng</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {facilityHourTableData.map((row) => (
-                        <tr key={row.facility} className={peakFacilities.includes(row.facility) ? 'bg-[#d1e7dd] border border-[#0f5132]' : ''}>
-                          <td className="border px-2 py-1 text-left font-semibold">{row.facility}</td>
-                          {allHourRanges.map((hour) => {
-                            const val = Number(row[hour] ?? 0);
-                            const maxVal = hourTotals[hour] || 1;
-                            return (
-                              <td
-                                key={hour}
-                                className={`border px-2 py-1 ${peakHours.includes(hour) ? 'bg-[#ffe5e5]' : ''} ${getCellBg(val, maxVal)}`}
-                              >
-                                {val}
-                              </td>
-                            );
-                          })}
-                          <td className="border px-2 py-1 font-bold">{row.total}</td>
+              <div className="overflow-x-auto mt-4 custom-scrollbar">
+                <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
+                  <div className="max-h-[320px] overflow-y-auto">
+                    <table className={`min-w-[600px] w-full border text-center ${isMobile ? 'text-xs' : ''}`}>
+                      <thead>
+                        <tr>
+                          <th className={`border px-2 py-1 bg-gray-100 text-left font-bold ${isMobile ? 'text-xs' : ''} sticky left-0 z-10 bg-white`}>Cơ sở</th>
+                          {allHourRanges.map((hour) => (
+                            <th
+                              key={hour}
+                              className={`border px-2 py-1 font-bold text-sm ${peakHours.includes(hour) ? 'bg-[#ffe5e5]' : ''} ${isMobile ? 'text-xs px-1 py-0.5' : ''}`}
+                            >
+                              {hour}
+                            </th>
+                          ))}
+                          <th className={`border px-2 py-1 bg-gray-100 font-bold ${isMobile ? 'text-xs' : ''} sticky right-0 z-10 bg-[#e0e7ff]`}>Tổng</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {facilityHourTableData.map((row) => (
+                          <tr
+                            key={row.facility}
+                            className={
+                              peakFacilities.includes(row.facility)
+                                ? 'bg-[#d1e7dd] border-2 border-[#0f5132] font-bold'
+                                : ''
+                            }
+                          >
+                            <td className={`border px-2 py-1 text-left font-semibold ${isMobile ? 'text-xs px-1 py-0.5' : ''} sticky left-0 z-10 bg-white`}>{row.facility}</td>
+                            {allHourRanges.map((hour) => {
+                              const val = Number(row[hour] ?? 0);
+                              const maxRow = rowMaxMap[row.facility] || 1;
+                              return (
+                                <td
+                                  key={hour}
+                                  className={`border px-2 py-1 ${peakHours.includes(hour) ? 'bg-[#ffe5e5]' : ''} ${getCellBg(val, maxRow)} ${isMobile ? 'text-xs px-1 py-0.5' : ''}`}
+                                >
+                                  {val}
+                                </td>
+                              );
+                            })}
+                            <td className={`border px-2 py-1 font-bold ${isMobile ? 'text-xs px-1 py-0.5' : ''} sticky right-0 z-10 bg-[#e0e7ff]`}>{row.total}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-              </div>
-              
-            
-
-            
-                    )
-        
-        
-      
-  
-  
-
-                  }
-</div>
+            )}
+          </div>
         </div>
       </div>
     </div>
