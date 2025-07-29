@@ -16,17 +16,17 @@ const quickActions = [
 export function QuickActions() {
   return (
     <Card className="bg-white mb-6">
-      <CardContent className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <CardContent className="p-3 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
           {quickActions.map((action) => (
             <Button
               key={action.label}
               variant="outline"
-              className={`h-20 flex flex-col items-center justify-center space-y-2 border-2 hover:border-transparent transition-all ${action.color} hover:text-white`}
+              className={`h-14 sm:h-20 flex flex-col items-center justify-center space-y-1 sm:space-y-2 border-2 hover:border-transparent transition-all ${action.color} hover:text-white`}
             >
-              <action.icon className="h-6 w-6" />
-              <span className="text-xs font-medium">{action.label}</span>
+              <action.icon className="h-5 w-5 sm:h-6 sm:w-6" />
+              <span className="text-[11px] sm:text-xs font-medium">{action.label}</span>
             </Button>
           ))}
         </div>

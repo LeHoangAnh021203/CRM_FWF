@@ -1,31 +1,31 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   CalendarDate,
   today,
   getLocalTimeZone,
   parseDate,
 } from "@internationalized/date";
-import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  LabelList,
-} from "recharts";
 import salesData1 from "../../data/danh_sach_ban_hang.json";
 import salesData2 from "../../data/ban_hang_doanh_so.json";
 import salesData3 from "../../data/dich_vu_ban_hang.json";
 import khAppData from "../../data/khach_hang_su_dung_app.json";
+import OrderFilter from "./OrderFilter";
+import OrderRegionalSalesByDay from "./OrderRegionalSalesByDay";
+import OrderStoreTypeSalesByDay from "./OrderStoreTypeSalesByDay";
+import OrderTotalSales from "./OrderTotalSales";
+import OrderActualCollection from "./OrderActualCollection";
+import OrderTotalByDay from "./OrderTotalByDay";
+import OrderTotalByStore from "./OrderTotalByStore";
+import OrderCustomerTypeSaleaByDay from "./OrderCustomerTypeSaleaByDay";
+import OrderTop10LocationChartData from "./OrderTop10LocationChartData";
+import OrderActualStoreSale from "./OrderActualStoreSale";
+import OrdersChartData from "./OrdersChartData";
+import OrderTop10StoreOfOrder from "./OrderTop10StoreOfOrder";
+import OrderOfStore from "./OrderOfStore";
+import OrderStatCards from "./OrderStatCards";
+import OrderPiePaymentData from "./OrderPiePaymentData";
+import OrderPaymentRegionData from "./OrderPaymentRegionData";
 
 interface DataPoint {
   date: string;
@@ -43,57 +43,85 @@ interface RawDataRow {
   [key: string]: string | number | undefined | null;
 }
 
-interface MultiTypeCustomerDataPoint {
-  date: string;
-  KHTraiNghiem: number;
-  KHThanhVien: number;
-  KHBac: number;
-  KHVang: number;
-  KHDong: number;
-  KHKimcuong: number;
-  type: string;
-  status: string;
-}
-
-interface TotalRegionalSales {
+interface RegionalSalesByDayData {
   date: string;
   HCM: number;
   HaNoi: number;
   DaNang: number;
   NhaTrang: number;
   DaDongCua: number;
-  type: string;
-  status: string;
+  VungTau: number;
+  total?: number;
+  [key: string]: string | number | undefined;
 }
 
-interface TotalSaleOfStores {
+interface StoreTypeSalesByDayData {
   date: string;
   Mall: number;
   Shophouse: number;
   NhaPho: number;
   DaDongCua: number;
   Khac: number;
-  type: string;
-  status: string;
+  total?: number;
+  [key: string]: string | number | undefined;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+interface CustomerTypeSalesByDayData {
+  date: string;
+  KHTraiNghiem: number;
+  KHIron: number;
+  KHSilver: number;
+  KHBronze: number;
+  KHDiamond: number;
+  Khac: number;
+  total?: number;
+  [key: string]: string | number | undefined;
+}
+
+interface RegionStatData {
+  region: string;
+  orders: number;
+  delta: number;
+  revenue: number;
+  growthPercent: number;
+}
 
 // Custom hook dùng chung cho fetch API động
+const INVALID_DATES = [
+  "NGÀY TẠO",
+  "MÃ ĐƠN HÀNG",
+  "TÊN KHÁCH HÀNG",
+  "SỐ ĐIỆN THOẠI",
+];
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 function useApiData<T>(url: string, fromDate: string, toDate: string) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Skip API calls if URL is not available
+    if (!url || !API_BASE_URL) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+    setError(null);
+
     fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fromDate, toDate }),
     })
       .then((res) => {
-        if (!res.ok) throw new Error("API error: " + res.status);
+        if (!res.ok) {
+          // Don't throw error for 404, just return null data
+          if (res.status === 404) {
+            return null;
+          }
+          throw new Error("API error: " + res.status);
+        }
         return res.json();
       })
       .then((data) => {
@@ -101,7 +129,10 @@ function useApiData<T>(url: string, fromDate: string, toDate: string) {
         setLoading(false);
       })
       .catch((err) => {
-        setError(err.message);
+        // Only set error for non-404 errors
+        if (!err.message.includes("404")) {
+          setError(err.message);
+        }
         setLoading(false);
       });
   }, [url, fromDate, toDate]);
@@ -109,19 +140,62 @@ function useApiData<T>(url: string, fromDate: string, toDate: string) {
   return { data, loading, error };
 }
 
-// Hook lấy width window
+// Hook lấy width window với debounce để tránh performance issues
 function useWindowWidth() {
   const [width, setWidth] = useState(1024);
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     function handleResize() {
-      setWidth(window.innerWidth);
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setWidth(window.innerWidth);
+      }, 100); // Debounce 100ms
     }
+
     handleResize();
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(timeoutId);
+    };
   }, []);
   return width;
 }
+
+// Move this to the top of your file, outside the component
+const locationRegionMap: Record<string, string> = {
+  "Crescent Mall Q7": "HCM",
+  "Vincom Thảo Điền": "HCM",
+  "Vista Verde": "HCM",
+  "Aeon Mall Tân Phú Celadon": "HCM",
+  "Westpoint Phạm Hùng": "HCM",
+  "Aeon Mall Bình Tân": "HCM",
+  "Vincom Phan Văn Trị": "HCM",
+  "Vincom Landmark 81": "HCM",
+  "TTTM Estella Place": "HCM",
+  "Võ Thị Sáu Q.1": "HCM",
+  "The Sun Avenue": "HCM",
+  "Trương Định Q.3": "HCM",
+  "Hoa Lan Q.PN": "HCM",
+  "Nowzone Q.1": "HCM",
+  "Everrich Infinity Q.5": "HCM",
+  "SC VivoCity": "HCM",
+  "Vincom Lê Văn Việt": "HCM",
+  "The Bonatica Q.TB": "HCM",
+  "Midtown Q.7": "HCM",
+  "Riviera Point Q7": "HCM",
+  "Saigon Ofice": "HCM",
+  "Millenium Apartment Q.4": "HCM",
+  "Parc Mall Q.8": "HCM",
+  "Saigon Mia Trung Sơn": "HCM",
+  "Đảo Ngọc Ngũ Xã HN": "Hà Nội",
+  "Imperia Sky Garden HN": "Hà Nội",
+  "Vincom Bà Triệu": "Hà Nội",
+  "Gold Coast Nha Trang": "Nha Trang",
+  "Trần Phú Đà Nẵng": "Đà Nẵng",
+  "Vincom Quang Trung": "HCM",
+};
 
 export default function CustomerReportPage() {
   const [startDate, setStartDate] = useState<CalendarDate>(
@@ -132,24 +206,15 @@ export default function CustomerReportPage() {
   );
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
 
-  const fromDate = startDate
-    ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
-        startDate.day
-      ).padStart(2, "0")}T00:00:00`
-    : "";
-  const toDate = endDate
-    ? `${endDate.year}-${String(endDate.month).padStart(2, "0")}-${String(
-        endDate.day
-      ).padStart(2, "0")}T23:59:59`
-    : "";
   // Thêm state cho Region và Branch
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [regionSearch, setRegionSearch] = useState("");
   const [locationSearch, setLocationSearch] = useState("");
-  const regionDropdownRef = useRef<HTMLDivElement>(null);
-  const locationDropdownRef = useRef<HTMLDivElement>(null);
+  const regionDropdownRef = useRef<HTMLDivElement | null>(null);
+  const locationDropdownRef = useRef<HTMLDivElement | null>(null);
+  // Move locationOptions outside component to avoid re-creation
   const locationOptions = React.useMemo(
     () => [
       "Crescent Mall Q7",
@@ -185,45 +250,94 @@ export default function CustomerReportPage() {
     ],
     []
   );
-  const locationRegionMap: Record<string, string> = {
-    "Crescent Mall Q7": "HCM",
-    "Vincom Thảo Điền": "HCM",
-    "Vista Verde": "HCM",
-    "Aeon Mall Tân Phú Celadon": "HCM",
-    "Westpoint Phạm Hùng": "HCM",
-    "Aeon Mall Bình Tân": "HCM",
-    "Vincom Phan Văn Trị": "HCM",
-    "Vincom Landmark 81": "HCM",
-    "TTTM Estella Place": "HCM",
-    "Võ Thị Sáu Q.1": "HCM",
-    "The Sun Avenue": "HCM",
-    "Trương Định Q.3": "HCM",
-    "Hoa Lan Q.PN": "HCM",
-    "Nowzone Q.1": "HCM",
-    "Everrich Infinity Q.5": "HCM",
-    "SC VivoCity": "HCM",
-    "Vincom Lê Văn Việt": "HCM",
-    "The Bonatica Q.TB": "HCM",
-    "Midtown Q.7": "HCM",
-    "Riviera Point Q7": "HCM",
-    "Saigon Ofice": "HCM",
-    "Millenium Apartment Q.4": "HCM",
-    "Parc Mall Q.8": "HCM",
-    "Saigon Mia Trung Sơn": "HCM",
-    "Đảo Ngọc Ngũ Xã HN": "Hà Nội",
-    "Imperia Sky Garden HN": "Hà Nội",
-    "Vincom Bà Triệu": "Hà Nội",
-    "Gold Coast Nha Trang": "Nha Trang",
-    "Trần Phú Đà Nẵng": "Đà Nẵng",
-    "Vincom Quang Trung": "HCM",
-  };
 
-  const INVALID_DATES = [
-    "NGÀY TẠO",
-    "MÃ ĐƠN HÀNG",
-    "TÊN KHÁCH HÀNG",
-    "SỐ ĐIỆN THOẠI",
-  ];
+  const fromDate = startDate
+    ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
+        startDate.day
+      ).padStart(2, "0")}T00:00:00`
+    : "";
+  const toDate = endDate
+    ? `${endDate.year}-${String(endDate.month).padStart(2, "0")}-${String(
+        endDate.day
+      ).padStart(2, "0")}T23:59:59`
+    : "";
+
+  // XỬ LÍ API
+
+  const { data: regionRevenueRaw } = useApiData<{
+    currentRange: { region: string; date: string; totalRevenue: number }[];
+    previousRange: { region: string; date: string; totalRevenue: number }[];
+  }>(`${API_BASE_URL}/api/sales/region-revenue`, fromDate, toDate);
+
+  const { data: shopTyperegionRevenueRaw } = useApiData<{
+    currentRange: { shopType: string; date: string; actualRevenue: number }[];
+    previousRange: { shopType: string; date: string; actualRevenue: number }[];
+  }>(`${API_BASE_URL}/api/sales/shop-type-revenue`, fromDate, toDate);
+
+  const { data: revenueSummaryRaw } = useApiData<{
+    currentRange: { shopType: string; date: string; totalRevenue: number }[];
+    previousRange: { shopType: string; date: string; totalRevenue: number }[];
+    totalRevenue: number;
+    actualRevenue: number;
+    revenueGrowth: number;
+    actualGrowth: number;
+  }>(`${API_BASE_URL}/api/sales/revenue-summary`, fromDate, toDate);
+
+  const { data: regionStatRaw } = useApiData<RegionStatData[]>(
+    `${API_BASE_URL}/api/sales/region-stat`,
+    fromDate,
+    toDate
+  );
+
+  const { data: regionActualPie } = useApiData<{
+    currentRange: { shopType: string; date: string; totalRevenue: number }[];
+    previousRange: { shopType: string; date: string; totalRevenue: number }[];
+    totalRevenue: number;
+    actualRevenue: number;
+    revenueGrowth: number;
+    actualGrowth: number;
+  }>(`${API_BASE_URL}/api/sales/region-actual-pie`, fromDate, toDate);
+
+  const { data: dailyRegionRevenue } = useApiData<{
+    currentRange: { shopType: string; date: string; totalRevenue: number }[];
+    previousRange: { shopType: string; date: string; totalRevenue: number }[];
+    totalRevenue: number;
+    actualRevenue: number;
+    revenueGrowth: number;
+    actualGrowth: number;
+  }>(`${API_BASE_URL}/api/sales/daily-region-revenue`, fromDate, toDate);
+
+  const { data: dailyByCustomerType } = useApiData<
+    {
+      date: string;
+      customerType: string;
+      revenue: number;
+    }[]
+  >(`${API_BASE_URL}/api/sales/daily-by-customer-type`, fromDate, toDate);
+
+  const { data: dailyOrderStats } = useApiData<
+    {
+      date: string;
+      customerType: string;
+      revenue: number;
+      totalOrders: number;
+      avgOrdersPerShop: number;
+    }[]
+  >(`${API_BASE_URL}/api/sales/daily-order-stats`, fromDate, toDate);
+
+  const { data: fullStoreRevenue } = useApiData<
+    {
+      storeName: string;
+      currentOrders: number;
+      deltaOrders: number;
+      actualRevenue: number;
+      foxieRevenue: number;
+      revenueGrowth: number;
+      revenuePercent: number;
+      foxiePercent: number;
+      orderPercent: number;
+    }[]
+  >(`${API_BASE_URL}/api/sales/full-store-revenue`, fromDate, toDate);
 
   function parseVNDate(str: string): CalendarDate | null {
     if (!str || typeof str !== "string") return null;
@@ -308,7 +422,7 @@ export default function CustomerReportPage() {
     return null;
   }
 
-  const getRegionForBranch = (branchName: string) => {
+  const getRegionForBranch = useCallback((branchName: string) => {
     if (locationRegionMap[branchName]) {
       return locationRegionMap[branchName];
     }
@@ -358,7 +472,7 @@ export default function CustomerReportPage() {
     if (lowerBranch.includes("nha trang")) return "Nha Trang";
     if (lowerBranch.includes("đã đóng cửa")) return "Đã Đóng Cửa";
     return "Khác";
-  };
+  }, []);
 
   const allRawData: RawDataRow[] = React.useMemo(
     () => [
@@ -375,7 +489,8 @@ export default function CustomerReportPage() {
       allRawData
         .map((d): DataPoint | null => {
           const dateStr = String(d["Unnamed: 1"] || d["Unnamed: 3"] || "");
-          if (!dateStr || INVALID_DATES.includes(dateStr.trim().toUpperCase())) return null;
+          if (!dateStr || INVALID_DATES.includes(dateStr.trim().toUpperCase()))
+            return null;
           const parsedDate = parseVNDate(dateStr); // <-- parse 1 lần
           if (!parsedDate) return null;
           let gender = d["Unnamed: 7"];
@@ -385,9 +500,8 @@ export default function CustomerReportPage() {
             date: dateStr,
             calendarDate: parsedDate, // <-- chỉ dùng trường này cho so sánh ngày
             value:
-              Number(
-                d["Unnamed: 18"] ?? d["Unnamed: 16"] ?? d["Unnamed: 9"]
-              ) || 0,
+              Number(d["Unnamed: 18"] ?? d["Unnamed: 16"] ?? d["Unnamed: 9"]) ||
+              0,
             value2: Number(d["Unnamed: 19"] ?? d["Unnamed: 10"]) || 0,
             type: String(d["Unnamed: 12"] || "N/A"),
             status: String(d["Unnamed: 13"] || "N/A"),
@@ -397,271 +511,115 @@ export default function CustomerReportPage() {
           };
         })
         .filter((d): d is DataPoint => !!d && !!d.date),
-    [allRawData]
+    [allRawData, getRegionForBranch]
   );
 
   function isInWeek(d: DataPoint, start: CalendarDate, end: CalendarDate) {
-    return d.calendarDate.compare(start) >= 0 && d.calendarDate.compare(end) <= 0;
+    return (
+      d.calendarDate.compare(start) >= 0 && d.calendarDate.compare(end) <= 0
+    );
   }
-  
+
   // Helper: chuẩn hóa ngày về yyyy-MM-dd
-  function normalizeDate(date: CalendarDate): string {
-    return `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
-  }
 
   // Tối ưu hóa group data cho chart Tổng doanh số vùng
-  const regionalSalesByDay = React.useMemo(() => {
-    // Group theo ngày chuẩn hóa
-    const map: Record<string, TotalRegionalSales> = {};
-    realData.forEach((d) => {
-      const dateNorm = normalizeDate(d.calendarDate);
-      const region = getRegionForBranch(d.branch || "");
-      if (!map[dateNorm]) {
-        map[dateNorm] = {
-          date: dateNorm,
-          HCM: 0,
-          HaNoi: 0,
-          DaNang: 0,
-          NhaTrang: 0,
-          DaDongCua: 0,
-          type: "Tổng",
-          status: "All",
-        };
-      }
-      if (region === "HCM") map[dateNorm].HCM += d.value;
-      else if (region === "Hà Nội") map[dateNorm].HaNoi += d.value;
-      else if (region === "Đà Nẵng") map[dateNorm].DaNang += d.value;
-      else if (region === "Nha Trang") map[dateNorm].NhaTrang += d.value;
-      else if (region === "Đã Đóng Cửa") map[dateNorm].DaDongCua += d.value;
-    });
-    // Trả về mảng đã sort theo ngày tăng dần
-    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
-  }, [realData, getRegionForBranch]);
-
-  // kindOfCustomer: đủ cho 365 ngày trong năm 2025
-  const kindOfCustomer: MultiTypeCustomerDataPoint[] = Array.from(
-    { length: 365 },
-    (_, i) => {
-      const dateObj = new Date(2025, 0, 1 + i); // 0 = tháng 1
-      const day = dateObj.getDate();
-      const month = dateObj.getMonth() + 1;
-      const dateStr = `${day} thg ${month}`;
-      return {
-        date: dateStr,
-        KHTraiNghiem: 80 + (i % 5) * 2 + i,
-        KHThanhVien: 70 + (i % 4) * 3 + i,
-        KHDong: 40 + (i % 3) * 2 + i,
-        KHBac: 35 + (i % 2) * 2 + i,
-        KHKimcuong: 50 + (i % 6) * 2 + i,
-        KHVang: 100 + (i % 7) * 2 + i,
-        type: i % 2 === 0 ? "KH trải nghiệm" : "Khách hàng Thành viên",
-        status: "New",
-      };
-    }
-  );
-
-  const TotalRegionalSales: TotalRegionalSales[] = [
-    {
-      date: "9 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-
-    {
-      date: "8 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "7 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "6 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "5 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "4 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "3 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "1 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "2 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-  ];
-
-  const TotalSaleOfStores: TotalSaleOfStores[] = [
-    {
-      date: "9 thg 6, 2025",
-      Mall: 100,
-      Shophouse: 90,
-      NhaPho: 80,
-      DaDongCua: 70,
-      Khac: 60,
-      type: "Tổng",
-      status: "All",
-    },
-
-    {
-      date: "8 thg 6, 2025",
-      Mall: 100,
-      Shophouse: 90,
-      NhaPho: 80,
-      DaDongCua: 70,
-      Khac: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "7 thg 6, 2025",
-      Mall: 100,
-      Shophouse: 90,
-      NhaPho: 80,
-      DaDongCua: 60,
-      Khac: 70,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "6 thg 6, 2025",
-      Mall: 100,
-      Shophouse: 90,
-      NhaPho: 80,
-      DaDongCua: 60,
-      Khac: 70,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "5 thg 6, 2025",
-      Mall: 100,
-      Shophouse: 90,
-      NhaPho: 80,
-      DaDongCua: 60,
-      Khac: 70,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "4 thg 6, 2025",
-      Mall: 100,
-      Shophouse: 90,
-      NhaPho: 80,
-      DaDongCua: 60,
-      Khac: 70,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "3 thg 6, 2025",
-      Mall: 100,
-      Shophouse: 90,
-      NhaPho: 80,
-      DaDongCua: 60,
-      Khac: 70,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "1 thg 6, 2025",
-      Mall: 100,
-      Shophouse: 90,
-      NhaPho: 80,
-      DaDongCua: 60,
-      Khac: 70,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "2 thg 6, 2025",
-      Mall: 100,
-      Shophouse: 90,
-      NhaPho: 80,
-      DaDongCua: 60,
-      Khac: 70,
-      type: "Tổng",
-      status: "All",
-    },
-  ];
-  // Định nghĩa lại hàm formatMoneyShort trước khi dùng cho BarChart
-  function formatMoneyShort(val: number) {
-    if (val >= 1_000_000) return (val / 1_000_000).toFixed(1) + 'M';
-    if (val >= 1_000) return (val / 1_000).toFixed(1) + 'K';
-    return val.toLocaleString();
-  }
-
   const REGIONS = [
     "HCM",
     "Hà Nội",
     "Đà Nẵng",
     "Nha Trang",
     "Đã Đóng Cửa",
-    "Khác",
+    "Vũng Tàu",
   ];
+
+  const regionalSalesByDay: RegionalSalesByDayData[] = React.useMemo(() => {
+    // Use dailyRegionRevenue API data if available, otherwise fallback to regionRevenueRaw
+    const dataSource =
+      dailyRegionRevenue || regionRevenueRaw?.currentRange || regionRevenueRaw;
+
+    if (!dataSource) return [];
+
+    const rows = Array.isArray(dataSource) ? dataSource : [];
+
+    // Filter rows by date range if needed
+    const fromDateOnly = fromDate.split("T")[0];
+    const toDateOnly = toDate.split("T")[0];
+
+    const filteredRows = rows.filter((row) => {
+      const rowDate = row.date;
+      // Only include rows within the selected date range
+      return rowDate >= fromDateOnly && rowDate <= toDateOnly;
+    });
+
+    const map: Record<string, RegionalSalesByDayData> = {};
+
+    filteredRows.forEach(
+      (row: {
+        region?: string;
+        shopType?: string;
+        date: string;
+        totalRevenue?: number;
+        actualRevenue?: number;
+      }) => {
+        const date = row.date;
+        if (!map[date]) {
+          map[date] = {
+            date,
+            HCM: 0,
+            HaNoi: 0,
+            DaNang: 0,
+            NhaTrang: 0,
+            DaDongCua: 0,
+            VungTau: 0,
+          };
+        }
+
+        // Handle both region and shopType fields from different APIs
+        let key = row.region || row.shopType || "";
+
+        // Map region names to chart keys
+        if (key === "Hà Nội") key = "HaNoi";
+        if (key === "Đà Nẵng") key = "DaNang";
+        if (key === "Nha Trang") key = "NhaTrang";
+        if (key === "Vũng Tàu") key = "VungTau";
+        if (key === "Đã Đóng Cửa") key = "DaDongCua";
+
+        // Handle both totalRevenue and actualRevenue fields
+        const revenue = row.actualRevenue || row.totalRevenue || 0;
+
+        if (key && key in map[date]) {
+          map[date][key as keyof RegionalSalesByDayData] = revenue;
+        }
+      }
+    );
+
+    Object.values(map).forEach((item) => {
+      const hcm = item.HCM || 0;
+      const hanoi = item.HaNoi || 0;
+      const danang = item.DaNang || 0;
+      const nhatrang = item.NhaTrang || 0;
+      const dadongcua = item.DaDongCua || 0;
+      const vungtau = item.VungTau || 0;
+
+      item.total = hcm + hanoi + danang + nhatrang + dadongcua + vungtau;
+    });
+
+    const result = Object.values(map).sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+    return result;
+  }, [dailyRegionRevenue, regionRevenueRaw, fromDate, toDate]);
+
+  // Định nghĩa lại hàm formatMoneyShort trước khi dùng cho BarChart
+  function formatMoneyShort(val: number) {
+    if (val >= 1_000_000_000_000)
+      return (val / 1_000_000_000_000).toFixed(1) + "T";
+    if (val >= 1_000_000_000) return (val / 1_000_000_000).toFixed(1) + "B";
+    if (val >= 1_000_000) return (val / 1_000_000).toFixed(1) + "M";
+    if (val >= 1_000) return (val / 1_000).toFixed(1) + "K";
+    return val.toLocaleString();
+  }
 
   // Đặt các biến tuần lên trước
   const weekStart = startDate;
@@ -669,67 +627,16 @@ export default function CustomerReportPage() {
   const prevWeekStart = startDate.subtract({ days: 7 });
   const prevWeekEnd = startDate.subtract({ days: 1 });
 
-  const weekRevenueData = filterData(
-    TotalRegionalSales,
-    selectedRegions,
-    selectedBranches
-  );
-  const prevWeekRevenueData = filterData(
-    TotalRegionalSales,
-    selectedRegions,
-    selectedBranches
-  );
-
-  // Helper to map region display name to data key
-  function getRegionKey(region: string): keyof TotalRegionalSales | string {
-    switch (region) {
-      case "HCM":
-        return "HCM";
-      case "Hà Nội":
-        return "HaNoi";
-      case "Đà Nẵng":
-        return "DaNang";
-      case "Nha Trang":
-        return "NhaTrang";
-      case "Đã Đóng Cửa":
-        return "DaDongCua";
-      case "Khác":
-        return "Khac";
-      default:
-        return "HCM";
-    }
-  }
-
-  const regionStats = REGIONS.map((region) => {
-    const ordersThisWeek = realData.filter(
-      (d) => d.region === region && isInWeek(d, weekStart, weekEnd)
-    ).length;
-    const ordersLastWeek = realData.filter(
-      (d) => d.region === region && isInWeek(d, prevWeekStart, prevWeekEnd)
-    ).length;
-    const deltaOrders = ordersThisWeek - ordersLastWeek;
-    const regionKey = getRegionKey(region) as keyof TotalRegionalSales;
-    const revenueThisWeek = weekRevenueData.reduce(
-      (sum, item) => sum + Number(item[regionKey] ?? 0),
-      0
-    );
-    const revenueLastWeek = prevWeekRevenueData.reduce(
-      (sum, item) => sum + Number(item[regionKey] ?? 0),
-      0
-    );
-    const percentDelta =
-      revenueLastWeek === 0
-        ? null
-        : ((revenueThisWeek - revenueLastWeek) / revenueLastWeek) * 100;
-    return {
-      region,
-      ordersThisWeek,
-      deltaOrders,
-      revenueThisWeek,
-      percentDelta,
-      revenueLastWeek,
-    };
-  });
+  const regionStats = React.useMemo(() => {
+    if (!Array.isArray(regionStatRaw)) return [];
+    return regionStatRaw.map((item) => ({
+      region: item.region,
+      ordersThisWeek: item.orders,
+      deltaOrders: item.delta,
+      revenueThisWeek: item.revenue,
+      percentDelta: item.growthPercent,
+    }));
+  }, [regionStatRaw]);
 
   // --- TÍNH TOÁN SỐ LIỆU TỔNG HỢP ---
   // 1. Tổng thực thu tuần này và tuần trước
@@ -848,149 +755,6 @@ export default function CustomerReportPage() {
       ? null
       : ((avgRevenueThisWeek - avgRevenueLastWeek) / avgRevenueLastWeek) * 100;
 
-  function StatCard({
-    title,
-    value,
-    delta,
-    className,
-    valueColor,
-  }: {
-    title: string;
-    value: number;
-    delta: number | null;
-    className?: string;
-    valueColor?: string;
-  }) {
-    const isUp = delta !== null && delta > 0;
-    const isDown = delta !== null && delta < 0;
-    return (
-      <div
-        className={`bg-white rounded-xl shadow p-3 flex flex-col items-center min-w-[140px] border-4 ${
-          className ?? "border-gray-200"
-        }`}
-      >
-        <div className="text-xs font-semibold text-gray-700 mb-1 text-center">
-          {title}
-        </div>
-        <div
-          className={`text-2xl sm:text-4xl font-bold mb-1 text-center ${
-            valueColor ?? "text-black"
-          }`}
-        >
-          {value.toLocaleString()}
-        </div>
-        <div
-          className={`text-xs font-semibold flex items-center gap-1 ${
-            isUp ? "text-green-600" : isDown ? "text-red-500" : "text-gray-500"
-          }`}
-        >
-          {isUp && <span>↑</span>}
-          {isDown && <span>↓</span>}
-          {delta === null ? "N/A" : Math.abs(delta).toLocaleString()}
-        </div>
-      </div>
-    );
-  }
-
-  // Sửa filterData để lọc theo region/branch nếu có
-  function filterData<
-    T extends {
-      type: string;
-      status: string;
-      date: string;
-      region?: string;
-      branch?: string;
-    }
-  >(data: T[], selectedRegions?: string[], selectedBranches?: string[]): T[] {
-    return data.filter((item) => {
-      const matchRegion =
-        !selectedRegions ||
-        selectedRegions.length === 0 ||
-        !item.region ||
-        selectedRegions.includes(item.region);
-      const matchBranch =
-        !selectedBranches ||
-        selectedBranches.length === 0 ||
-        !item.branch ||
-        selectedBranches.includes(item.branch);
-      return matchRegion && matchBranch;
-    });
-  }
-
-  // Định nghĩa lại weekSalesData và prevWeekSalesData
-  const weekSalesData = filterData(
-    TotalSaleOfStores,
-    selectedRegions,
-    selectedBranches
-  );
-  const prevWeekSalesData = filterData(
-    TotalSaleOfStores,
-    selectedRegions,
-    selectedBranches
-  );
-
-  // Tổng số khách mới trong hệ thống (ví dụ: tổng value của ngày endDate)
-  const totalWeekSales = weekSalesData.reduce(
-    (sum, item) =>
-      sum +
-      item.Mall +
-      item.Shophouse +
-      item.NhaPho +
-      item.DaDongCua +
-      item.Khac,
-    0
-  );
-  const totalPrevWeekSales = prevWeekSalesData.reduce(
-    (sum, item) =>
-      sum +
-      item.Mall +
-      item.Shophouse +
-      item.NhaPho +
-      item.DaDongCua +
-      item.Khac,
-    0
-  );
-  const weekSalesChange =
-    totalPrevWeekSales === 0
-      ? null
-      : +(
-          ((totalWeekSales - totalPrevWeekSales) / totalPrevWeekSales) *
-          100
-        ).toFixed(1);
-
-  // Tính tổng thực thu trong tuần từ dữ liệu TotalRegionalSales
-
-  const totalWeekRevenue = weekRevenueData.reduce(
-    (sum, item) =>
-      sum +
-      item.HCM +
-      item.HaNoi +
-      item.DaNang +
-      item.NhaTrang +
-      item.DaDongCua,
-    0
-  );
-  const totalPrevWeekRevenue = prevWeekRevenueData.reduce(
-    (sum, item) =>
-      sum +
-      item.HCM +
-      item.HaNoi +
-      item.DaNang +
-      item.NhaTrang +
-      item.DaDongCua,
-    0
-  );
-  const weekRevenueChange =
-    totalPrevWeekRevenue === 0
-      ? null
-      : +(
-          ((totalWeekRevenue - totalPrevWeekRevenue) / totalPrevWeekRevenue) *
-          100
-        ).toFixed(1);
-
-  // Dữ liệu mẫu cho bảng thời gian đơn hàng được tạo
-  // Tính tổng cộng cuối bảng
-
   // Đóng dropdown khi click ngoài
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -1016,14 +780,20 @@ export default function CustomerReportPage() {
       locationOptions.filter((l) =>
         l.toLowerCase().includes(locationSearch.toLowerCase())
       ),
-    [locationOptions, locationSearch]
+    [locationSearch, locationOptions]
   );
 
-  const regionOptions = regionStats.map((r) => ({
-    name: r.region,
-    total: Object.values(locationRegionMap).filter((reg) => reg === r.region)
-      .length,
-  }));
+  const regionOptions = React.useMemo(
+    () =>
+      regionStats.map((r) => ({
+        name: r.region,
+        total: Object.values(locationRegionMap).filter(
+          (reg) => reg === r.region
+        ).length,
+      })),
+    [regionStats]
+  );
+
   const filteredRegionOptions = React.useMemo(
     () =>
       regionOptions.filter((r) =>
@@ -1033,37 +803,73 @@ export default function CustomerReportPage() {
   );
 
   // Tính top 10 location (chi nhánh/cửa hàng) theo thực thu tuần này
-  const locationRevenueMap: Record<string, number> = {};
-  locationOptions.forEach((loc) => {
-    locationRevenueMap[loc] = realData
-      .filter((d) => d.branch === loc && isInWeek(d, weekStart, weekEnd))
-      .reduce((sum, d) => sum + d.value, 0);
-  });
-  // Sắp xếp và tách top 10 + Khác
-  const sortedLocations = Object.entries(locationRevenueMap).sort(
-    (a, b) => b[1] - a[1]
-  );
-  const top10 = sortedLocations.slice(0, 10);
-  const other = sortedLocations.slice(10);
-  const otherTotal = other.reduce((sum, [, revenue]) => sum + revenue, 0);
-  const top10LocationChartData = [
-    ...top10.map(([name, revenue], idx) => ({
-      name,
-      revenue: Number(revenue),
-      foxie: Math.round(Number(revenue) * 0.45),
-      rank: idx + 1,
-    })),
-    ...(otherTotal > 0
-      ? [
-          {
-            name: "Khác",
-            revenue: otherTotal,
-            foxie: Math.round(otherTotal * 0.45),
-            rank: null,
-          },
-        ]
-      : []),
-  ];
+  const top10LocationChartData = React.useMemo(() => {
+    if (!fullStoreRevenue) {
+      // Fallback to old calculation if API data is not available
+      const locationRevenueMap: Record<string, number> = {};
+      locationOptions.forEach((loc) => {
+        locationRevenueMap[loc] = realData
+          .filter((d) => d.branch === loc && isInWeek(d, weekStart, weekEnd))
+          .reduce((sum, d) => sum + d.value, 0);
+      });
+
+      const sortedLocations = Object.entries(locationRevenueMap).sort(
+        (a, b) => b[1] - a[1]
+      );
+      const top10 = sortedLocations.slice(0, 10);
+      const other = sortedLocations.slice(10);
+      const otherTotal = other.reduce((sum, [, revenue]) => sum + revenue, 0);
+
+      return [
+        ...top10.map(([name, revenue], idx) => ({
+          name,
+          revenue: Number(revenue),
+          foxie: Math.round(Number(revenue) * 0.45),
+          rank: idx + 1,
+        })),
+        ...(otherTotal > 0
+          ? [
+              {
+                name: "Khác",
+                revenue: otherTotal,
+                foxie: Math.round(otherTotal * 0.45),
+                rank: null,
+              },
+            ]
+          : []),
+      ];
+    }
+
+    // Use API data
+    const sortedStores = [...fullStoreRevenue].sort(
+      (a, b) => b.actualRevenue - a.actualRevenue
+    );
+    const top10 = sortedStores.slice(0, 10);
+    const other = sortedStores.slice(10);
+    const otherTotal = other.reduce(
+      (sum, store) => sum + store.actualRevenue,
+      0
+    );
+
+    return [
+      ...top10.map((store, idx) => ({
+        name: store.storeName,
+        revenue: store.actualRevenue,
+        foxie: store.foxieRevenue,
+        rank: idx + 1,
+      })),
+      ...(otherTotal > 0
+        ? [
+            {
+              name: "Khác",
+              revenue: otherTotal,
+              foxie: Math.round(otherTotal * 0.45), // Estimate foxie for "Khác"
+              rank: null,
+            },
+          ]
+        : []),
+    ];
+  }, [fullStoreRevenue, realData, weekStart, weekEnd, locationOptions]);
 
   // Hàm custom label cho BarChart
   function renderBarLabel({
@@ -1082,70 +888,108 @@ export default function CustomerReportPage() {
     );
   }
 
-  const pieRegionRevenueData = regionStats.map((r) => ({
-    name: r.region,
-    value: r.revenueThisWeek,
-  }));
-  const dailyRegionRevenueDataWithTotal = filterData(
-    TotalRegionalSales,
-    selectedRegions,
-    selectedBranches
-  ).map((item) => ({
-    ...item,
-    total:
-      (item.HCM || 0) +
-      (item.HaNoi || 0) +
-      (item.DaNang || 0) +
-      (item.NhaTrang || 0) +
-      (item.DaDongCua || 0),
-  }));
-  const dailyCustomerRevenue = filterData(
-    kindOfCustomer,
-    selectedRegions,
-    selectedBranches
-  );
+  const pieRegionRevenueData = React.useMemo(() => {
+    if (!regionActualPie?.currentRange) {
+      // Fallback to regionStats if API data is not available
+      return regionStats.map((r) => ({
+        name: r.region,
+        value: r.revenueThisWeek,
+      }));
+    }
 
-  const storeTableData = locationOptions.map((loc) => {
-    // Lọc data tuần này và tuần trước cho từng cửa hàng
-    const thisWeek = realData.filter(
-      (d) => d.branch === loc && isInWeek(d, weekStart, weekEnd)
-    );
-    const lastWeek = realData.filter(
-      (d) => d.branch === loc && isInWeek(d, prevWeekStart, prevWeekEnd)
-    );
-    // Tổng thực thu
-    const revenue = thisWeek.reduce((sum, d) => sum + d.value, 0);
-    const revenueLast = lastWeek.reduce((sum, d) => sum + d.value, 0);
-    // % thay đổi thực thu
-    const revenueDelta =
-      revenueLast === 0 ? null : ((revenue - revenueLast) / revenueLast) * 100;
-    // Tổng trả Foxie
-    const foxie = Math.round(revenue * 0.45);
-    const foxieLast = Math.round(revenueLast * 0.45);
-    const foxieDelta =
-      foxieLast === 0 ? null : ((foxie - foxieLast) / foxieLast) * 100;
-    // Số đơn hàng
-    const orders = thisWeek.length;
-    const ordersLast = lastWeek.length;
-    const ordersDelta =
-      ordersLast === 0 ? null : ((orders - ordersLast) / ordersLast) * 100;
-    return {
-      location: loc,
-      revenue,
-      revenueDelta,
-      foxie,
-      foxieDelta,
-      orders,
-      ordersDelta,
-    };
-  });
+    // Process API data for pie chart
+    const regionRevenueMap: Record<string, number> = {};
 
-  // Tính số lượng đơn hàng theo ngày (loại bỏ đơn mua thẻ)
-  const ordersByDay: Record<string, { count: number; avgPerShop: number; calendarDate: CalendarDate }> = {};
+    regionActualPie.currentRange.forEach((item) => {
+      // Assuming the API returns data with region information
+      // You may need to adjust this based on your actual API response structure
+      const region = item.shopType; // or item.region if that's the field name
+      if (region) {
+        regionRevenueMap[region] =
+          (regionRevenueMap[region] || 0) + item.totalRevenue;
+      }
+    });
+
+    return Object.entries(regionRevenueMap).map(([name, value]) => ({
+      name,
+      value,
+    }));
+  }, [regionActualPie, regionStats]);
+
+  const storeTableData = React.useMemo(() => {
+    if (!fullStoreRevenue) {
+      // Fallback to old calculation if API data is not available
+      return locationOptions.map((loc) => {
+        const thisWeek = realData.filter(
+          (d) => d.branch === loc && isInWeek(d, weekStart, weekEnd)
+        );
+        const lastWeek = realData.filter(
+          (d) => d.branch === loc && isInWeek(d, prevWeekStart, prevWeekEnd)
+        );
+        const revenue = thisWeek.reduce((sum, d) => sum + d.value, 0);
+        const revenueLast = lastWeek.reduce((sum, d) => sum + d.value, 0);
+        const revenueDelta =
+          revenueLast === 0
+            ? null
+            : ((revenue - revenueLast) / revenueLast) * 100;
+        const foxie = Math.round(revenue * 0.45);
+        const foxieLast = Math.round(revenueLast * 0.45);
+        const foxieDelta =
+          foxieLast === 0 ? null : ((foxie - foxieLast) / foxieLast) * 100;
+        const orders = thisWeek.length;
+        const ordersLast = lastWeek.length;
+        const ordersDelta =
+          ordersLast === 0 ? null : ((orders - ordersLast) / ordersLast) * 100;
+        return {
+          location: loc,
+          revenue,
+          revenueDelta,
+          foxie,
+          foxieDelta,
+          orders,
+          ordersDelta,
+          revenuePercent: null,
+          foxiePercent: null,
+          orderPercent: null,
+        };
+      });
+    }
+
+    // Use API data
+    return fullStoreRevenue.map((store) => ({
+      location: store.storeName,
+      revenue: store.actualRevenue,
+      revenueDelta: store.revenueGrowth,
+      foxie: store.foxieRevenue,
+      foxieDelta: null, // API doesn't provide foxie growth percentage
+      orders: store.currentOrders,
+      ordersDelta: store.deltaOrders,
+      revenuePercent: store.revenuePercent,
+      foxiePercent: store.foxiePercent,
+      orderPercent: store.orderPercent,
+    }));
+  }, [
+    fullStoreRevenue,
+    realData,
+    weekStart,
+    weekEnd,
+    prevWeekStart,
+    prevWeekEnd,
+    locationOptions,
+  ]);
+
+  const ordersByDay: Record<
+    string,
+    { count: number; avgPerShop: number; calendarDate: CalendarDate }
+  > = {};
   realData.forEach((d) => {
     if (d.type !== "Khách hàng Thành viên") {
       if (!ordersByDay[d.date]) {
-        ordersByDay[d.date] = { count: 0, avgPerShop: 0, calendarDate: d.calendarDate };
+        ordersByDay[d.date] = {
+          count: 0,
+          avgPerShop: 0,
+          calendarDate: d.calendarDate,
+        };
       }
       ordersByDay[d.date].count++;
     }
@@ -1168,11 +1012,16 @@ export default function CustomerReportPage() {
     return d1.compare(d2);
   });
   // Chuẩn bị data cho chart
-  const ordersChartData = ordersByDayArr.map(([date, val]) => ({
-    date,
-    orders: val.count,
-    avgPerShop: val.avgPerShop,
-  }));
+  const ordersChartData = React.useMemo(() => {
+    if (Array.isArray(dailyOrderStats) && dailyOrderStats.length > 0) {
+      return dailyOrderStats.map((item) => ({
+        date: item.date,
+        orders: item.totalOrders,
+        avgPerShop: item.avgOrdersPerShop,
+      }));
+    }
+    return [];
+  }, [dailyOrderStats]);
 
   // Giả lập số đơn hàng mỗi ngày (ví dụ 31 ngày)
   const fakeOrderCounts = [
@@ -1197,7 +1046,7 @@ export default function CustomerReportPage() {
       retailOrders: orders.filter((d) => d.type === "KH trải nghiệm").length,
       cardOrders: orders.filter((d) => d.type === "Khách hàng Thành viên")
         .length,
-      foxieOrders: Math.round(orders.length * 0.45), // hoặc tuỳ logic
+      foxieOrders: Math.round(orders.length * 0.45),
     };
   });
   const top10OrderStores = storeOrderStats
@@ -1283,22 +1132,56 @@ export default function CustomerReportPage() {
     }
   );
 
-  // Tính tổng cộng cho bảng thực thu cửa hàng (30 locations)
-  const totalRevenueAll = storeTableData.reduce((sum, s) => sum + s.revenue, 0);
+  // Tính tổng cộng cho bảng thực thu cửa hàng
+  const avgRevenueAll =
+    storeTableData.length > 0
+      ? storeTableData.reduce((sum, s) => sum + s.revenue, 0) /
+        storeTableData.length
+      : 0;
   const totalFoxieAll = storeTableData.reduce((sum, s) => sum + s.foxie, 0);
   const totalOrdersAll = storeTableData.reduce((sum, s) => sum + s.orders, 0);
-  const totalRevenueDeltaAll = storeTableData.reduce(
-    (sum, s) => sum + (s.revenueDelta ?? 0),
-    0
+  const validRevenueDelta = storeTableData.filter(
+    (s) => typeof s.revenueDelta === "number"
   );
-  const totalFoxieDeltaAll = storeTableData.reduce(
-    (sum, s) => sum + (s.foxieDelta ?? 0),
-    0
+  const avgRevenueDeltaAll =
+    validRevenueDelta.length > 0
+      ? validRevenueDelta.reduce((sum, s) => sum + (s.revenueDelta ?? 0), 0) /
+        validRevenueDelta.length
+      : 0;
+
+  // Tính trung bình phần trăm - chỉ tính từ dữ liệu hợp lệ
+  const validRevenueData = storeTableData.filter(
+    (s) => typeof s.revenuePercent === "number"
   );
-  const totalOrdersDeltaAll = storeTableData.reduce(
-    (sum, s) => sum + (s.ordersDelta ?? 0),
-    0
+  const validFoxieData = storeTableData.filter(
+    (s) => typeof s.foxiePercent === "number"
   );
+  const validOrderData = storeTableData.filter(
+    (s) => typeof s.orderPercent === "number"
+  );
+  const validOrdersDelta = storeTableData.filter(
+    (s) => typeof s.ordersDelta === "number"
+  );
+  const avgOrdersDeltaAll =
+    validOrdersDelta.length > 0
+      ? validOrdersDelta.reduce((sum, s) => sum + (s.ordersDelta ?? 0), 0) /
+        validOrdersDelta.length
+      : 0;
+  const avgRevenuePercent =
+    validRevenueData.length > 0
+      ? validRevenueData.reduce((sum, s) => sum + (s.revenuePercent ?? 0), 0) /
+        validRevenueData.length
+      : 0;
+  const avgFoxiePercent =
+    validFoxieData.length > 0
+      ? validFoxieData.reduce((sum, s) => sum + (s.foxiePercent ?? 0), 0) /
+        validFoxieData.length
+      : 0;
+  const avgOrderPercent =
+    validOrderData.length > 0
+      ? validOrderData.reduce((sum, s) => sum + (s.orderPercent ?? 0), 0) /
+        validOrderData.length
+      : 0;
 
   const retailOrdersThisWeek = realData.filter(
     (d) => d.type === "KH trải nghiệm" && isInWeek(d, weekStart, weekEnd)
@@ -1321,7 +1204,9 @@ export default function CustomerReportPage() {
   const totalMembership = realData.filter(
     (d) => d.type === "Khách hàng Thành viên"
   ).length;
-  const totalNormal = realData.filter((d) => d.type === "KH trải nghiệm").length;
+  const totalNormal = realData.filter(
+    (d) => d.type === "KH trải nghiệm"
+  ).length;
   const totalFoxiePie = Math.round(
     (totalMembership + totalNormal + productOrdersThisWeek) * 0.218
   ); // Giả lập 21.8% như ảnh
@@ -1374,96 +1259,171 @@ export default function CustomerReportPage() {
   };
 
   const formatAxisDate = (dateString: string) => {
-    if (!dateString || typeof dateString !== 'string') return dateString;
+    if (!dateString || typeof dateString !== "string") return dateString;
+
+    // Handle ISO date format (2025-06-01T00:00:00)
+    if (dateString.includes("T")) {
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return `${String(date.getDate()).padStart(2, "0")}/${String(
+          date.getMonth() + 1
+        ).padStart(2, "0")}`;
+      }
+    }
+
+    // Handle other date formats using existing parseVNDate
     const parsed = parseVNDate(dateString);
     if (parsed) {
-      return `${String(parsed.day).padStart(2, '0')}/${String(parsed.month).padStart(2, '0')}`;
+      return `${String(parsed.day).padStart(2, "0")}/${String(
+        parsed.month
+      ).padStart(2, "0")}`;
     }
+
     return dateString; // fallback
   };
 
-  const getStoreTypeForBranch = (branchName: string) => {
-    if (locationRegionMap[branchName]) {
-      return locationRegionMap[branchName];
-    }
-    const lowerBranch = (branchName || "").toLowerCase();
-    if (
-      [
-        "q1",
-        "q3",
-        "q5",
-        "q7",
-        "q8",
-        "tân phú",
-        "bình tân",
-        "thảo điền",
-        "landmark",
-        "crescent mall",
-        "vincom",
-        "vista verde",
-        "aeon",
-        "estella",
-        "nowzone",
-        "sc vivocity",
-        "sun avenue",
-        "saigon mia",
-        "parc mall",
-        "millenium",
-        "riviera point",
-        "midtown",
-        "the bonatica",
-        "hoa lan",
-        "trương định",
-        "võ thị sáu",
-      ].some((k) => lowerBranch.includes(k))
-    )
-      return "HCM";
-    if (
-      [
-        "hà nội",
-        "tây hồ",
-        "bà triệu",
-        "imperia sky garden",
-        "đảo ngọc ngũ xã",
-      ].some((k) => lowerBranch.includes(k))
-    )
-      return "Hà Nội";
-    if (lowerBranch.includes("đà nẵng")) return "Đà Nẵng";
-    if (lowerBranch.includes("nha trang")) return "Nha Trang";
-    if (lowerBranch.includes("đã đóng cửa")) return "Đã Đóng Cửa";
-    return "Khác";
-  };
-
   const storeTypeSalesByDay = React.useMemo(() => {
-    const filtered = realData.filter((d) =>
-      d.calendarDate.compare(startDate) >= 0 && d.calendarDate.compare(endDate) <= 0
-    );
-    const map: Record<string, TotalSaleOfStores> = {};
-    filtered.forEach((d) => {
-      const date = d.date;
-      const storeType = getStoreTypeForBranch(d.branch || "");
-      if (!map[date]) {
-        map[date] = {
-          date,
-          Mall: 0,
-          Shophouse: 0,
-          NhaPho: 0,
-          DaDongCua: 0,
-          Khac: 0,
-          type: "Tổng",
-          status: "All",
-        };
+    if (!shopTyperegionRevenueRaw) return [];
+
+    // Handle both currentRange and direct array formats
+    const rows = Array.isArray(shopTyperegionRevenueRaw.currentRange)
+      ? shopTyperegionRevenueRaw.currentRange
+      : Array.isArray(shopTyperegionRevenueRaw)
+      ? shopTyperegionRevenueRaw
+      : [];
+
+    const map: Record<string, StoreTypeSalesByDayData> = {};
+
+    rows.forEach(
+      (row: {
+        shopType: string;
+        date: string;
+        actualRevenue?: number;
+        totalRevenue?: number;
+      }) => {
+        const date = row.date;
+        if (!map[date]) {
+          map[date] = {
+            date,
+            Mall: 0,
+            Shophouse: 0,
+            NhaPho: 0,
+            DaDongCua: 0,
+            Khac: 0,
+          };
+        }
+
+        const key = getStoreTypeKey(row.shopType);
+        // Use actualRevenue if available, otherwise fallback to totalRevenue
+        const revenue = row.actualRevenue || row.totalRevenue || 0;
+        map[date][key as keyof StoreTypeSalesByDayData] = revenue;
       }
-      if (storeType === "Mall") map[date].Mall += d.value;
-      else if (storeType === "Shophouse") map[date].Shophouse += d.value;
-      else if (storeType === "NhaPho") map[date].NhaPho += d.value;
-      else if (storeType === "DaDongCua") map[date].DaDongCua += d.value;
-      else map[date].Khac += d.value;
+    );
+
+    Object.values(map).forEach((item) => {
+      item.total =
+        (item.Mall || 0) +
+        (item.Shophouse || 0) +
+        (item.NhaPho || 0) +
+        (item.DaDongCua || 0) +
+        (item.Khac || 0);
     });
-    return Object.values(map).sort((a, b) => {
-      return a.date.localeCompare(b.date);
-    });
-  }, [realData, startDate, endDate, getStoreTypeForBranch]);
+
+    const result = Object.values(map).sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+    return result;
+  }, [shopTyperegionRevenueRaw]);
+
+  function getStoreTypeKey(shopType: string): keyof StoreTypeSalesByDayData {
+    if (shopType === "Trong Mall") return "Mall";
+    if (shopType === "Shophouse") return "Shophouse";
+    if (shopType === "Nhà phố") return "NhaPho";
+    if (shopType === "Đã Đóng Cửa") return "DaDongCua";
+    return "Khac";
+  }
+
+  // Xử lý dữ liệu từ API daily-by-customer-type
+  const customerTypeSalesByDay: CustomerTypeSalesByDayData[] =
+    React.useMemo(() => {
+      if (!dailyByCustomerType) return [];
+
+      const rows = Array.isArray(dailyByCustomerType)
+        ? dailyByCustomerType
+        : [];
+
+      // Filter rows by date range if needed
+      const fromDateOnly = fromDate.split("T")[0];
+      const toDateOnly = toDate.split("T")[0];
+
+      const filteredRows = rows.filter((row) => {
+        const rowDate = row.date;
+        return rowDate >= fromDateOnly && rowDate <= toDateOnly;
+      });
+
+      const map: Record<string, CustomerTypeSalesByDayData> = {};
+
+      filteredRows.forEach(
+        (row: { date: string; customerType: string; revenue: number }) => {
+          const date = row.date;
+          if (!map[date]) {
+            map[date] = {
+              date,
+              KHTraiNghiem: 0,
+              KHIron: 0,
+              KHSilver: 0,
+              KHBronze: 0,
+              KHDiamond: 0,
+              Khac: 0,
+            };
+          }
+
+          // Map customer types to chart keys
+          let key = row.customerType;
+          if (key === "KH trải nghiệm") key = "KHTraiNghiem";
+          if (key === "Khách hàng Iron") key = "KHIron";
+          if (key === "Khách hàng Silver") key = "KHSilver";
+          if (key === "Khách hàng Bronze") key = "KHBronze";
+          if (key === "Khách hàng Diamond") key = "KHDiamond";
+          if (key === "" || key === "Không xác định" || key === "Khác")
+            key = "Khac";
+
+          const revenue = row.revenue || 0;
+
+          if (key && key in map[date]) {
+            map[date][key as keyof CustomerTypeSalesByDayData] = revenue;
+          }
+
+          // Debug: Log để kiểm tra dữ liệu "Khác"
+          if (
+            row.customerType === "Không xác định" ||
+            row.customerType === "" ||
+            row.customerType === "Khác"
+          ) {
+            console.log(
+              `Date: ${date}, CustomerType: "${row.customerType}", Revenue: ${revenue}, Mapped to: ${key}`
+            );
+          }
+        }
+      );
+
+      Object.values(map).forEach((item) => {
+        item.total =
+          (item.KHTraiNghiem || 0) +
+          (item.KHIron || 0) +
+          (item.KHSilver || 0) +
+          (item.KHBronze || 0) +
+          (item.KHDiamond || 0) +
+          (item.Khac || 0);
+      });
+
+      const result = Object.values(map).sort((a, b) =>
+        a.date.localeCompare(b.date)
+      );
+
+      return result;
+    }, [dailyByCustomerType, fromDate, toDate]);
 
   return (
     <div className="p-2 sm:p-4 md:p-6 max-w-full">
@@ -1472,1628 +1432,155 @@ export default function CustomerReportPage() {
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-2">
             Order Report
           </h1>
-          <div className="flex flex-col md:flex-row gap-2 md:gap-4">
-            {/* ...DatePicker code... */}
-            <div className="w-full max-w-xl flex flex-col md:flex-row gap-2 md:gap-4 bg-white p-2 rounded">
-              <div className="w-full bg-white flex flex-col gap-1">
-                <h3 className="text-sm sm:text-base">Start date</h3>
-                <input
-                  type="date"
-                  className="border rounded p-2 bg-white text-sm"
-                  value={startDate.toString()}
-                  onChange={(e) => {
-                    const date = parseDate(e.target.value);
-                    setStartDate(date);
-                  }}
-                  max={today(getLocalTimeZone()).toString()}
-                />
-              </div>
-              <div className="w-full bg-white flex flex-col gap-1">
-                <h3 className="text-sm sm:text-base">End date</h3>
-                <input
-                  type="date"
-                  className="border rounded p-2 bg-white text-sm"
-                  value={endDate.toString()}
-                  onChange={(e) => {
-                    const date = parseDate(e.target.value);
-                    setEndDate(date);
-                  }}
-                  min={startDate.add({ days: 1 }).toString()}
-                  max={today(getLocalTimeZone()).toString()}
-                />
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-              {/* Region Dropdown */}
-              <div className="relative" ref={regionDropdownRef}>
-                <button
-                  className="bg-yellow-300 px-4 py-2 rounded-t-lg font-bold flex items-center gap-2 min-w-[180px] border-b-2 border-yellow-400 text-sm sm:text-base"
-                  onClick={() => setShowRegionDropdown((v) => !v)}
-                  type="button"
-                >
-                  <span className="material-icons"></span> Region
-                </button>
-                {showRegionDropdown && (
-                  <div className="absolute z-20 bg-white shadow-xl rounded-b-lg w-full min-w-[250px] border border-yellow-200">
-                    <div className="bg-yellow-200 px-4 py-2 font-bold flex items-center gap-2 border-b border-yellow-300">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selectedRegions.length === regionOptions.length
-                        }
-                        onChange={() =>
-                          setSelectedRegions(
-                            selectedRegions.length === regionOptions.length
-                              ? []
-                              : regionOptions.map((r) => r.name)
-                          )
-                        }
-                        className="accent-yellow-400"
-                      />
-                      Region
-                      <span className="ml-auto">Branches </span>
-                    </div>
-                    <div className="px-2 py-2 border-b">
-                      <input
-                        className="w-full border rounded px-2 py-1"
-                        placeholder="Nhập để tìm kiếm"
-                        value={regionSearch}
-                        onChange={(e) => setRegionSearch(e.target.value)}
-                      />
-                    </div>
-                    <div className="max-h-60 overflow-y-auto">
-                      {filteredRegionOptions.map((r) => (
-                        <label
-                          key={r.name}
-                          className="flex items-center gap-2 px-4 py-2 hover:bg-yellow-50 cursor-pointer border-b last:border-b-0"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedRegions.includes(r.name)}
-                            onChange={() => {
-                              setSelectedRegions((prev) =>
-                                prev.includes(r.name)
-                                  ? prev.filter((x) => x !== r.name)
-                                  : [...prev, r.name]
-                              );
-                            }}
-                            className="accent-yellow-400"
-                          />
-                          <span className="font-medium">{r.name}</span>
-                          <span className="ml-auto text-right min-w-[70px] font-semibold">
-                            {r.total}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {/* Location Dropdown */}
-              <div className="relative" ref={locationDropdownRef}>
-                <button
-                  className="bg-yellow-300 px-4 py-2 rounded-t-lg font-bold flex items-center gap-2 min-w-[180px] border-b-2 border-yellow-400 text-sm sm:text-base"
-                  onClick={() => setShowLocationDropdown((v) => !v)}
-                  type="button"
-                >
-                  <span className="material-icons"></span> Locations
-                </button>
-                {showLocationDropdown && (
-                  <div className="absolute z-20 bg-white shadow-xl rounded-b-lg w-full min-w-[220px] border border-yellow-200">
-                    <div className="bg-yellow-100 px-4 py-2 font-bold flex items-center gap-2 border-b border-yellow-200">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selectedBranches.length === locationOptions.length
-                        }
-                        onChange={() =>
-                          setSelectedBranches(
-                            selectedBranches.length === locationOptions.length
-                              ? []
-                              : [...locationOptions]
-                          )
-                        }
-                        className="accent-yellow-400"
-                      />
-                      Locations
-                    </div>
-                    <div className="px-2 py-2 border-b">
-                      <input
-                        className="w-full border rounded px-2 py-1"
-                        placeholder="Nhập để tìm kiếm"
-                        value={locationSearch}
-                        onChange={(e) => setLocationSearch(e.target.value)}
-                      />
-                    </div>
-                    <div className="max-h-60 overflow-y-auto">
-                      {filteredLocationOptions.map((loc) => (
-                        <label
-                          key={loc}
-                          className="flex items-center gap-2 px-4 py-2 hover:bg-yellow-50 cursor-pointer border-b last:border-b-0"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedBranches.includes(loc)}
-                            onChange={() => {
-                              setSelectedBranches((prev) =>
-                                prev.includes(loc)
-                                  ? prev.filter((x) => x !== loc)
-                                  : [...prev, loc]
-                              );
-                            }}
-                            className="accent-yellow-400"
-                          />
-                          <span className="font-medium">{loc}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
 
+          {/* Filter */}
+          <OrderFilter
+            startDate={startDate}
+            setStartDate={setStartDate}
+            endDate={endDate}
+            setEndDate={setEndDate}
+            today={() => today(getLocalTimeZone())}
+            parseDate={parseDate}
+            selectedRegions={selectedRegions}
+            setSelectedRegions={setSelectedRegions}
+            regionOptions={regionOptions}
+            regionSearch={regionSearch}
+            setRegionSearch={setRegionSearch}
+            filteredRegionOptions={filteredRegionOptions}
+            showRegionDropdown={showRegionDropdown}
+            setShowRegionDropdown={setShowRegionDropdown}
+            regionDropdownRef={regionDropdownRef}
+            selectedBranches={selectedBranches}
+            setSelectedBranches={setSelectedBranches}
+            locationOptions={locationOptions}
+            locationSearch={locationSearch}
+            setLocationSearch={setLocationSearch}
+            filteredLocationOptions={filteredLocationOptions}
+            showLocationDropdown={showLocationDropdown}
+            setShowLocationDropdown={setShowLocationDropdown}
+            locationDropdownRef={locationDropdownRef}
+          />
+        </div>
         {/* Tổng doanh số vùng */}
-        <div className=" w-full bg-white rounded-xl shadow-lg mt-5">
-          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mt-5">
-            Tổng doanh số vùng
-          </div>
-          <div className="w-full bg-white rounded-xl shadow-lg">
-            <div className="w-full overflow-x-auto">
-              <ResponsiveContainer width="100%" height={400} minWidth={320}>
-                <BarChart
-                  width={1000}
-                  height={400}
-                  data={regionalSalesByDay}
-                  margin={{ top: 50, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tickFormatter={formatAxisDate} fontSize={12}/>
-                  <YAxis
-                    tickFormatter={(v) => {
-                      if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
-                      if (typeof v === 'number') return v.toLocaleString();
-                      return v;
-                    }}
-                  />
-                  <Tooltip
-                    formatter={(value) => {
-                      if (typeof value === 'number') {
-                        if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-                        return value.toLocaleString();
-                      }
-                      return value;
-                    }}
-                  />
-                  <Legend />
-                  <Bar
-                    dataKey="HCM"
-                    fill="#ff7f7f"
-                    name="HCM"
-                    label={{
-                      position: "top",
-                      content: (props) => {
-                        const { value, x, y } = props;
-                        if (typeof value === 'number' && value < 1_000_000) return null;
-                        const xNum = typeof x === 'number' ? x : 0;
-                        const yNum = typeof y === 'number' ? y : 0;
-                        return (
-                          <text
-                            x={xNum}
-                            y={yNum - 6}
-                            fontSize={10}
-                            fill="#ff7f7f"
-                            textAnchor="middle"
-                          >
-                            {typeof value === 'number' ? formatMoneyShort(value) : ''}
-                          </text>
-                        );
-                      }
-                    }}
-                  />
-                  <Bar
-                    dataKey="HaNoi"
-                    fill="#b39ddb"
-                    name="Hà Nội"
-                    label={{
-                      position: "top",
-                      content: (props) => {
-                        const { value, x, y } = props;
-                        if (typeof value === 'number' && value < 1_000_000) return null;
-                        const xNum = typeof x === 'number' ? x : 0;
-                        const yNum = typeof y === 'number' ? y : 0;
-                        return (
-                          <text
-                            x={xNum}
-                            y={yNum - 6}
-                            fontSize={10}
-                            fill="#b39ddb"
-                            textAnchor="middle"
-                          >
-                            {typeof value === 'number' ? formatMoneyShort(value) : ''}
-                          </text>
-                        );
-                      }
-                    }}
-                  />
-                  <Bar
-                    dataKey="DaNang"
-                    fill="#8d6e63"
-                    name="Đà Nẵng"
-                    label={{
-                      position: "top",
-                      content: (props) => {
-                        const { value, x, y } = props;
-                        if (typeof value === 'number' && value < 1_000_000) return null;
-                        const xNum = typeof x === 'number' ? x : 0;
-                        const yNum = typeof y === 'number' ? y : 0;
-                        return (
-                          <text
-                            x={xNum}
-                            y={yNum - 6}
-                            fontSize={10}
-                            fill="#8d6e63"
-                            textAnchor="middle"
-                          >
-                            {typeof value === 'number' ? formatMoneyShort(value) : ''}
-                          </text>
-                        );
-                      }
-                    }}
-                  />
-                  <Bar
-                    dataKey="NhaTrang"
-                    fill="#c5e1a5"
-                    name="Nha Trang"
-                    label={{
-                      position: "top",
-                      content: (props) => {
-                        const { value, x, y } = props;
-                        if (typeof value === 'number' && value < 1_000_000) return null;
-                        const xNum = typeof x === 'number' ? x : 0;
-                        const yNum = typeof y === 'number' ? y : 0;
-                        return (
-                          <text
-                            x={xNum}
-                            y={yNum - 6}
-                            fontSize={10}
-                            fill="#c5e1a5"
-                            textAnchor="middle"
-                          >
-                            {typeof value === 'number' ? formatMoneyShort(value) : ''}
-                          </text>
-                        );
-                      }
-                    }}
-                  />
-                  <Bar
-                    dataKey="DaDongCua"
-                    stackId="a"
-                    fill="#f0bf4c"
-                    name="Đã đóng cửa"
-                    label={{
-                      position: "top",
-                      content: (props) => {
-                        const { value, x, y } = props;
-                        if (typeof value === 'number' && value < 1_000_000) return null;
-                        const xNum = typeof x === 'number' ? x : 0;
-                        const yNum = typeof y === 'number' ? y : 0;
-                        return (
-                          <text
-                            x={xNum}
-                            y={yNum - 6}
-                            fontSize={10}
-                            fill="#f0bf4c"
-                            textAnchor="middle"
-                          >
-                            {typeof value === 'number' ? formatMoneyShort(value) : ''}
-                          </text>
-                        );
-                      }
-                    }}
-                  />
-                  <LabelList
-                    dataKey="total"
-                    position="top"
-                    formatter={(label: React.ReactNode) => {
-                      if (typeof label === 'number') {
-                        return label.toLocaleString();
-                      }
-                      return '';
-                    }}
-                    style={{
-                      fontWeight: "bold",
-                      fill: "#f0bf4c",
-                      fontSize: 16,
-                    }}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
+        <OrderRegionalSalesByDay
+          regionalSalesByDay={regionalSalesByDay}
+          formatAxisDate={formatAxisDate}
+          formatMoneyShort={formatMoneyShort}
+        />
         {/* Tổng doanh số loại cửa hàng*/}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5">
-          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mt-5">
-            Tổng doanh số loại cửa hàng
-          </div>
-          <div className="w-full bg-white rounded-xl shadow-lg">
-            <div className="w-full overflow-x-auto">
-              <ResponsiveContainer width="100%" height={400} minWidth={320}>
-                <BarChart
-                  width={1000}
-                  height={400}
-                  data={storeTypeSalesByDay}
-                  margin={{ top: 50, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tickFormatter={formatAxisDate} />
-                  <YAxis
-                    tickFormatter={(v) => {
-                      if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
-                      if (typeof v === 'number') return v.toLocaleString();
-                      return v;
-                    }}
-                  />
-                  <Tooltip
-                    formatter={(value) => {
-                      if (typeof value === 'number') {
-                        if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-                        return value.toLocaleString();
-                      }
-                      return value;
-                    }}
-                  />
-                  <Legend
-                    wrapperStyle={{
-                      paddingTop: 5,
-                      paddingBottom: 10,
-                      display: "flex",
-                      justifyContent: "center",
-                      flexWrap: "wrap",
-                      width: "100%",
-                    }}
-                  />
-                  <Bar
-                    dataKey="Mall"
-                    fill="#ff7f7f"
-                    name="Mall"
-                    label={{
-                      position: "top",
-                      content: (props) => {
-                        const { value, x, y } = props;
-                        if (typeof value !== "number" || value === 0) return null;
-                        return (
-                          <text
-                          x={Number(x)}
-                          y={Number(y) - 6}
-                            fontSize={10}
-                            fill="#ff7f7f"
-                            textAnchor="middle"
-                          >
-                            {formatMoneyShort(value)}
-                          </text>
-                        );
-                      },
-                    }}
-                  />
-                  <Bar
-                    dataKey="Shophouse"
-                    fill="#b39ddb"
-                    name="Shophouse"
-                    label={{
-                      position: "top",
-                      content: (props) => {
-                        const { value, x, y } = props;
-                        if (typeof value !== "number" || value === 0) return null;
-                        return (
-                          <text
-                          x={Number(x)}
-  y={Number(y) - 6}
-                            fontSize={10}
-                            fill="#b39ddb"
-                            textAnchor="middle"
-                          >
-                            {formatMoneyShort(value)}
-                          </text>
-                        );
-                      },
-                    }}
-                  />
-                  <Bar
-                    dataKey="NhaPho"
-                    fill="#8d6e63"
-                    name="Nhà phố"
-                    label={{
-                      position: "top",
-                      content: (props) => {
-                        const { value, x, y } = props;
-                        if (typeof value !== "number" || value === 0) return null;
-                        return (
-                          <text
-                          x={Number(x)}
-                          y={Number(y) - 6}
-                            fontSize={10}
-                            fill="#8d6e63"
-                            textAnchor="middle"
-                          >
-                            {formatMoneyShort(value)}
-                          </text>
-                        );
-                      },
-                    }}
-                  />
-                  <Bar
-                    dataKey="DaDongCua"
-                    fill="#c5e1a5"
-                    name="Đã đóng cửa"
-                    label={{
-                      position: "top",
-                      content: (props) => {
-                        const { value, x, y } = props;
-                        if (typeof value !== "number" || value === 0) return null;
-                        return (
-                          <text
-                          x={Number(x)}
-                          y={Number(y) - 6}
-                            fontSize={10}
-                            fill="#c5e1a5"
-                            textAnchor="middle"
-                          >
-                            {formatMoneyShort(value)}
-                          </text>
-                        );
-                      },
-                    }}
-                  />
-                  <Bar
-                    dataKey="Khac"
-                    fill="#81d4fa"
-                    name="Khác"
-                    label={{
-                      position: "top",
-                      content: (props) => {
-                        const { value, x, y } = props;
-                        if (typeof value !== "number" || value === 0) return null;
-                        return (
-                          <text
-                          x={Number(x)}
-  y={Number(y) - 6}
-                            fontSize={10}
-                            fill="#81d4fa"
-                            textAnchor="middle"
-                          >
-                            {formatMoneyShort(value)}
-                          </text>
-                        );
-                      },
-                    }}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
+        <OrderStoreTypeSalesByDay
+          storeTypeSalesByDay={storeTypeSalesByDay}
+          formatAxisDate={formatAxisDate}
+          formatMoneyShort={(val: number) => (val / 1_000_000).toFixed(1) + "M"}
+        />
         {/* Tổng doanh số và Tổng thực thu */}
-        <div className="flex flex-col md:flex-row gap-4 mt-4">
-          {/* Tổng doanh số trong tuần */}
-          <div className="flex-1 bg-white rounded-xl shadow-lg p-4 sm:p-6 flex flex-col items-center justify-center min-w-[180px]">
-            <div className="text-base sm:text-xl font-medium text-gray-700 mb-2 text-center">
-              Tổng doanh số 
-            </div>
-            <div className="text-3xl sm:text-5xl font-bold text-black mb-2">
-              {totalWeekSales.toLocaleString()}
-            </div>
-            <div
-              className={`flex items-center gap-1 text-lg sm:text-2xl font-semibold ${
-                weekSalesChange === null
-                  ? "text-gray-500"
-                  : weekSalesChange > 0
-                  ? "text-green-600"
-                  : "text-red-500"
-              }`}
-            >
-              {weekSalesChange === null
-                ? "N/A"
-                : `${Math.abs(weekSalesChange)}%`}
-            </div>
-          </div>
-          {/* Tổng thực thu trong tuần */}
-          <div className="flex-1 bg-white rounded-xl shadow-lg p-4 sm:p-6 flex flex-col items-center justify-center min-w-[180px]">
-            <div className="text-base sm:text-xl font-medium text-gray-700 mb-2 text-center">
-              Tổng thực thu 
-            </div>
-            <div className="text-3xl sm:text-5xl font-bold text-black mb-2">
-              {totalRevenueThisWeek.toLocaleString()}
-            </div>
-            <div
-              className={`flex items-center gap-1 text-lg sm:text-2xl font-semibold ${
-                weekRevenueChange === null
-                  ? "text-gray-500"
-                  : weekRevenueChange > 0
-                  ? "text-green-600"
-                  : "text-red-500"
-              }`}
-            >
-              {weekRevenueChange === null
-                ? "N/A"
-                : `${Math.abs(weekRevenueChange)}%`}
-            </div>
-          </div>
-        </div>
-
+        <OrderTotalSales
+          totalWeekSales={revenueSummaryRaw?.totalRevenue ?? 0}
+          weekSalesChange={revenueSummaryRaw?.revenueGrowth ?? 0}
+          totalRevenueThisWeek={revenueSummaryRaw?.actualRevenue ?? 0}
+          weekRevenueChange={revenueSummaryRaw?.actualGrowth ?? 0}
+        />
         {/* Thực thu tại các khu vực trong tuần */}
-        <div className="flex flex-col lg:flex-row w-full bg-white rounded-xl shadow-lg gap-4 mt-5 h-fit lg:h-[550px] items-center">
-          <div className="overflow-x-auto w-full lg:w-1/2 justify-center items-center rounded-xl ml-0 lg:ml-2">
-            <div className="text-base sm:text-xl font-medium text-gray-700 text-center p-2">
-              Thực thu tại các khu vực trong tuần
-            </div>
-            <div className="rounded-xl border border-gray-200 shadow-sm bg-white overflow-x-auto">
-              <table className="min-w-[700px] w-full text-xs sm:text-sm">
-                <thead>
-                  <tr className="bg-yellow-100 text-gray-900">
-                    <th className="px-4 py-2 border-b font-semibold text-left">
-                      Khu vực
-                    </th>
-                    <th className="px-4 py-2 border-b font-semibold text-right">
-                      Số đơn
-                    </th>
-                    <th className="px-4 py-2 border-b font-semibold text-right">
-                      Δ
-                    </th>
-                    <th className="px-4 py-2 border-b font-semibold text-right">
-                      Thực thu
-                    </th>
-                    <th className="px-4 py-2 border-b font-semibold text-right">
-                      % Δ
-                    </th>
-                    <th className="px-4 py-2 border-b font-semibold text-right">
-                      %Thực thu
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {regionStats.map((r) => (
-                    <tr key={r.region} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 border-b text-left">
-                        {r.region}
-                      </td>
-                      <td className="px-4 py-2 border-b text-right">
-                        {r.ordersThisWeek}
-                      </td>
-                      <td
-                        className={`px-4 py-2 border-b text-right ${
-                          r.deltaOrders > 0
-                            ? "text-green-600"
-                            : r.deltaOrders < 0
-                            ? "text-red-500"
-                            : ""
-                        }`}
-                      >
-                        {r.deltaOrders}{" "}
-                        {r.deltaOrders > 0 ? "↑" : r.deltaOrders < 0 ? "↓" : ""}
-                      </td>
-                      <td className="px-4 py-2 border-b text-right">
-                        {r.revenueThisWeek.toLocaleString()}
-                      </td>
-                      <td
-                        className={`px-4 py-2 border-b text-right ${
-                          r.percentDelta && r.percentDelta > 0
-                            ? "text-green-600"
-                            : r.percentDelta && r.percentDelta < 0
-                            ? "text-red-500"
-                            : ""
-                        }`}
-                      >
-                        {r.percentDelta === null
-                          ? "N/A"
-                          : `${r.percentDelta.toFixed(1)}%`}
-                        {r.percentDelta && r.percentDelta > 0
-                          ? "↑"
-                          : r.percentDelta && r.percentDelta < 0
-                          ? "↓"
-                          : ""}
-                      </td>
-                      <td className="px-4 py-2 border-b text-right">
-                        {totalRevenueThisWeek === 0
-                          ? "0.00"
-                          : (
-                              (r.revenueThisWeek / totalRevenueThisWeek) *
-                              100
-                            ).toFixed(2)}
-                        %
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="font-bold bg-gray-100">
-                    <td className="px-4 py-2 border-t text-left">Tổng cộng</td>
-                    <td className="px-4 py-2 border-t text-right">
-                      {regionStats.reduce(
-                        (sum, r) => sum + r.ordersThisWeek,
-                        0
-                      )}
-                    </td>
-                    <td className="px-4 py-2 border-t text-right">
-                      {regionStats.reduce((sum, r) => sum + r.deltaOrders, 0)}
-                    </td>
-                    <td className="px-4 py-2 border-t text-right">
-                      {totalRevenueThisWeek.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-2 border-t text-right"></td>
-                    <td className="px-4 py-2 border-t text-right">100%</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-          {/* Tổng thực thu tại các khu vực trong tuần */}
-          <div className="flex flex-col justify-center items-center w-full lg:w-1/2">
-            <div className="flex-1 flex flex-col items-center md:items-start">
-              <ResponsiveContainer width="100%" height={320} minWidth={320}>
-                <PieChart className="mt-10 mb-10">
-                  <Pie
-                    data={pieRegionRevenueData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={isMobile ? 70 : 120}
-                    label={({ percent }) =>
-                      percent !== undefined
-                        ? `${(percent * 100).toFixed(0)}%`
-                        : ""
-                    }
-                  >
-                    {pieRegionRevenueData.map((entry, idx) => (
-                      <Cell
-                        key={entry.name}
-                        fill={
-                          [
-                            "#8d6e63",
-                            "#b39ddb",
-                            "#81d4fa",
-                            "#f0bf4c",
-                            "#ff7f7f",
-                            "#9ee347",
-                          ][idx % 6]
-                        }
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) => {
-                      if (typeof value === 'number') {
-                        if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-                        return value.toLocaleString();
-                      }
-                      return value;
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <ul className="space-y-2 mb-2">
-                {pieRegionRevenueData.map((item, idx) => (
-                  <li key={item.name} className="flex items-center gap-3">
-                    <span
-                      className="inline-block w-5 h-5 rounded-full"
-                      style={{
-                        background: [
-                          "#8d6e63",
-                          "#b39ddb",
-                          "#81d4fa",
-                          "#f0bf4c",
-                          "#ff7f7f",
-                          "#9ee347",
-                        ][idx % 6],
-                      }}
-                    ></span>
-                    <span className="font-medium text-gray-800">
-                      {item.name}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-
+        <OrderActualCollection
+          regionStats={regionStats}
+          totalRevenueThisWeek={
+            regionActualPie?.actualRevenue ||
+            (Array.isArray(regionStatRaw)
+              ? regionStatRaw.reduce((sum, r) => sum + r.revenue, 0)
+              : 0)
+          }
+          pieRegionRevenueData={pieRegionRevenueData}
+          isMobile={isMobile}
+        />
         {/* Tổng thực thu tại các khu vực theo ngày */}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
-            Tổng thực thu tại các khu vực theo ngày
-          </div>
-          <div className="w-full overflow-x-auto">
-            <ResponsiveContainer width={500} height={isMobile ? 220 : 400}>
-              <BarChart
-                data={dailyRegionRevenueDataWithTotal}
-                margin={{
-                  top: isMobile ? 10 : 30,
-                  right: 10,
-                  left: 10,
-                  bottom: isMobile ? 20 : 40,
-                }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="date"
-                  angle={isMobile ? -20 : -30}
-                  textAnchor="end"
-                  height={isMobile ? 40 : 60}
-                  tick={{ fontSize: isMobile ? 10 : 14 }}
-                />
-                <YAxis
-                  tickFormatter={(v) => {
-                    if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
-                    if (typeof v === 'number') return v.toLocaleString();
-                    return v;
-                  }}
-                />
-                <Tooltip
-                  formatter={(value) => {
-                    if (typeof value === 'number') {
-                      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-                      return value.toLocaleString();
-                    }
-                    return value;
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{
-                    paddingTop: isMobile ? 0 : 10,
-                    paddingBottom: isMobile ? 0 : 10,
-                    fontSize: isMobile ? 10 : 14,
-                    display: "flex",
-                    justifyContent: "center",
-                    flexWrap: "wrap",
-                    width: "100%",
-                  }}
-                />
-                <Bar dataKey="HCM" stackId="a" fill="#8d6e63" name="HCM" />
-                <Bar dataKey="HaNoi" stackId="a" fill="#b6d47a" name="Hà Nội" />
-                <Bar
-                  dataKey="DaNang"
-                  stackId="a"
-                  fill="#81d4fa"
-                  name="Đà Nẵng"
-                />
-                <Bar
-                  dataKey="NhaTrang"
-                  stackId="a"
-                  fill="#ff7f7f"
-                  name="Nha Trang"
-                />
-                <Bar
-                  dataKey="DaDongCua"
-                  stackId="a"
-                  fill="#f0bf4c"
-                  name="Đã đóng cửa"
-                >
-                  {!isMobile && (
-                    <LabelList
-                      dataKey="total"
-                      position="top"
-                      formatter={(value) =>
-                        value ? value.toLocaleString() : ""
-                      }
-                      style={{
-                        fontWeight: "bold",
-                        fill: "#f0bf4c",
-                        fontSize: 16,
-                      }}
-                    />
-                  )}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
+        <OrderTotalByDay
+          key={`regional-chart-${fromDate}-${toDate}`}
+          data={regionalSalesByDay}
+          isMobile={isMobile}
+          formatAxisDate={formatAxisDate}
+        />
         {/* Tổng thực thu theo loại cửa hàng */}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
-            Tổng thực thu theo loại cửa hàng
-          </div>
-          <div className="w-full overflow-x-auto">
-            <ResponsiveContainer width="100%" height={400} minWidth={320}>
-              <LineChart
-                data={storeTypeSalesByDay}
-                margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="date"
-                  angle={-30}
-                  textAnchor="end"
-                  height={60}
-                  tickFormatter={formatAxisDate}
-                />
-                <YAxis
-                  tickFormatter={(v) => {
-                    if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
-                    if (typeof v === 'number') return v.toLocaleString();
-                    return v;
-                  }}
-                />
-                <Tooltip
-                  formatter={(value) => {
-                    if (typeof value === 'number') {
-                      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-                      return value.toLocaleString();
-                    }
-                    return value;
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{
-                    paddingTop: 10,
-                    paddingBottom: 10,
-                    display: "flex",
-                    justifyContent: "center",
-                    flexWrap: "wrap",
-                    width: "100%",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Mall"
-                  name="Trong Mall"
-                  stroke="#8d6e63"
-                  strokeWidth={3}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Shophouse"
-                  name="Shophouse"
-                  stroke="#b6d47a"
-                  strokeWidth={3}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="NhaPho"
-                  name="Nhà phố"
-                  stroke="#ff7f7f"
-                  strokeWidth={3}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="DaDongCua"
-                  name="Đã đóng cửa"
-                  stroke="#f0bf4c"
-                  strokeWidth={3}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Khac"
-                  name="Khác"
-                  stroke="#81d4fa"
-                  strokeWidth={3}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
+        <OrderTotalByStore
+          data={storeTypeSalesByDay}
+          formatAxisDate={formatAxisDate}
+        />
         {/* Tổng thực thu theo loại khách hàng trong tuần */}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
-            Tổng thực thu theo loại khách hàng trong tuần
-          </div>
-          <div className="w-full overflow-x-auto">
-            <ResponsiveContainer width="100%" height={400} minWidth={320}>
-              <BarChart
-                data={dailyCustomerRevenue}
-                margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="date"
-                  angle={-30}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis
-                  tickFormatter={(v) => {
-                    if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
-                    if (typeof v === 'number') return v.toLocaleString();
-                    return v;
-                  }}
-                />
-                <Tooltip
-                  formatter={(value) => {
-                    if (typeof value === 'number') {
-                      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-                      return value.toLocaleString();
-                    }
-                    return value;
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{
-                    paddingTop: 10,
-                    paddingBottom: 10,
-                    display: "flex",
-                    justifyContent: "center",
-                    flexWrap: "wrap",
-                    width: "100%",
-                  }}
-                />
-                <Bar
-                  dataKey="KHTraiNghiem"
-                  name="KH trải nghiệm"
-                  fill="#8d6e63"
-                ></Bar>
-                <Bar
-                  dataKey="KHThanhVien"
-                  name="KH Thành viên"
-                  fill="#b6d47a"
-                ></Bar>
-                <Bar dataKey="KHBac" name="KH Bạc" fill="#ff7f7f"></Bar>
-                <Bar dataKey="KHVang" name="KH Vàng" fill="#81d4fa"></Bar>
-                <Bar dataKey="KHDong" name="KH Đồng" fill="#f0bf4c"></Bar>
-                <Bar
-                  dataKey="KHKimcuong"
-                  name="KH Kim cương"
-                  fill="#bccefb"
-                ></Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="flex flex-col lg:flex-row h-fit bg-white mt-5 rounded-xl shadow-lg gap-2 items-center justify-center pr-2 pl-2">
-          {/* Top 10 cửa hàng trong tuần theo thực thu */}
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-            <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
-              Top 10 cửa hàng trong tuần theo thực thu
-            </div>
-            <div className="w-full overflow-x-auto">
-              <ResponsiveContainer width="100%" height={400} minWidth={320}>
-                <BarChart
-                  layout="vertical"
-                  data={top10LocationChartData}
-                  margin={{ top: 20, right: 40, left: 40, bottom: 20 }}
-                  barCategoryGap={30}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    tickFormatter={formatMoneyShort}
-                    domain={[0, "dataMax"]}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={220}
-                    tick={{ fontWeight: 400, fontSize: 14 }}
-                  />
-                  <Tooltip formatter={formatMoneyShort} />
-                  <Legend
-                    verticalAlign="top"
-                    align="left"
-                    iconType="rect"
-                    formatter={(value) => <span>{value}</span>}
-                  />
-                  <Bar
-                    dataKey="revenue"
-                    name="Thực thu"
-                    fill="#8d6e63"
-                    radius={[0, 8, 8, 0]}
-                    label={{
-                      position: "right",
-                      content: (props) =>
-                        renderBarLabel({ ...props, fill: "#8d6e63" }),
-                    }}
-                  />
-                  <Bar
-                    dataKey="foxie"
-                    name="Trả bằng thẻ Foxie"
-                    fill="#b6d47a"
-                    radius={[0, 8, 8, 0]}
-                    label={{
-                      position: "right",
-                      content: (props) =>
-                        renderBarLabel({ ...props, fill: "#b6d47a" }),
-                    }}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-          {/* 6 bảng tổng số liệu */}
-          <div className="flex flex-col sm:grid sm:grid-cols-2 gap-2 w-full max-w-xs mx-auto mb-6">
-            <StatCard
-              title="Thực thu"
-              value={totalRevenueThisWeek}
-              delta={percentRevenue}
-              valueColor="text-[#a9b8c3]"
-            />
-            <StatCard
-              title="Thực thu của dịch vụ lẻ"
-              value={retailThisWeek}
-              delta={percentRetail}
-              valueColor="text-[#fcb900]"
-            />
-            <StatCard
-              title="Thực thu mua sản phẩm"
-              value={productThisWeek}
-              delta={percentProduct}
-              valueColor="text-[#b6d47a]"
-            />
-            <StatCard
-              title="Thực thu của mua thẻ"
-              value={cardThisWeek}
-              delta={percentCard}
-              valueColor="text-[#8ed1fc]"
-            />
-            <StatCard
-              title="Tổng trả bằng thẻ Foxie"
-              value={foxieThisWeek}
-              delta={percentFoxie}
-              valueColor="text-[#a9b8c3]"
-            />
-            <StatCard
-              title="Trung bình thực thu mỗi ngày"
-              value={avgRevenueThisWeek}
-              delta={percentAvg}
-              valueColor="text-[#b39ddb]"
-            />
-          </div>
-        </div>
-
+        <OrderCustomerTypeSaleaByDay
+          isMobile={isMobile}
+          customerTypeSalesByDay={customerTypeSalesByDay}
+        />
+        {/* Top 10 cửa hàng trong tuần theo thực thu và 6 bảng thống kê */}
+        <OrderTop10LocationChartData
+          isMobile={isMobile}
+          top10LocationChartData={top10LocationChartData}
+          formatMoneyShort={formatMoneyShort}
+          renderBarLabel={renderBarLabel}
+          totalRevenueThisWeek={totalRevenueThisWeek}
+          percentRevenue={percentRevenue}
+          retailThisWeek={retailThisWeek}
+          percentRetail={percentRetail}
+          productThisWeek={productThisWeek}
+          percentProduct={percentProduct}
+          cardThisWeek={cardThisWeek}
+          percentCard={percentCard}
+          foxieThisWeek={foxieThisWeek}
+          percentFoxie={percentFoxie}
+          avgRevenueThisWeek={avgRevenueThisWeek}
+          percentAvg={percentAvg}
+        />
         {/* Thực thu cửa hàng */}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
-            Thực thu cửa hàng
-          </div>
-          <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
-            <table className="min-w-[700px] w-full text-xs sm:text-sm">
-              <thead className="sticky top-0 z-10 bg-yellow-200">
-                <tr className="bg-yellow-200 font-bold text-gray-900">
-                  <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
-                  <th className="px-3 py-3 text-left">Locations</th>
-                  <th className="px-3 py-3 text-right ">Thực thu</th>
-                  <th className="px-3 py-3 text-right">% Δ</th>
-                  <th className="px-3 py-3 text-right ">Tổng trả thẻ Foxie</th>
-                  <th className="px-3 py-3 text-right">% Δ</th>
-                  <th className="px-3 py-3 text-right ">Số đơn hàng</th>
-                  <th className="px-3 py-3 text-right rounded-tr-xl">% Δ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {storeTableData.map((row, idx) => (
-                  <tr key={row.location}>
-                    <td className="px-3 py-2 text-left">{idx + 1}</td>
-                    <td className="px-3 py-2 text-left">{row.location}</td>
-                    <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">
-                      {row.revenue.toLocaleString()}
-                    </td>
-                    <td
-                      className={`px-3 py-2 text-right ${
-                        row.revenueDelta !== null
-                          ? row.revenueDelta > 0
-                            ? "text-green-600"
-                            : row.revenueDelta < 0
-                            ? "text-red-500"
-                            : ""
-                          : ""
-                      }`}
-                    >
-                      {row.revenueDelta === null
-                        ? "N/A"
-                        : `${row.revenueDelta.toFixed(1)}%`}
-                    </td>
-                    <td className="px-3 py-2 text-right bg-[#8ed1fc]">
-                      {row.foxie.toLocaleString()}
-                    </td>
-                    <td
-                      className={`px-3 py-2 text-right ${
-                        row.foxieDelta !== null
-                          ? row.foxieDelta > 0
-                            ? "text-green-600"
-                            : row.foxieDelta < 0
-                            ? "text-red-500"
-                            : ""
-                          : ""
-                      }`}
-                    >
-                      {row.foxieDelta === null
-                        ? "N/A"
-                        : `${row.foxieDelta.toFixed(1)}%`}
-                    </td>
-                    <td className="px-3 py-2 text-right bg-[#a9b8c3]">
-                      {row.orders}
-                    </td>
-                    <td
-                      className={`px-3 py-2 text-right ${
-                        row.ordersDelta !== null
-                          ? row.ordersDelta > 0
-                            ? "text-green-600"
-                            : row.ordersDelta < 0
-                            ? "text-red-500"
-                            : ""
-                          : ""
-                      }`}
-                    >
-                      {row.ordersDelta === null
-                        ? "N/A"
-                        : `${row.ordersDelta.toFixed(1)}%`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="sticky bottom-0 bg-gray-100 z-20">
-                <tr className="font-bold">
-                  <td colSpan={2} className="px-3 py-2 text-left rounded-bl-xl">
-                    Tổng cộng
-                  </td>
-                  <td className="px-3 py-2 text-right bg-[#f8a0ca]">
-                    {totalRevenueAll.toLocaleString()}
-                  </td>
-                  <td
-                    className={`px-3 py-2 text-right ${
-                      totalRevenueDeltaAll > 0
-                        ? "text-green-600"
-                        : totalRevenueDeltaAll < 0
-                        ? "text-red-500"
-                        : "text-gray-500"
-                    }`}
-                  >
-                    {totalRevenueDeltaAll > 0 ? "+" : ""}
-                    {totalRevenueDeltaAll.toFixed(1)}%
-                  </td>
-                  <td className="px-3 py-2 text-right bg-[#8ed1fc]">
-                    {totalFoxieAll.toLocaleString()}
-                  </td>
-                  <td
-                    className={`px-3 py-2 text-right ${
-                      totalFoxieDeltaAll > 0
-                        ? "text-green-600"
-                        : totalFoxieDeltaAll < 0
-                        ? "text-red-500"
-                        : "text-gray-500"
-                    }`}
-                  >
-                    {totalFoxieDeltaAll > 0 ? "+" : ""}
-                    {totalFoxieDeltaAll.toFixed(1)}%
-                  </td>
-                  <td className="px-3 py-2 text-right bg-[#a9b8c3]">
-                    {totalOrdersAll.toLocaleString()}
-                  </td>
-                  <td
-                    className={`px-3 py-2 text-right ${
-                      totalOrdersDeltaAll > 0
-                        ? "text-green-600"
-                        : totalOrdersDeltaAll < 0
-                        ? "text-red-500"
-                        : "text-gray-500"
-                    }`}
-                  >
-                    {totalOrdersDeltaAll > 0 ? "+" : ""}
-                    {totalOrdersDeltaAll.toFixed(1)}%
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-
+        <OrderActualStoreSale
+          storeTableData={storeTableData}
+          avgRevenuePercent={avgRevenuePercent}
+          avgFoxiePercent={avgFoxiePercent}
+          avgOrderPercent={avgOrderPercent}
+          avgRevenueAll={avgRevenueAll}
+          avgRevenueDeltaAll={avgRevenueDeltaAll}
+          totalFoxieAll={totalFoxieAll}
+          totalOrdersAll={totalOrdersAll}
+          avgOrdersDeltaAll={avgOrdersDeltaAll}
+        />
         {/* Số lượng đơn hàng theo ngày (- đơn mua thẻ) dạng chart */}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
-            Số lượng đơn hàng theo ngày (-đơn mua thẻ)
-          </div>
-          <div className="w-full overflow-x-auto">
-            <ResponsiveContainer width="100%" height={400} minWidth={320}>
-              <BarChart
-                data={ordersChartData}
-                margin={{ top: 30, right: 40, left: 20, bottom: 40 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="date"
-                  angle={-30}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis yAxisId="left" orientation="left" tickCount={6} />
-                <YAxis yAxisId="right" orientation="right" tickCount={6} />
-                <Tooltip
-                  formatter={(value) => {
-                    if (typeof value === 'number') {
-                      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-                      return value.toLocaleString();
-                    }
-                    return value;
-                  }}
-                />
-                <Legend />
-                <Bar
-                  yAxisId="left"
-                  dataKey="orders"
-                  name="Số đơn hàng"
-                  fill="#f87171"
-                  barSize={30}
-                >
-                  <LabelList dataKey="orders" position="top" />
-                </Bar>
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="avgPerShop"
-                  name="Trung bình số lượng đơn tại mỗi shop"
-                  stroke="#2563eb"
-                  strokeWidth={3}
-                  dot={{ r: 5, fill: "#2563eb" }}
-                  activeDot={{ r: 7 }}
-                  label={{ position: "top", fill: "#2563eb", fontWeight: 600 }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
+        <OrdersChartData
+          isMobile={isMobile}
+          ordersChartData={ordersChartData}
+        />
         {/* Top 10 cửa hàng theo đơn hàng */}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
-            Top 10 cửa hàng theo đơn hàng
-          </div>
-          <div className="w-full overflow-x-auto">
-            <ResponsiveContainer width="100%" height={400} minWidth={320}>
-              <BarChart
-                layout="vertical"
-                data={chartOrderData}
-                margin={{ top: 20, right: 40, left: 40, bottom: 20 }}
-                barCategoryGap={10}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  width={140}
-                  tick={{ fontWeight: 400, fontSize: 14 }}
-                />
-                <Tooltip
-                  formatter={(value) => {
-                    if (typeof value === 'number') {
-                      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-                      return value.toLocaleString();
-                    }
-                    return value;
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{
-                    display: isMobile ? "none" : "flex",
-                    paddingTop: 10,
-                    paddingBottom: 10,
-                    fontSize: isMobile ? 10 : 14,
-                    justifyContent: "center",
-                    flexWrap: "wrap",
-                    width: "100%",
-                  }}
-                />
-                <Bar
-                  dataKey="totalOrders"
-                  name="Số đơn hàng"
-                  fill="#bc8b6f"
-                  barSize={5}
-                />
-                <Bar
-                  dataKey="retailOrders"
-                  name="Đơn dịch vụ lẻ/sản phẩm"
-                  fill="#f16a3f"
-                  barSize={5}
-                />
-                <Bar
-                  dataKey="cardOrders"
-                  name="Đơn mua thẻ"
-                  fill="#b6d47a"
-                  barSize={5}
-                />
-                <Bar
-                  dataKey="foxieOrders"
-                  name="Đơn trả bằng thẻ Foxie"
-                  fill="#81d4fa"
-                  barSize={5}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
+        <OrderTop10StoreOfOrder
+          chartOrderData={chartOrderData}
+          isMobile={isMobile}
+        />
         {/* Số đơn tại các cửa hàng */}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-          <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
-            Số đơn tại các cửa hàng
-          </div>
-          <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
-            <table className="min-w-[700px] w-full text-xs sm:text-sm">
-              <thead className="sticky top-0 z-10 bg-yellow-200">
-                <tr className="bg-yellow-200 font-bold text-gray-900">
-                  <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
-                  <th className="px-3 py-3 text-left">Locations</th>
-                  <th className="px-3 py-3 text-right ">Số đơn hàng</th>
-                  <th className="px-3 py-3 text-right">Δ</th>
-                  <th className="px-3 py-3 text-right ">Đơn mua thẻ</th>
-                  <th className="px-3 py-3 text-right">Δ</th>
-                  <th className="px-3 py-3 text-right ">Đơn dịch vụ lẻ</th>
-                  <th className="px-3 py-3 text-right">Δ</th>
-                  <th className="px-3 py-3 text-right ">
-                    Đơn trả bằng thẻ Foxie
-                  </th>
-                  <th className="px-3 py-3 text-right rounded-tr-xl">Δ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {storeOrderTableData.map((row, idx) => (
-                  <tr key={row.location}>
-                    <td className="px-3 py-2 text-left">{idx + 1}</td>
-                    <td className="px-3 py-2 text-left">{row.location}</td>
-                    <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">
-                      {row.totalOrders}
-                    </td>
-                    <td
-                      className={`px-3 py-2 text-right ${
-                        row.totalOrdersDelta !== null
-                          ? row.totalOrdersDelta > 0
-                            ? "text-green-600"
-                            : row.totalOrdersDelta < 0
-                            ? "text-red-500"
-                            : ""
-                          : ""
-                      }`}
-                    >
-                      {row.totalOrdersDelta === null
-                        ? "N/A"
-                        : `${row.totalOrdersDelta > 0 ? "+" : ""}${
-                            row.totalOrdersDelta
-                          }`}
-                    </td>
-                    <td className="px-3 py-2 text-right bg-[#8ed1fc]">
-                      {row.cardOrders}
-                    </td>
-                    <td
-                      className={`px-3 py-2 text-right ${
-                        row.cardOrdersDelta !== null
-                          ? row.cardOrdersDelta > 0
-                            ? "text-green-600"
-                            : row.cardOrdersDelta < 0
-                            ? "text-red-500"
-                            : ""
-                          : ""
-                      }`}
-                    >
-                      {row.cardOrdersDelta === null
-                        ? "N/A"
-                        : `${row.cardOrdersDelta > 0 ? "+" : ""}${
-                            row.cardOrdersDelta
-                          }`}
-                    </td>
-                    <td className="px-3 py-2 text-right bg-[#fcb900]">
-                      {row.retailOrders}
-                    </td>
-                    <td
-                      className={`px-3 py-2 text-right ${
-                        row.retailOrdersDelta !== null
-                          ? row.retailOrdersDelta > 0
-                            ? "text-green-600"
-                            : row.retailOrdersDelta < 0
-                            ? "text-red-500"
-                            : ""
-                          : ""
-                      }`}
-                    >
-                      {row.retailOrdersDelta === null
-                        ? "N/A"
-                        : `${row.retailOrdersDelta > 0 ? "+" : ""}${
-                            row.retailOrdersDelta
-                          }`}
-                    </td>
-                    <td className="px-3 py-2 text-right bg-[#a9b8c3]">
-                      {row.foxieOrders}
-                    </td>
-                    <td
-                      className={`px-3 py-2 text-right ${
-                        row.foxieOrdersDelta !== null
-                          ? row.foxieOrdersDelta > 0
-                            ? "text-green-600"
-                            : row.foxieOrdersDelta < 0
-                            ? "text-red-500"
-                            : ""
-                          : ""
-                      }`}
-                    >
-                      {row.foxieOrdersDelta === null
-                        ? "N/A"
-                        : `${row.foxieOrdersDelta > 0 ? "+" : ""}${
-                            row.foxieOrdersDelta
-                          }`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="sticky bottom-0 bg-gray-100 z-20">
-                <tr className="font-bold">
-                  <td colSpan={2} className="px-3 py-2 text-left rounded-bl-xl">
-                    Tổng cộng
-                  </td>
-                  <td className="px-3 py-2 text-right bg-[#f8a0ca]">
-                    {totalOrderSumAll.totalOrders}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {totalOrderSumAll.totalOrdersDelta}
-                  </td>
-                  <td className="px-3 py-2 text-right bg-[#8ed1fc]">
-                    {totalOrderSumAll.cardOrders}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {totalOrderSumAll.cardOrdersDelta}
-                  </td>
-                  <td className="px-3 py-2 text-right bg-[#fcb900]">
-                    {totalOrderSumAll.retailOrders}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {totalOrderSumAll.retailOrdersDelta}
-                  </td>
-                  <td className="px-3 py-2 text-right bg-[#a9b8c3]">
-                    {totalOrderSumAll.foxieOrders}
-                  </td>
-                  <td className="px-3 py-2 text-right rounded-br-xl">
-                    {totalOrderSumAll.foxieOrdersDelta}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-
+        <OrderOfStore
+          storeOrderTableData={storeOrderTableData}
+          totalOrderSumAll={totalOrderSumAll}
+        />
         {/* 5 bảng tổng số liệu */}
-        <div className="grid grid-cols-2 gap-3 w-full mb-5 mt-5 sm:grid-cols-3 md:grid-cols-5">
-          <StatCard
-            title="Tổng đơn hàng"
-            value={totalOrdersThisWeek}
-            delta={deltaOrders}
-            className="border-[#f8a0ca] border text-sm"
-            valueColor="text-[#f8a0ca]"
-          />
-          <StatCard
-            title="Đơn mua thẻ"
-            value={cardOrdersThisWeek}
-            delta={deltaCardOrders}
-            className="border-[#8ed1fc] border text-sm"
-            valueColor="text-[#8ed1fc]"
-          />
-          <StatCard
-            title="Đơn dịch vụ/sản phẩm"
-            value={retailOrdersThisWeek}
-            delta={deltaRetailOrders}
-            className="border-[#fcb900] border text-sm"
-            valueColor="text-[#fcb900]"
-          />
-          <StatCard
-            title="Đơn trả bằng thẻ Foxie"
-            value={foxieOrdersThisWeek}
-            delta={deltaFoxieOrders}
-            className="border-[#a9b8c3] border text-sm"
-            valueColor="text-[#a9b8c3]"
-          />
-          <StatCard
-            title="Đơn mua sản phẩm"
-            value={productOrdersThisWeek}
-            delta={deltaProductOrders}
-            className="border-[#b6d47a] border text-sm"
-            valueColor="text-[#b6d47a]"
-          />
-        </div>
+        <OrderStatCards
+          totalOrdersThisWeek={totalOrdersThisWeek}
+          deltaOrders={deltaOrders}
+          cardOrdersThisWeek={cardOrdersThisWeek}
+          deltaCardOrders={deltaCardOrders}
+          retailOrdersThisWeek={retailOrdersThisWeek}
+          deltaRetailOrders={deltaRetailOrders}
+          foxieOrdersThisWeek={foxieOrdersThisWeek}
+          deltaFoxieOrders={deltaFoxieOrders}
+          productOrdersThisWeek={productOrdersThisWeek}
+          deltaProductOrders={deltaProductOrders}
+        />
         {/* PieChart tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ */}
-        <div className="w-full flex flex-col md:flex-row justify-center mt-8">
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 flex flex-col md:flex-row items-center gap-4 md:gap-8 max-w-3xl w-full">
-            <div className="flex-1 flex justify-center">
-              <ResponsiveContainer
-                width="100%"
-                height={isMobile ? 180 : 320}
-                minWidth={180}
-              >
-                <PieChart>
-                  <Pie
-                    data={piePaymentData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={isMobile ? 60 : 120}
-                    label={renderPieLabel}
-                  >
-                    {piePaymentData.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) =>
-                      `${value} (${(
-                        (Number(value) / totalAllPie) *
-                        100
-                      ).toFixed(1)}%)`
-                    }
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex-1 flex flex-col items-center md:items-start">
-              <div className="text-base sm:text-xl font-semibold text-gray-700 mb-4 text-center md:text-left">
-                Tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ
-              </div>
-              <ul className="space-y-2">
-                {piePaymentData.map((item) => (
-                  <li key={item.name} className="flex items-center gap-3">
-                    <span
-                      className="inline-block w-5 h-5 rounded-full"
-                      style={{ background: item.color }}
-                    ></span>
-                    <span className="font-medium text-gray-800">
-                      {item.name}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-        <div className="w-full bg-white rounded-xl shadow-lg mt-8 p-4 sm:p-6">
-          <div className="text-base sm:text-2xl font-semibold text-gray-800 mb-4">
-            Hình thức thanh toán theo vùng
-          </div>
-          <div className="w-full overflow-x-auto">
-            <ResponsiveContainer width="100%" height={350} minWidth={320}>
-              <BarChart
-                data={paymentRegionData}
-                margin={{ top: 20, right: 40, left: 20, bottom: 20 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="region" />
-                <YAxis
-                  tickFormatter={(v) => {
-                    if (typeof v === 'number' && v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
-                    if (typeof v === 'number') return v.toLocaleString();
-                    return v;
-                  }}
-                />
-                <Tooltip
-                  formatter={(value) => {
-                    if (typeof value === 'number') {
-                      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-                      return value.toLocaleString();
-                    }
-                    return value;
-                  }}
-                />
-                <Legend />
-                <Bar
-                  dataKey="bank"
-                  name="Bank Transfer"
-                  fill="#795548"
-                  barSize={40}
-                />
-                <Bar dataKey="cash" name="Cash" fill="#c5e1a5" barSize={40} />
-                <Bar
-                  dataKey="card"
-                  name="Credit/Debit card"
-                  fill="#ff7f7f"
-                  barSize={40}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <OrderPiePaymentData
+          piePaymentData={piePaymentData}
+          totalAllPie={totalAllPie}
+          isMobile={isMobile}
+          renderPieLabel={renderPieLabel}
+        />
+
+        {/* Hình thức thanh toán theo vùng */}
+        <OrderPaymentRegionData
+          paymentRegionData={paymentRegionData}
+          isMobile={isMobile}
+        />
       </div>
     </div>
   );

@@ -32,7 +32,7 @@ export function SalesFunnel() {
                 <div className="w-full bg-gray-200 rounded-full h-3">
                   <div
                     className={`h-3 rounded-full transition-all duration-500 ${stage.color}`}
-                    style={{ width: `${stage.percentage}%` }}
+                    style={{ width: `${stage.percentage}` }}
                   />
                 </div>
               </div>

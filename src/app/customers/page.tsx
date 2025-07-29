@@ -6,21 +6,17 @@ import {
   getLocalTimeZone,
   parseDate,
 } from "@internationalized/date";
-import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
+import CustomerFacilityHourTable from "./CustomerFacilityHourTable";
+import CustomerFilters from "./CustomerFilters";
+import CustomerSummaryCard from "./CustomerSummaryCard";
+import CustomerStatsCards from "./CustomerStatsCards";
+import CustomerGenderPie from "./CustomerGenderPie";
+import CustomerNewChart from "./CustomerNewChart";
+import CustomerTypeTrendChart from "./CustomerTypeTrendChart";
+import CustomerSourceBarChart from "./CustomerSourceBarChart";
+import CustomerAppDownloadBarChart from "./CustomerAppDownloadBarChart";
+import CustomerAppDownloadPieChart from "./CustomerAppDownloadPieChart";
+import CustomerPaymentPieChart from "./CustomerPaymentPieChart";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -279,11 +275,13 @@ export default function CustomerReportPage() {
     const allDates = Array.from(allDatesSet).sort();
     const allTypes = Object.keys(customerTypeRaw);
     return allDates.map((date) => {
-      const row: Record<string, unknown> = { date };
+      const row: Record<string, string | number> = { date: String(date) };
       allTypes.forEach((type) => {
-        const found = (
-          customerTypeRaw[type] as Array<{ date: string; count: number }>
-        ).find((item) => item.date.slice(0, 10) === date);
+        const arr = customerTypeRaw[type] as Array<{
+          date: string;
+          count: number;
+        }>;
+        const found = arr.find((item) => item.date.slice(0, 10) === date);
         row[type] = found ? found.count : 0;
       });
       return row;
@@ -302,7 +300,7 @@ export default function CustomerReportPage() {
     const allDates = Array.from(allDatesSet).sort();
     const allTypes = Object.keys(customerSourceRaw);
     return allDates.map((date) => {
-      const row: Record<string, unknown> = { date };
+      const row: Record<string, string | number> = { date: String(date) };
       allTypes.forEach((type) => {
         const found = (
           customerSourceRaw[type] as Array<{ date: string; count: number }>
@@ -595,8 +593,10 @@ export default function CustomerReportPage() {
   // Tính max cho từng hàng (chi nhánh)
   const rowMaxMap = React.useMemo(() => {
     const map: Record<string, number> = {};
-    facilityHourTableData.forEach(row => {
-      const max = Math.max(...allHourRanges.map(hour => Number(row[hour] ?? 0)));
+    facilityHourTableData.forEach((row) => {
+      const max = Math.max(
+        ...allHourRanges.map((hour) => Number(row[hour] ?? 0))
+      );
       map[row.facility] = max;
     });
     return map;
@@ -620,10 +620,12 @@ export default function CustomerReportPage() {
       const getDate = (d: { date?: string }) => {
         if (!d.date) return 0;
         const match = String(d.date).match(/^(\d{4})-(\d{2})-(\d{2})/);
-        if (match) return new Date(`${match[1]}-${match[2]}-${match[3]}`).getTime();
+        if (match)
+          return new Date(`${match[1]}-${match[2]}-${match[3]}`).getTime();
         // Nếu là dạng DD/MM/YYYY
         const match2 = String(d.date).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (match2) return new Date(`${match2[3]}-${match2[2]}-${match2[1]}`).getTime();
+        if (match2)
+          return new Date(`${match2[3]}-${match2[2]}-${match2[1]}`).getTime();
         return new Date(d.date).getTime();
       };
       return getDate(a) - getDate(b);
@@ -638,1184 +640,136 @@ export default function CustomerReportPage() {
             Customer Report
           </h1>
 
-          <div className="flex flex-col gap-4 lg:gap-6 mb-4 lg:mb-6">
-            {/* Date filters */}
-            <div className="w-full flex flex-col sm:flex-row gap-4 bg-white p-4 rounded-lg shadow">
-              <div className="flex-1 flex flex-col gap-1">
-                <h3 className="text-sm font-medium text-gray-700">
-                  Start date
-                </h3>
-                <input
-                  type="date"
-                  className="border border-gray-300 rounded p-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#f66035]"
-                  value={startDate.toString()}
-                  onChange={(e) => {
-                    const date = parseDate(e.target.value);
-                    setStartDate(date);
-                  }}
-                  max={today(getLocalTimeZone()).toString()}
-                />
-              </div>
-              <div className="flex-1 flex flex-col gap-1">
-                <h3 className="text-sm font-medium text-gray-700">End date</h3>
-                <input
-                  type="date"
-                  className="border border-gray-300 rounded p-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#f66035]"
-                  value={endDate.toString()}
-                  onChange={(e) => {
-                    const date = parseDate(e.target.value);
-                    setEndDate(date);
-                  }}
-                  min={startDate.add({ days: 1 }).toString()}
-                  max={today(getLocalTimeZone()).toString()}
-                />
-              </div>
-            </div>
+          {/* Filter */}
 
-            {/* Dropdown filters */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Filter loại khách */}
-              <div className="relative">
-                <button
-                  className="block border rounded p-2 w-full text-left bg-white shadow border-[orange] hover:bg-gray-50 transition-colors"
-                  onClick={() => setShowTypeDropdown((v) => !v)}
-                  type="button"
-                >
-                  <span className="font-semibold">Loại khách</span>
-                  {selectedType.length > 0 && (
-                    <span> ({selectedType.length})</span>
-                  )}
-                  <span className="float-right">&#9660;</span>
-                </button>
-                {showTypeDropdown && (
-                  <div className="absolute z-20 bg-white border rounded shadow w-full mt-1 max-h-60 overflow-auto">
-                    <label className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100">
-                      <input
-                        type="checkbox"
-                        checked={selectedType.length === 0}
-                        onChange={() => setSelectedType([])}
-                        className="mr-2"
-                      />
-                      Tất cả
-                    </label>
-                    {customerTypes.map((type) => (
-                      <label
-                        key={type}
-                        className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedType.includes(type)}
-                          onChange={() => {
-                            setSelectedType((prev) => {
-                              if (prev.includes(type)) {
-                                return prev.filter((t) => t !== type);
-                              } else {
-                                return [...prev, type];
-                              }
-                            });
-                          }}
-                          className="mr-2"
-                        />
-                        {type}
-                      </label>
-                    ))}
-                    <button
-                      className="w-full text-center py-2 text-orange-600 hover:underline"
-                      onClick={() => setShowTypeDropdown(false)}
-                      type="button"
-                    >
-                      Đóng
-                    </button>
-                  </div>
-                )}
-              </div>
-              {/* Filter khách mới/cũ */}
-              <div className="relative">
-                <button
-                  className="block border rounded p-2 w-full text-left bg-white shadow border-[orange] hover:bg-gray-50 transition-colors"
-                  onClick={() => setShowStatusDropdown((v) => !v)}
-                  type="button"
-                >
-                  <span className="font-semibold">Khách mới/cũ</span>
-                  {selectedStatus && <span>: {selectedStatus}</span>}
-                  <span className="float-right">&#9660;</span>
-                </button>
-                {showStatusDropdown && (
-                  <div className="absolute z-20 bg-white border rounded shadow w-full mt-1 max-h-60 overflow-auto">
-                    <label className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100">
-                      <input
-                        type="radio"
-                        name="customerStatus"
-                        checked={!selectedStatus}
-                        onChange={() => setSelectedStatus(null)}
-                        className="mr-2"
-                      />
-                      Tất cả
-                    </label>
-                    {customerStatus.map((status) => (
-                      <label
-                        key={status}
-                        className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100"
-                      >
-                        <input
-                          type="radio"
-                          name="customerStatus"
-                          checked={selectedStatus === status}
-                          onChange={() => setSelectedStatus(status)}
-                          className="mr-2"
-                        />
-                        {status}
-                      </label>
-                    ))}
-                    <button
-                      className="w-full text-center py-2 text-orange-600 hover:underline"
-                      onClick={() => setShowStatusDropdown(false)}
-                      type="button"
-                    >
-                      Đóng
-                    </button>
-                  </div>
-                )}
-              </div>
-              {/* Filter Region */}
-              <div className="relative">
-                <button
-                  className="block border rounded p-2 w-full text-left bg-white shadow border-[orange] hover:bg-gray-50 transition-colors"
-                  onClick={() => setShowRegionDropdown((v) => !v)}
-                  type="button"
-                >
-                  <span className="font-semibold">Region</span>
-                  {selectedRegions.length > 0 && (
-                    <span> ({selectedRegions.length})</span>
-                  )}
-                  <span className="float-right">&#9660;</span>
-                </button>
-                {showRegionDropdown && (
-                  <div className="absolute z-20 bg-white border rounded shadow w-full mt-1 max-h-60 overflow-auto">
-                    <label className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100">
-                      <input
-                        type="checkbox"
-                        checked={selectedRegions.length === 0}
-                        onChange={() => setSelectedRegions([])}
-                        className="mr-2"
-                      />
-                      Tất cả
-                    </label>
-                    {allRegions.map((region: string) => (
-                      <label
-                        key={region}
-                        className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedRegions.includes(region)}
-                          onChange={() => {
-                            setSelectedRegions((prev) => {
-                              if (prev.includes(region)) {
-                                return prev.filter((r) => r !== region);
-                              } else {
-                                return [...prev, region];
-                              }
-                            });
-                          }}
-                          className="mr-2"
-                        />
-                        {region}
-                      </label>
-                    ))}
-                    <button
-                      className="w-full text-center py-2 text-orange-600 hover:underline"
-                      onClick={() => setShowRegionDropdown(false)}
-                      type="button"
-                    >
-                      Đóng
-                    </button>
-                  </div>
-                )}
-              </div>
-              {/* Filter Branch */}
-              <div className="relative">
-                <button
-                  className="block border rounded p-2 w-full text-left bg-white shadow border-[orange]"
-                  onClick={() => setShowBranchDropdown((v) => !v)}
-                  type="button"
-                >
-                  <span className="font-semibold">Branch</span>
-                  {selectedBranches.length > 0 && (
-                    <span> ({selectedBranches.length})</span>
-                  )}
-                  <span className="float-right">&#9660;</span>
-                </button>
-                {showBranchDropdown && (
-                  <div className="absolute z-20 bg-white border rounded shadow w-64 mt-1 max-h-60 overflow-auto">
-                    <label className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100">
-                      <input
-                        type="checkbox"
-                        checked={selectedBranches.length === 0}
-                        onChange={() => setSelectedBranches([])}
-                        className="mr-2"
-                      />
-                      Tất cả
-                    </label>
-                    {allBranches.map((branch: string) => (
-                      <label
-                        key={branch}
-                        className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedBranches.includes(branch)}
-                          onChange={() => {
-                            setSelectedBranches((prev) => {
-                              if (prev.includes(branch)) {
-                                return prev.filter((b) => b !== branch);
-                              } else {
-                                return [...prev, branch];
-                              }
-                            });
-                          }}
-                          className="mr-2"
-                        />
-                        {branch}
-                      </label>
-                    ))}
-                    <button
-                      className="w-full text-center py-2 text-orange-600 hover:underline"
-                      onClick={() => setShowBranchDropdown(false)}
-                      type="button"
-                    >
-                      Đóng
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <CustomerFilters
+            startDate={startDate}
+            endDate={endDate}
+            setStartDate={setStartDate}
+            setEndDate={setEndDate}
+            today={today}
+            getLocalTimeZone={getLocalTimeZone}
+            parseDate={parseDate}
+            selectedType={selectedType}
+            setSelectedType={setSelectedType}
+            showTypeDropdown={showTypeDropdown}
+            setShowTypeDropdown={setShowTypeDropdown}
+            customerTypes={customerTypes}
+            selectedStatus={selectedStatus}
+            setSelectedStatus={setSelectedStatus}
+            showStatusDropdown={showStatusDropdown}
+            setShowStatusDropdown={setShowStatusDropdown}
+            customerStatus={customerStatus}
+            selectedRegions={selectedRegions}
+            setSelectedRegions={setSelectedRegions}
+            showRegionDropdown={showRegionDropdown}
+            setShowRegionDropdown={setShowRegionDropdown}
+            allRegions={allRegions}
+            selectedBranches={selectedBranches}
+            setSelectedBranches={setSelectedBranches}
+            showBranchDropdown={showBranchDropdown}
+            setShowBranchDropdown={setShowBranchDropdown}
+            allBranches={allBranches}
+          />
 
           {/* Card tổng số khách trong khoảng ngày đã chọn */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-4 lg:mb-6">
-            <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center col-span-1 lg:col-span-4">
-              <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center font-semibold">
-                Tổng số khách trong khoảng ngày đã chọn
-              </div>
-              <div className="text-3xl lg:text-5xl font-bold text-[#f66035] mb-2">
-                {uniqueCustomersComparisonRaw?.current?.toLocaleString() ?? 0}{" "}
-                <span className="text-lg lg:text-2xl">khách</span>
-              </div>
-              <div
-                className={`text-base lg:text-xl font-semibold ${
-                  uniqueCustomersComparisonRaw?.changePercent !== undefined
-                    ? uniqueCustomersComparisonRaw.changePercent > 0
-                      ? "text-green-600"
-                      : uniqueCustomersComparisonRaw.changePercent < 0
-                      ? "text-red-500"
-                      : "text-gray-500"
-                    : "text-gray-500"
-                }`}
-              >
-                {uniqueCustomersComparisonRaw?.changePercent !== undefined
-                  ? uniqueCustomersComparisonRaw.changePercent > 0
-                    ? "↑"
-                    : "↓"
-                  : ""}{" "}
-                {Math.abs(
-                  uniqueCustomersComparisonRaw?.changePercent ?? 0
-                ).toFixed(2)}
-                %
-              </div>
-            </div>
-          </div>
+          <CustomerSummaryCard
+            value={uniqueCustomersComparisonRaw?.current?.toLocaleString() ?? 0}
+            label="Tổng số khách trong khoảng ngày đã chọn"
+            percentChange={uniqueCustomersComparisonRaw?.changePercent}
+          />
 
           {/* 4 bảng thống kê */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-4 lg:mb-6">
-            {/* Trung bình đơn thực thu (Nam) */}
-            <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center">
-              <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
-                Trung bình đơn thực thu (Nam)
-              </div>
-              <div className="text-2xl font-bold text-[#f66035] mb-2">
-                {loadingGenderRevenue ? (
-                  <span>Đang tải...</span>
-                ) : errorGenderRevenue ? (
-                  <span className="text-red-500">{errorGenderRevenue}</span>
-                ) : (
-                  genderRevenueRaw?.avgRevenueMale?.toLocaleString() ?? 0
-                )}
-                <span className="text-lg lg:text-2xl">đ</span>
-              </div>
-            </div>
-            {/* Trung bình đơn thực thu (Nữ) */}
-            <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center">
-              <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
-                Trung bình đơn thực thu (Nữ)
-              </div>
-              <div className="text-2xl font-bold text-[#0693e3] mb-2">
-                {loadingGenderRevenue ? (
-                  <span>Đang tải...</span>
-                ) : errorGenderRevenue ? (
-                  <span className="text-red-500">{errorGenderRevenue}</span>
-                ) : (
-                  genderRevenueRaw?.avgRevenueFemale?.toLocaleString() ?? 0
-                )}
-                <span className="text-lg lg:text-2xl">đ</span>
-              </div>
-            </div>
-            {/* Trung bình đơn dịch vụ (Nam) */}
-            <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center">
-              <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
-                Trung bình đơn dịch vụ (Nam)
-              </div>
-              <div className="text-2xl font-bold text-[#00d082] mb-2">
-                {loadingGenderRevenue ? (
-                  <span>Đang tải...</span>
-                ) : errorGenderRevenue ? (
-                  <span className="text-red-500">{errorGenderRevenue}</span>
-                ) : (
-                  genderRevenueRaw?.avgServiceMale?.toLocaleString() ?? 0
-                )}
-                <span className="text-lg lg:text-2xl">đ</span>
-              </div>
-            </div>
-            {/* Trung bình đơn dịch vụ (Nữ) */}
-            <div className="bg-white rounded-xl shadow p-4 lg:p-6 flex flex-col items-center">
-              <div className="text-sm lg:text-xl text-gray-700 mb-2 text-center">
-                Trung bình đơn dịch vụ (Nữ)
-              </div>
-              <div className="text-2xl font-bold text-[#9b51e0] mb-2">
-                {loadingGenderRevenue ? (
-                  <span>Đang tải...</span>
-                ) : errorGenderRevenue ? (
-                  <span className="text-red-500">{errorGenderRevenue}</span>
-                ) : (
-                  genderRevenueRaw?.avgServiceFemale?.toLocaleString() ?? 0
-                )}
-                <span className="text-lg lg:text-2xl">đ</span>
-              </div>
-            </div>
-          </div>
+          <CustomerStatsCards
+            loading={loadingGenderRevenue}
+            error={errorGenderRevenue}
+            avgRevenueMale={
+              genderRevenueRaw?.avgRevenueMale?.toLocaleString() ?? 0
+            }
+            avgRevenueFemale={
+              genderRevenueRaw?.avgRevenueFemale?.toLocaleString() ?? 0
+            }
+            avgServiceMale={
+              genderRevenueRaw?.avgServiceMale?.toLocaleString() ?? 0
+            }
+            avgServiceFemale={
+              genderRevenueRaw?.avgServiceFemale?.toLocaleString() ?? 0
+            }
+          />
 
-          <div className="flex flex-col lg:flex-row w-full gap-4 lg:gap-4">
-            {/* Số khách tạo mới*/}
-
-            <div
-              className={`bg-white rounded-xl shadow p-2 ${
-                isMobile
-                  ? "w-full flex justify-center items-center mx-auto"
-                  : "lg:w-1/2"
-              } ${isMobile ? "max-w-xs" : ""}`}
-              style={{ minWidth: isMobile ? 220 : undefined }}
-            >
-              <div className="w-full">
-                <h2 className="text-base lg:text-xl text-center font-semibold text-gray-800 mb-2">
-                  Số khách tạo mới
-                </h2>
-                {loadingNewCustomer ? (
-                  <div>Đang tải dữ liệu...</div>
-                ) : errorNewCustomer ? (
-                  <div className="text-red-500">{errorNewCustomer}</div>
-                ) : (
-                  <ResponsiveContainer
-                    width="100%"
-                    height={isMobile ? 220 : 350}
-                    minWidth={220}
-                  >
-                    <LineChart
-                      data={newCustomerChartData}
-                      margin={{
-                        top: isMobile ? 10 : 30,
-                        right: 10,
-                        left: 10,
-                        bottom: isMobile ? 20 : 40,
-                      }}
-                    >
-                      <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-                      <XAxis
-                        dataKey="date"
-                        stroke="#6b7280"
-                        fontSize={isMobile ? 10 : 12}
-                        tickLine={false}
-                        axisLine={{ stroke: "#d1d5db" }}
-                        angle={isMobile ? -20 : 0}
-                        textAnchor={isMobile ? "end" : "middle"}
-                        height={isMobile ? 40 : 60}
-                        tickFormatter={(date) => {
-                          if (!date) return "";
-                          const match = String(date).match(
-                            /^\d{4}-(\d{2})-(\d{2})$/
-                          );
-                          if (match) {
-                            const [, month, day] = match;
-                            return `${day}/${month}`;
-                          }
-                          return String(date);
-                        }}
-                      />
-                      <YAxis
-                        stroke="#6b7280"
-                        fontSize={isMobile ? 10 : 12}
-                        tickLine={false}
-                        axisLine={{ stroke: "#d1d5db" }}
-                        tickFormatter={(value) =>
-                          value > 0 ? `${value} ` : value
-                        }
-                        padding={{ bottom: 10, top: 10 }}
-                      />
-                      <Tooltip />
-                      <Legend
-                        wrapperStyle={{
-                          paddingTop: isMobile ? 0 : "20px",
-                          fontSize: isMobile ? "10px" : "14px",
-                          color: "#4b5563",
-                          display: isMobile ? "none" : undefined,
-                        }}
-                        iconType="circle"
-                        iconSize={isMobile ? 8 : 10}
-                      />
-                      <Line
-                        type="natural"
-                        dataKey="value"
-                        name="Số khách mới trong hệ thống"
-                        stroke="#5bd1d7"
-                        strokeWidth={2}
-                        dot={false}
-                        activeDot={{
-                          r: 6,
-                          fill: "#5bd1d7",
-                          stroke: "#fff",
-                          strokeWidth: 2,
-                        }}
-                        animationDuration={1500}
-                      />
-                      <Line
-                        type="natural"
-                        dataKey="value2"
-                        name="Số khách mới trong hệ thống (31 ngày trước)"
-                        stroke="#eb94cf"
-                        strokeWidth={2}
-                        dot={false}
-                        activeDot={{
-                          r: 6,
-                          fill: "#eb94cf",
-                          stroke: "#fff",
-                          strokeWidth: 2,
-                        }}
-                        animationDuration={1500}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-
-            {/* Tỉ lệ nam/nữ */}
-
-            <div
-              className={`bg-white rounded-xl shadow p-2 ${
-                isMobile
-                  ? "w-full max-w-xs mx-auto flex flex-col items-center"
-                  : "lg:w-1/2"
-              }`}
-              style={{ minWidth: isMobile ? 220 : undefined }}
-            >
-              <h2 className="text-base lg:text-xl font-semibold text-gray-800 mb-2 text-center">
-                Tỷ lệ nam/nữ khách mới tạo
-              </h2>
-              <div className="w-full flex justify-center">
-                {loadingGenderRatio ? (
-                  <div>Loading...</div>
-                ) : errorGenderRatio ? (
-                  <div className="text-red-500">{errorGenderRatio}</div>
-                ) : (
-                  <ResponsiveContainer
-                    width="100%"
-                    height={isMobile ? 180 : 350}
-                    minWidth={220}
-                  >
-                    <PieChart>
-                      <Pie
-                        data={genderRatioData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={isMobile ? "0%" : "0%"}
-                        outerRadius={isMobile ? "40%" : "80%"}
-                        fill="#f933347"
-                        dataKey="count"
-                        nameKey="gender"
-                        labelLine={false}
-                        label={({
-                          cx = 0,
-                          cy = 0,
-                          midAngle = 0,
-                          innerRadius = 0,
-                          outerRadius = 0,
-                          percent = 0,
-                          gender = "",
-                          index = 0,
-                        }) => {
-                          const RADIAN = Math.PI / 180;
-                          const radius = (innerRadius + outerRadius) / 0.8;
-                          const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                          const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                          return (
-                            <text
-                              x={x}
-                              y={y}
-                              fill={COLORS[index % COLORS.length]}
-                              fontSize={isMobile ? 12 : 16}
-                              textAnchor={x > cx ? "start" : "end"}
-                              dominantBaseline="central"
-                              fontWeight={600}
-                            >
-                              {`${gender}: ${(percent * 100).toFixed(1)}%`}
-                            </text>
-                          );
-                        }}
-                      >
-                        {genderRatioData.map((entry, idx) => (
-                          <Cell
-                            key={entry.gender}
-                            fill={COLORS[idx % COLORS.length]}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend
-                        wrapperStyle={{
-                          paddingTop: isMobile ? 0 : "20px",
-                          fontSize: isMobile ? "10px" : "14px",
-                          color: "#4b5563",
-                          display: isMobile ? "none" : undefined,
-                        }}
-                        iconType="circle"
-                        iconSize={isMobile ? 8 : 10}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-          </div>
+          {/* Số khách tạo mới và tỷ lệ nam nữ/khách mới tạo */}
+          <CustomerGenderPie
+            isMobile={isMobile}
+            loadingNewCustomer={loadingNewCustomer}
+            errorNewCustomer={errorNewCustomer}
+            newCustomerChartData={newCustomerChartData}
+            loadingGenderRatio={loadingGenderRatio}
+            errorGenderRatio={errorGenderRatio}
+            genderRatioData={genderRatioData}
+            COLORS={COLORS}
+          />
           {/* Tổng số khách mới */}
-          <div className="flex flex-col md:flex-row gap-2 md:gap-4 mt-4">
-            {/* Tổng số khách mới trong hệ thống */}
-            <div className="flex-1 bg-white rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-              <div className="text-xl font-medium text-gray-700 mb-2 text-center">
-                Tổng số khách mới trong hệ thống
-              </div>
-              <div className="text-5xl font-bold text-black mb-2">
-                {loadingCustomerSummary ? (
-                  <span>Đang tải dữ liệu...</span>
-                ) : errorCustomerSummary ? (
-                  <span className="text-red-500">{errorCustomerSummary}</span>
-                ) : (
-                  customerSummaryRaw?.totalNewCustomers?.toLocaleString() ?? 0
-                )}
-              </div>
-            </div>
-            {/* Tổng số khách mới thực đi */}
-            <div className="flex-1 bg-white rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-              <div className="text-xl font-medium text-gray-700 mb-2 text-center">
-                Tổng số khách mới thực đi
-              </div>
-              <div className="text-5xl font-bold text-black mb-2">
-                {loadingCustomerSummary ? (
-                  <span>Đang tải dữ liệu...</span>
-                ) : errorCustomerSummary ? (
-                  <span className="text-red-500">{errorCustomerSummary}</span>
-                ) : (
-                  customerSummaryRaw?.actualCustomers?.toLocaleString() ?? 0
-                )}
-              </div>
-            </div>
-          </div>
+          <CustomerNewChart
+            loadingCustomerSummary={loadingCustomerSummary}
+            errorCustomerSummary={errorCustomerSummary}
+            customerSummaryRaw={customerSummaryRaw}
+          />
           {/* Số khách tới chia theo phân loại */}
-          <div
-            className={`bg-white pt-2 mt-5 rounded-xl shadow-lg ${
-              isMobile
-                ? "w-full max-w-xs mx-auto flex flex-col items-center"
-                : ""
-            }`}
-            style={{ minWidth: isMobile ? 220 : undefined }}
-          >
-            <h2 className="text-base lg:text-xl text-center font-semibold text-gray-800 p-3">
-              Số khách tới chia theo loại
-            </h2>
-            <div className="w-full flex justify-center">
-              <ResponsiveContainer
-                width="100%"
-                height={isMobile ? 180 : 350}
-                minWidth={220}
-              >
-                <LineChart
-                  data={customerTypeTrendData}
-                  margin={{
-                    top: isMobile ? 10 : 30,
-                    right: 10,
-                    left: 10,
-                    bottom: isMobile ? 20 : 40,
-                  }}
-                >
-                  <CartesianGrid stroke="#e5e7eb" strokeDasharray="5 5" />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#6b7280"
-                    fontSize={isMobile ? 10 : 12}
-                    tickLine={false}
-                    axisLine={{ stroke: "#d1d5db" }}
-                    angle={isMobile ? -20 : 0}
-                    textAnchor={isMobile ? "end" : "middle"}
-                    height={isMobile ? 40 : 60}
-                    tickFormatter={(date) => {
-                      if (!date) return "";
-                      const match = String(date).match(
-                        /^\d{4}-(\d{2})-(\d{2})$/
-                      );
-                      if (match) {
-                        const [, month, day] = match;
-                        return `${day}/${month}`;
-                      }
-                      return String(date);
-                    }}
-                  />
-                  <YAxis
-                    stroke="#6b7280"
-                    fontSize={isMobile ? 10 : 12}
-                    tickLine={false}
-                    axisLine={{ stroke: "#d1d5db" }}
-                    tickFormatter={(value) =>
-                      value > 0 ? `${value} khách` : value
-                    }
-                    padding={{ bottom: 10, top: 10 }}
-                  />
-                  <Tooltip />
-                  <Legend
-                    wrapperStyle={{
-                      paddingTop: isMobile ? "" : "20px",
-                      fontSize: isMobile ? "10px" : "14px",
-                      color: "#4b5563",
-                      display: "flex",
-                      flexDirection: isMobile ? "column" : "row",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexWrap: isMobile ? "nowrap" : "wrap",
-                      width: "100%",
-                      maxHeight: isMobile ? 80 : undefined,
-                      overflowY: isMobile ? "auto" : undefined,
-                    }}
-                    iconType="circle"
-                    iconSize={isMobile ? 8 : 10}
-                    verticalAlign={isMobile ? "bottom" : undefined}
-                  />
-                  {customerTypeKeys.map((type, idx) => (
-                    <Line
-                      key={type}
-                      type="natural"
-                      dataKey={type}
-                      name={type}
-                      stroke={COLORS[idx % COLORS.length]}
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{
-                        r: 6,
-                        fill: COLORS[idx % COLORS.length],
-                        stroke: "#fff",
-                        strokeWidth: 2,
-                      }}
-                      animationDuration={1500}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <CustomerTypeTrendChart
+            isMobile={isMobile}
+            customerTypeTrendData={customerTypeTrendData}
+            customerTypeKeys={customerTypeKeys}
+            COLORS={COLORS}
+          />
 
           {/* Nguồn của đơn hàng */}
 
-          <div className="w-full bg-white rounded-xl shadow-lg mt-5">
-            <div className="text-xl font-medium text-gray-700 text-center pt-5">
-              Nguồn của đơn hàng
-            </div>
-            <div className="w-full bg-white rounded-xl shadow-lg">
-              <ResponsiveContainer width="100%" height={isMobile ? 220 : 350} minWidth={isMobile ? 180 : 320}>
-                <BarChart
-                  data={customerSourceTrendData}
-                  margin={{ top: isMobile ? 20 : 50, right: 10, left: 10, bottom: isMobile ? 20 : 40 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="date"
-                    fontSize={isMobile ? 9 : 12}
-                    tickFormatter={(date) => {
-                      // date dạng 'YYYY-MM-DD' => 'DD/MM'
-                      const match = date.match(/^\d{4}-(\d{2})-(\d{2})$/);
-                      if (match) {
-                        const [, month, day] = match;
-                        return `${day}/${month}`;
-                      }
-                      return date;
-                    }}
-                  />
-                  <YAxis fontSize={isMobile ? 9 : 12} />
-                  <Tooltip />
-                  <Legend
-                    wrapperStyle={{
-                      paddingTop: isMobile ? 0 : 5,
-                      paddingBottom: isMobile ? 0 : 10,
-                      display: "flex",
-                      justifyContent: "center",
-                      flexWrap: "wrap",
-                      width: "100%",
-                      fontSize: isMobile ? 9 : 14,
-                    }}
-                  />
-                  {customerSourceKeys.map((source, idx) => (
-                    <Bar
-                      key={source}
-                      dataKey={source}
-                      fill={COLORS[idx % COLORS.length]}
-                      name={source}
-                      label={isMobile
-                        ? undefined // Ẩn label trên mobile
-                        : (props) => {
-                            const { x, y, width, value, index } = props;
-                            const d = customerSourceTrendData[index] as Record<string, number>;
-                            if (!d) return <></>;
-                            // Tìm giá trị lớn nhất trong các nguồn tại ngày đó
-                            const max = Math.max(...customerSourceKeys.map((k) => Number(d[k] || 0)));
-                            return value === max && value > 0 ? (
-                              <text
-                                x={x + width / 2}
-                                y={y - 5}
-                                textAnchor="middle"
-                                fill={COLORS[idx % COLORS.length]}
-                                fontSize={14}
-                                fontWeight={600}
-                              >
-                                {value}
-                              </text>
-                            ) : (
-                              <></>
-                            );
-                          }
-                      }
-                    />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <CustomerSourceBarChart
+            isMobile={isMobile}
+            customerSourceTrendData={customerSourceTrendData}
+            customerSourceKeys={customerSourceKeys}
+            COLORS={COLORS}
+          />
 
           {/* Khách hàng tải app */}
-          <div className="w-full bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
-            <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
-              Khách tải app/không tải
-            </div>
-            <div className="flex justify-center items-center py-4 lg:py-8">
-              {loading ? (
-                <div>Đang tải dữ liệu...</div>
-              ) : error ? (
-                <div className="text-red-500">{error}</div>
-              ) : (
-                <ResponsiveContainer width="100%" height={isMobile ? 220 : 300} minWidth={isMobile ? 180 : 320}>
-                  <BarChart data={sortedAppDownloadStatusData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="date"
-                      fontSize={isMobile ? 9 : 12}
-                      tickFormatter={(date) => {
-                        if (!date) return "";
-                        // Xử lý chuẩn: YYYY-MM-DD hoặc YYYY-MM-DDTHH:mm:ss
-                        const match = String(date).match(/^(\d{4})-(\d{2})-(\d{2})/);
-                        if (match) {
-                          const [, , month, day] = match;
-                          return `${day}/${month}`;
-                        }
-                        // Nếu là dạng DD/MM/YYYY hoặc DD/MM
-                        const match2 = String(date).match(/^(\d{2})\/(\d{2})(?:\/\d{4})?$/);
-                        if (match2) {
-                          return `${match2[1]}/${match2[2]}`;
-                        }
-                        // Nếu là dạng ISO nhưng không match trên
-                        if (typeof date === "string" && date.length >= 10) {
-                          return date.slice(8, 10) + "/" + date.slice(5, 7);
-                        }
-                        return date;
-                      }}
-                    />
-                    <YAxis allowDecimals={false} fontSize={isMobile ? 9 : 12} />
-                    <Tooltip />
-                    <Legend fontSize={isMobile ? 9 : 12} />
-                    <Bar dataKey="downloaded" fill="#9ee347" name="Đã tải app" label={isMobile ? undefined : { position: "top", fontSize: 14, fontWeight: 600, fill: "#9ee347" }} />
-                    <Bar dataKey="notDownloaded" fill="#f0bf4c" name="Chưa tải app" label={isMobile ? undefined : { position: "top", fontSize: 14, fontWeight: 600, fill: "#f0bf4c" }} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
+          <CustomerAppDownloadBarChart
+            isMobile={isMobile}
+            loading={loading}
+            error={error}
+            sortedAppDownloadStatusData={sortedAppDownloadStatusData}
+          />
 
-          {/* Tỉ lệ khách hàng tải app/không tải app */}
-          <div className="flex flex-col lg:flex-row gap-4 lg:gap-2">
-            <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
-              <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
-                Tỷ lệ tải app
-              </div>
-              <div className="flex justify-center items-center py-4 lg:py-8">
-                {loadingAppDownload ? (
-                  <div>Đang tải dữ liệu...</div>
-                ) : errorAppDownload ? (
-                  <div className="text-red-500">{errorAppDownload}</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={appDownloadPieData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius="30%"
-                        outerRadius="60%"
-                        label={({ percent }) =>
-                          percent && percent > 0.05
-                            ? `${(percent * 100).toFixed(0)}%`
-                            : ""
-                        }
-                        labelLine={false}
-                      >
-                        {appDownloadPieData.map((entry, idx) => (
-                          <Cell
-                            key={entry.name}
-                            fill={
-                              APP_CUSTOMER_PIE_COLORS[
-                                idx % APP_CUSTOMER_PIE_COLORS.length
-                              ]
-                            }
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend
-                        wrapperStyle={{
-                          paddingTop: 10,
-                          paddingBottom: 10,
-                          display: "flex",
-                          justifyContent: "center",
-                          flexWrap: "wrap",
-                          width: "100%",
-                          fontSize: "11px",
-                        }}
-                        layout="horizontal"
-                        verticalAlign="bottom"
-                        align="center"
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
+          {/* Tỉ lệ khách hàng tải app và tỉ lệ khách mới/cũ*/}
+          <CustomerAppDownloadPieChart
+            loadingAppDownload={loadingAppDownload}
+            errorAppDownload={errorAppDownload}
+            appDownloadPieData={appDownloadPieData}
+            APP_CUSTOMER_PIE_COLORS={APP_CUSTOMER_PIE_COLORS}
+            loadingCustomerOldNewOrder={loadingCustomerOldNewOrder}
+            errorCustomerOldNewOrder={errorCustomerOldNewOrder}
+            customerOldNewOrderPieData={customerOldNewOrderPieData}
+            NEW_OLD_COLORS={NEW_OLD_COLORS}
+          />
 
-            {/* Chart tỉ lệ khách mới/cũ */}
-            <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
-              <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
-                Tỉ lệ khách mới/cũ
-              </div>
-              <div className="flex justify-center items-center py-4 lg:py-8">
-                {loadingCustomerOldNewOrder ? (
-                  <div>Đang tải dữ liệu...</div>
-                ) : errorCustomerOldNewOrder ? (
-                  <div className="text-red-500">{errorCustomerOldNewOrder}</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={customerOldNewOrderPieData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius="30%"
-                        outerRadius="60%"
-                        label={({ percent }) =>
-                          percent && percent > 0
-                            ? `${(percent * 100).toFixed(0)}%`
-                            : ""
-                        }
-                        labelLine={false}
-                      >
-                        {customerOldNewOrderPieData.map((entry, idx) => (
-                          <Cell
-                            key={entry.name}
-                            fill={NEW_OLD_COLORS[idx % NEW_OLD_COLORS.length]}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend
-                        wrapperStyle={{
-                          paddingTop: 10,
-                          paddingBottom: 10,
-                          display: "flex",
-                          justifyContent: "center",
-                          flexWrap: "wrap",
-                          width: "100%",
-                          fontSize: "11px",
-                        }}
-                        layout="horizontal"
-                        verticalAlign="bottom"
-                        align="center"
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới) */}
-          <div className="flex flex-col lg:flex-row gap-2">
-            <div className="w-full bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
-              <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
-                Tỉ lệ các hình thức thanh toán ( khách mới )
-              </div>
-              <div className="flex justify-center items-center 18 lg:py-8">
-                <ResponsiveContainer width="100%" height={isMobile ? 220 : 300} minWidth={isMobile ? 180 : 320}>
-                  <PieChart>
-                    <Pie
-                      data={paymentPercentNewPieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="30%"
-                      outerRadius="60%"
-                      label={isMobile
-                        ? (props) => {
-                            const { percent, x, y, index } = props;
-                            if (!percent || percent <= 0 || typeof index !== 'number' || index < 0) return null;
-                            const color = paymentPercentNewPieData[index]?.color || "#333";
-                            return (
-                              <text
-                                x={x}
-                                y={y}
-                                textAnchor="middle"
-                                dominantBaseline="central"
-                                fontSize={10}
-                                fontWeight={600}
-                                fill={color}
-                              >
-                                {`${(percent * 100).toFixed(1)}%`}
-                              </text>
-                            );
-                          }
-                        : (props) => {
-                            const { percent, x, y, index } = props;
-                            if (!percent || percent <= 0 || typeof index !== 'number' || index < 0) return null;
-                            const color = paymentPercentNewPieData[index]?.color || "#333";
-                            return (
-                              <text
-                                x={x}
-                                y={y}
-                                textAnchor="middle"
-                                dominantBaseline="central"
-                                fontSize={14}
-                                fontWeight={600}
-                                fill={color}
-                              >
-                                {`${(percent * 100).toFixed(1)}%`}
-                              </text>
-                            );
-                          }
-                      }
-                      labelLine={false}
-                    >
-                      {paymentPercentNewPieData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value, name, props) =>
-                        `${Number(value).toLocaleString()} (${props.payload.percent?.toFixed(2)}%)`
-                      }
-                    />
-                    <Legend
-                      wrapperStyle={{
-                        paddingTop: 10,
-                        paddingBottom: 10,
-                        display: "flex",
-                        justifyContent: "center",
-                        flexWrap: "wrap",
-                        width: "100%",
-                        fontSize: isMobile ? 9 : 12,
-                      }}
-                      layout="horizontal"
-                      verticalAlign="bottom"
-                      align="center"
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách cũ) */}
-
-            <div className="w-full bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
-              <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
-                Tỉ lệ các hình thức thanh toán ( khách cũ )
-              </div>
-              <div className="flex justify-center items-center py-4 lg:py-8">
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={paymentPercentOldPieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="30%"
-                      outerRadius="60%"
-                      label={isMobile
-                        ? (props) => {
-                            const { percent, x, y, index } = props;
-                            if (!percent || percent <= 0 || typeof index !== 'number' || index < 0) return null;
-                            const color = paymentPercentOldPieData[index]?.color || "#333";
-                            return (
-                              <text
-                                x={x}
-                                y={y}
-                                textAnchor="middle"
-                                dominantBaseline="central"
-                                fontSize={10}
-                                fontWeight={600}
-                                fill={color}
-                              >
-                                {`${(percent * 100).toFixed(1)}%`}
-                              </text>
-                            );
-                          }
-                        : (props) => {
-                            const { percent, x, y, index } = props;
-                            if (!percent || percent <= 0 || typeof index !== 'number' || index < 0) return null;
-                            const color = paymentPercentOldPieData[index]?.color || "#333";
-                            return (
-                              <text
-                                x={x}
-                                y={y}
-                                textAnchor="middle"
-                                dominantBaseline="central"
-                                fontSize={14}
-                                fontWeight={600}
-                                fill={color}
-                              >
-                                {`${(percent * 100).toFixed(1)}%`}
-                              </text>
-                            );
-                          }
-                      }
-                      labelLine={false}
-                    >
-                      {paymentPercentOldPieData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend
-                      wrapperStyle={{
-                        paddingTop: 10,
-                        paddingBottom: 10,
-                        display: "flex",
-                        justifyContent: "center",
-                        flexWrap: "wrap",
-                        width: "100%",
-                        fontSize: isMobile ? 9 : 12,
-                      }}
-                      layout="horizontal"
-                      verticalAlign="bottom"
-                      align="center"
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
+          {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới) và (khách cũ) */}
+          <CustomerPaymentPieChart
+            isMobile={isMobile}
+            paymentPercentNewPieData={paymentPercentNewPieData}
+            paymentPercentOldPieData={paymentPercentOldPieData}
+          />
 
           {/* Thời gian đơn hàng được tạo */}
-          <div className="w-full bg-white rounded-xl shadow-lg p-4 mt-5">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-5 gap-4">
-              <h2 className="text-lg sm:text-xl font-semibold">
-                Thời gian đơn hàng được tạo
-              </h2>
-              <div className="flex flex-wrap gap-2 text-xs mt-2 sm:mt-0">
-                <span className="inline-flex items-center px-2 py-1 rounded bg-[#ffe5e5]">
-                  Khung giờ cao điểm
-                </span>
-                <span className="inline-flex items-center px-2 py-1 rounded bg-[#fff3cd]">
-                  Giá trị cao
-                </span>
-                <span className="inline-flex items-center px-2 py-1 rounded bg-[#e3fcec]">
-                  Giá trị trung bình
-                </span>
-                <span className="inline-flex items-center px-2 py-1 rounded bg-[#d1e7dd] border border-[#0f5132]">
-                  Chi nhánh cao điểm
-                </span>
-              </div>
-            </div>
-            {loadingFacilityHour ? (
-              <div>Đang tải dữ liệu...</div>
-            ) : errorFacilityHour ? (
-              <div className="text-red-500">{errorFacilityHour}</div>
-            ) : (
-              <div className="overflow-x-auto mt-4 custom-scrollbar">
-                <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
-                  <div className="max-h-[320px] overflow-y-auto">
-                    <table className={`min-w-[600px] w-full border text-center ${isMobile ? 'text-xs' : ''}`}>
-                      <thead>
-                        <tr>
-                          <th className={`border px-2 py-1 bg-gray-100 text-left font-bold ${isMobile ? 'text-xs' : ''} sticky left-0 z-10 bg-white`}>Cơ sở</th>
-                          {allHourRanges.map((hour) => (
-                            <th
-                              key={hour}
-                              className={`border px-2 py-1 font-bold text-sm ${peakHours.includes(hour) ? 'bg-[#ffe5e5]' : ''} ${isMobile ? 'text-xs px-1 py-0.5' : ''}`}
-                            >
-                              {hour}
-                            </th>
-                          ))}
-                          <th className={`border px-2 py-1 bg-gray-100 font-bold ${isMobile ? 'text-xs' : ''} sticky right-0 z-10 bg-[#e0e7ff]`}>Tổng</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {facilityHourTableData.map((row) => (
-                          <tr
-                            key={row.facility}
-                            className={
-                              peakFacilities.includes(row.facility)
-                                ? 'bg-[#d1e7dd] border-2 border-[#0f5132] font-bold'
-                                : ''
-                            }
-                          >
-                            <td className={`border px-2 py-1 text-left font-semibold ${isMobile ? 'text-xs px-1 py-0.5' : ''} sticky left-0 z-10 bg-white`}>{row.facility}</td>
-                            {allHourRanges.map((hour) => {
-                              const val = Number(row[hour] ?? 0);
-                              const maxRow = rowMaxMap[row.facility] || 1;
-                              return (
-                                <td
-                                  key={hour}
-                                  className={`border px-2 py-1 ${peakHours.includes(hour) ? 'bg-[#ffe5e5]' : ''} ${getCellBg(val, maxRow)} ${isMobile ? 'text-xs px-1 py-0.5' : ''}`}
-                                >
-                                  {val}
-                                </td>
-                              );
-                            })}
-                            <td className={`border px-2 py-1 font-bold ${isMobile ? 'text-xs px-1 py-0.5' : ''} sticky right-0 z-10 bg-[#e0e7ff]`}>{row.total}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <CustomerFacilityHourTable
+            allHourRanges={allHourRanges}
+            peakHours={peakHours}
+            facilityHourTableData={facilityHourTableData}
+            peakFacilities={peakFacilities}
+            rowMaxMap={rowMaxMap}
+            getCellBg={getCellBg}
+            isMobile={isMobile}
+            loadingFacilityHour={loadingFacilityHour}
+            errorFacilityHour={errorFacilityHour}
+          />
         </div>
       </div>
     </div>

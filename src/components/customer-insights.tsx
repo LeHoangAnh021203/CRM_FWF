@@ -36,10 +36,10 @@ const insights = [
 ]
 
 const topCustomers = [
-  { name: "Acme Corp", revenue: "$12,450", orders: 24 },
-  { name: "TechStart Inc", revenue: "$8,920", orders: 18 },
-  { name: "Global Solutions", revenue: "$7,650", orders: 15 },
-  { name: "Innovation Labs", revenue: "$6,340", orders: 12 },
+  { name: "Acme Corp", revenue: "12,450 M", orders: 24 },
+  { name: "TechStart Inc", revenue: "8,920 M", orders: 18 },
+  { name: "Global Solutions", revenue: "7,650 M", orders: 15 },
+  { name: "Innovation Labs", revenue: "6,340 M", orders: 12 },
 ]
 
 export function CustomerInsights() {

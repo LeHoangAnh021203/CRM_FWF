@@ -27,7 +27,7 @@ export function RevenueChart() {
               <div
                 className="w-full bg-blue-500 rounded-t-sm transition-all duration-300 hover:bg-blue-600"
                 style={{
-                  height: `${(item.revenue / maxRevenue) * 200}px`,
+                  height: `M{(item.revenue / maxRevenue) * 200}px`,
                   minHeight: "20px",
                 }}
               />
@@ -36,8 +36,8 @@ export function RevenueChart() {
           ))}
         </div>
         <div className="mt-4 flex justify-between text-sm text-gray-600">
-          <span>$0</span>
-          <span>${maxRevenue.toLocaleString()}</span>
+          <span>0 M</span>
+          <span>{maxRevenue.toLocaleString()} M</span>
         </div>
       </CardContent>
     </Card>

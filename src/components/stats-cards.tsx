@@ -1,13 +1,14 @@
+import React from "react";
 import { Card, CardContent } from "@/components/ui/card"
-import { TrendingUp, TrendingDown, Users, ShoppingCart, DollarSign, Package } from "lucide-react"
+import { TrendingUp, TrendingDown, Users, ShoppingCart, Landmark, Package } from "lucide-react"
 
 const stats = [
   {
     title: "Total Revenue",
-    value: "$12,426",
+    value: "12,426 M",
     change: "+12.5%",
     trend: "up",
-    icon: DollarSign,
+    icon: Landmark,
     color: "text-green-600",
   },
   {
@@ -36,7 +37,7 @@ const stats = [
   },
 ]
 
-export function StatsCards() {
+export const StatsCards = React.memo(function StatsCards() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {stats.map((stat) => (
@@ -67,4 +68,4 @@ export function StatsCards() {
       ))}
     </div>
   )
-}
+});

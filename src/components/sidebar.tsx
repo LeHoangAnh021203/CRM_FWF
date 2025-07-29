@@ -93,26 +93,27 @@ export function Sidebar() {
 
         {/* User section */}
         <div className="p-2 border-t border-[#fdec40]">
-          <div className="flex items-center justify-center space-x-3">
-            <div className="w-8 h-8 bg-[#61c9d7] rounded-full flex items-center justify-center">
-              <span className="text-sm font-medium">
-                <img src="/logo.png" className="w-full h-full"/>
-              </span>
+          <Link href={"/"}>
+            <div className="flex items-center justify-center space-x-3">
+              <div className="w-8 h-8 bg-[#61c9d7] rounded-full flex items-center justify-center">
+                <span className="text-sm font-medium">
+                  <img src="/logo.png" className="w-full h-full " />
+                </span>
+              </div>
+              <div
+                className={cn(
+                  "transition-opacity duration-300",
+                  isOpen ? "block" : "hidden"
+                )}
+              >
+                <p className="text-sm font-medium">FB Network</p>
+                <p className="text-xs text-white">Administrator</p>
+              </div>
             </div>
-            <div
-              className={cn(
-                "transition-opacity duration-300",
-                isOpen ? "block" : "hidden"
-              )}
-            >
-              <p className="text-sm font-medium">FB Network</p>
-              <p className="text-xs text-white">Administrator</p>
-            </div>
-          </div>
+          </Link>
         </div>
       </div>
 
-      {/* Overlay chỉ cho mobile nếu muốn */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 lg:hidden z-30"

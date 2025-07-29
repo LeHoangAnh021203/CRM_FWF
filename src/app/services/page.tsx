@@ -7,19 +7,15 @@ import {
   getLocalTimeZone,
   parseDate,
 } from "@internationalized/date";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+
+import ServicesFilter from "./ServicesFilter";
+import WeeklyServiceChartData from "./ServiceWeeklyChartData";
+import PieChartData from "./ServicePieChartData";
+import ServiceBottomPieData from "./ServiceBottomPieData";
+import ServiceStatCards from "./ServiceStatCards";
+import ServiceStoreChartData from "./ServiceStoreChartData";
+import ServicesRegionData from "./ServicesRegionData";
+import ServicesTable from "./ServicesTable";
 
 interface DataPoint {
   date: string;
@@ -44,14 +40,123 @@ interface TotalRegionalSales {
   status: string;
 }
 
-const ALL_SERVICE_TYPES = [
-  { key: "Khách hàng Thành viên", label: "Combo" },
-  { key: "KH trải nghiệm", label: "Dịch vụ" },
-  { key: "Added on", label: "Added on" },
-  { key: "Quà tặng", label: "Gifts" },
-  { key: "Fox card", label: "Fox card" },
-];
-const ALL_GENDERS = ["Nam", "Nữ", "#N/A"];
+// Interface cho dữ liệu API mới
+interface ServiceTypeData {
+  date: string;
+  type: string;
+  count: number;
+}
+
+interface ServiceSummaryData {
+  totalCombo: number;
+  totalLe: number;
+  totalCT: number;
+  totalGift: number;
+  totalAll: number;
+  prevCombo: number;
+  prevLe: number;
+  prevCT: number;
+  prevGift: number;
+  prevAll: number;
+  comboGrowth: number;
+  leGrowth: number;
+  ctGrowth: number;
+  giftGrowth: number;
+  allGrowth: number;
+}
+
+interface RegionData {
+  region: string;
+  type: string;
+  total: number;
+}
+
+interface ServiceDataItem {
+  tenDichVu: string;
+  loaiDichVu: string;
+  soLuong: number;
+  tongGia: number;
+  percentSoLuong: string;
+  percentTongGia: string;
+}
+
+// Interface cho dữ liệu API shop service
+interface ShopServiceData {
+  shopName: string;
+  serviceType: string;
+  total: number;
+}
+
+// Interface cho dữ liệu API top 10 services revenue
+interface Top10ServicesRevenueData {
+  serviceName: string;
+  servicePrice: number;
+}
+
+// Interface cho dữ liệu API top 10 services usage
+interface Top10ServicesUsageData {
+  serviceName: string;
+  count: number;
+}
+
+// Interface cho dữ liệu API bảng dịch vụ
+interface ServiceTableData {
+  serviceName: string;
+  type: string;
+  usageCount: number;
+  usageDeltaCount: number;
+  usagePercent: number;
+  totalRevenue: number;
+  revenueDeltaPercent: number;
+  revenuePercent: number;
+}
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+function useApiData<T>(url: string, fromDate: string, toDate: string) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Skip API calls if URL is not available
+    if (!url || !API_BASE_URL) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fromDate, toDate }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          // Don't throw error for 404, just return null data
+          if (res.status === 404) {
+            return null;
+          }
+          throw new Error("API error: " + res.status);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setData(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        // Only set error for non-404 errors
+        if (!err.message.includes("404")) {
+          setError(err.message);
+        }
+        setLoading(false);
+      });
+  }, [url, fromDate, toDate]);
+
+  return { data, loading, error };
+}
 
 export default function CustomerReportPage() {
   const [startDate, setStartDate] = useState<CalendarDate>(
@@ -62,14 +167,140 @@ export default function CustomerReportPage() {
   );
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
 
-  // Thêm state cho Region và Branch
+  const fromDate = startDate
+    ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
+        startDate.day
+      ).padStart(2, "0")}T00:00:00`
+    : "";
+  const toDate = endDate
+    ? `${endDate.year}-${String(endDate.month).padStart(2, "0")}-${String(
+        endDate.day
+      ).padStart(2, "0")}T23:59:59`
+    : "";
+
+  // API call cho dữ liệu dịch vụ theo loại
+  const { data: serviceTypeData } = useApiData<ServiceTypeData[]>(
+    `${API_BASE_URL}/api/service-record/service-type-breakdown`,
+    fromDate,
+    toDate
+  );
+
+  const {
+    data: serviceSummary,
+    loading: serviceSummaryLoading,
+    error: serviceSummaryError,
+  } = useApiData<ServiceSummaryData>(
+    `${API_BASE_URL}/api/service-record/service-summary`,
+    fromDate,
+    toDate
+  );
+
+  const {
+    data: regionData,
+    loading: regionLoading,
+    error: regionError,
+  } = useApiData<RegionData[]>(
+    `${API_BASE_URL}/api/service-record/region`,
+    fromDate,
+    toDate
+  );
+
+  const {
+    data: shopData,
+    loading: shopLoading,
+    error: shopError,
+  } = useApiData<ShopServiceData[]>(
+    `${API_BASE_URL}/api/service-record/shop`,
+    fromDate,
+    toDate
+  );
+
+  const {
+    data: top10ServicesRevenueData,
+    loading: top10ServicesLoading,
+    error: top10ServicesError,
+  } = useApiData<Top10ServicesRevenueData[]>(
+    `${API_BASE_URL}/api/service-record/top10-services-revenue`,
+    fromDate,
+    toDate
+  );
+
+  const {
+    data: top10ServicesUsageData,
+    loading: top10ServicesUsageLoading,
+    error: top10ServicesUsageError,
+  } = useApiData<Top10ServicesUsageData[]>(
+    `${API_BASE_URL}/api/service-record/top10-services-usage`,
+    fromDate,
+    toDate
+  );
+
+  const {
+    data: bottom3ServicesUsageData,
+    loading: bottom3ServicesUsageLoading,
+    error: bottom3ServicesUsageError,
+  } = useApiData<Top10ServicesUsageData[]>(
+    `${API_BASE_URL}/api/service-record/bottom3-services-usage`,
+    fromDate,
+    toDate
+  );
+
+  const {
+    data: bottom3ServicesRevenueData,
+    loading: bottom3ServicesRevenueLoading,
+    error: bottom3ServicesRevenueError,
+  } = useApiData<Top10ServicesRevenueData[]>(
+    `${API_BASE_URL}/api/service-record/bottom3-services-revenue`,
+    fromDate,
+    toDate
+  );
+
+  const {
+    data: serviceTableData,
+    loading: serviceTableLoading,
+    error: serviceTableError,
+  } = useApiData<ServiceTableData[]>(
+    `${API_BASE_URL}/api/service-record/top-table`,
+    fromDate,
+    toDate
+  );
+
+  // Hook lấy width window với debounce để tránh performance issues
+  function useWindowWidth() {
+    const [width, setWidth] = useState(1024);
+    useEffect(() => {
+      let timeoutId: NodeJS.Timeout;
+
+      function handleResize() {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          setWidth(window.innerWidth);
+        }, 100); // Debounce 100ms
+      }
+
+      handleResize();
+      window.addEventListener("resize", handleResize);
+      return () => {
+        window.removeEventListener("resize", handleResize);
+        clearTimeout(timeoutId);
+      };
+    }, []);
+    return width;
+  }
+
+  const windowWidth = useWindowWidth();
+  const isMobile = windowWidth < 640;
+
+  const ALL_SERVICE_TYPES = [
+    { key: "Khách hàng Thành viên", label: "Combo" },
+    { key: "KH trải nghiệm", label: "Dịch vụ" },
+    { key: "Added on", label: "Added on" },
+    { key: "Quà tặng", label: "Gifts" },
+    { key: "Fox card", label: "Fox card" },
+  ];
+  const ALL_GENDERS = ["Nam", "Nữ", "#N/A"];
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
-  const [showRegionDropdown, setShowRegionDropdown] = useState(false);
-  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-  const [regionSearch, setRegionSearch] = useState("");
-  const [locationSearch, setLocationSearch] = useState("");
-  const regionDropdownRef = useRef<HTMLDivElement>(null);
-  const locationDropdownRef = useRef<HTMLDivElement>(null);
+  const [regionSearch] = useState("");
   const locationOptions = React.useMemo(
     () => [
       "Crescent Mall Q7",
@@ -105,121 +336,127 @@ export default function CustomerReportPage() {
     ],
     []
   );
-  const locationRegionMap: Record<string, string> = {
-    "Crescent Mall Q7": "HCM",
-    "Vincom Thảo Điền": "HCM",
-    "Vista Verde": "HCM",
-    "Aeon Mall Tân Phú Celadon": "HCM",
-    "Westpoint Phạm Hùng": "HCM",
-    "Aeon Mall Bình Tân": "HCM",
-    "Vincom Phan Văn Trị": "HCM",
-    "Vincom Landmark 81": "HCM",
-    "TTTM Estella Place": "HCM",
-    "Võ Thị Sáu Q.1": "HCM",
-    "The Sun Avenue": "HCM",
-    "Trương Định Q.3": "HCM",
-    "Hoa Lan Q.PN": "HCM",
-    "Nowzone Q.1": "HCM",
-    "Everrich Infinity Q.5": "HCM",
-    "SC VivoCity": "HCM",
-    "Vincom Lê Văn Việt": "HCM",
-    "The Bonatica Q.TB": "HCM",
-    "Midtown Q.7": "HCM",
-    "Riviera Point Q7": "HCM",
-    "Saigon Ofice": "HCM",
-    "Millenium Apartment Q.4": "HCM",
-    "Parc Mall Q.8": "HCM",
-    "Saigon Mia Trung Sơn": "HCM",
-    "Đảo Ngọc Ngũ Xã HN": "Hà Nội",
-    "Imperia Sky Garden HN": "Hà Nội",
-    "Vincom Bà Triệu": "Hà Nội",
-    "Gold Coast Nha Trang": "Nha Trang",
-    "Trần Phú Đà Nẵng": "Đà Nẵng",
-    "Vincom Quang Trung": "HCM",
-  };
-  const data: DataPoint[] = [
-    ...Array.from({ length: 30 }, (_, i) => {
-      const day = i + 1;
-      const dateStr = `${day} thg 6`;
-      const allLocations = [
-        "Crescent Mall Q7",
-        "Vincom Thảo Điền",
-        "Vista Verde",
-        "Aeon Mall Tân Phú Celadon",
-        "Westpoint Phạm Hùng",
-        "Aeon Mall Bình Tân",
-        "Vincom Phan Văn Trị",
-        "Vincom Landmark 81",
-        "TTTM Estella Place",
-        "Võ Thị Sáu Q.1",
-        "The Sun Avenue",
-        "Trương Định Q.3",
-        "Hoa Lan Q.PN",
-        "Nowzone Q.1",
-        "Everrich Infinity Q.5",
-        "SC VivoCity",
-        "Đảo Ngọc Ngũ Xã HN",
-        "Vincom Lê Văn Việt",
-        "The Bonatica Q.TB",
-        "Midtown Q.7",
-        "Trần Phú Đà Nẵng",
-        "Vincom Quang Trung",
-        "Vincom Bà Triệu",
-        "Imperia Sky Garden HN",
-        "Gold Coast Nha Trang",
-        "Riviera Point Q7",
-        "Saigon Ofice",
-        "Millenium Apartment Q.4",
-        "Parc Mall Q.8",
-        "Saigon Mia Trung Sơn",
-      ];
-      return [
-        {
-          date: dateStr,
-          value: 1200000 + (i % 5) * 20000 + i * 1000,
-          value2: 1000000 + (i % 3) * 15000 + i * 800,
-          type: "KH trải nghiệm",
-          status: "New",
-          gender: "Nam" as const,
-          region: locationRegionMap[allLocations[i % allLocations.length]],
-          branch: allLocations[i % allLocations.length],
-        },
-        {
-          date: dateStr,
-          value: 1250000 + (i % 4) * 18000 + i * 1200,
-          value2: 1050000 + (i % 2) * 17000 + i * 900,
-          type: "KH trải nghiệm",
-          status: "New",
-          gender: "Nữ" as const,
-          region:
-            locationRegionMap[allLocations[(i + 1) % allLocations.length]],
-          branch: allLocations[(i + 1) % allLocations.length],
-        },
-        {
-          date: dateStr,
-          value: 1300000 + (i % 6) * 22000 + i * 1100,
-          value2: 1100000 + (i % 4) * 13000 + i * 700,
-          type: "Khách hàng Thành viên",
-          status: "New",
-          gender: "Nam" as const,
-          region:
-            locationRegionMap[allLocations[(i + 2) % allLocations.length]],
-          branch: allLocations[(i + 2) % allLocations.length],
-        },
-        {
-          date: dateStr,
-          value: 1350000 + (i % 3) * 25000 + i * 900,
-          value2: 1150000 + (i % 5) * 12000 + i * 600,
-          type: "Khách hàng Thành viên",
-          status: "New",
-          gender: "Nữ" as const,
-          region:
-            locationRegionMap[allLocations[(i + 3) % allLocations.length]],
-          branch: allLocations[(i + 3) % allLocations.length],
-        },
-      ];
-    }).flat(),
-  ];
+  const locationRegionMap: Record<string, string> = React.useMemo(
+    () => ({
+      "Crescent Mall Q7": "HCM",
+      "Vincom Thảo Điền": "HCM",
+      "Vista Verde": "HCM",
+      "Aeon Mall Tân Phú Celadon": "HCM",
+      "Westpoint Phạm Hùng": "HCM",
+      "Aeon Mall Bình Tân": "HCM",
+      "Vincom Phan Văn Trị": "HCM",
+      "Vincom Landmark 81": "HCM",
+      "TTTM Estella Place": "HCM",
+      "Võ Thị Sáu Q.1": "HCM",
+      "The Sun Avenue": "HCM",
+      "Trương Định Q.3": "HCM",
+      "Hoa Lan Q.PN": "HCM",
+      "Nowzone Q.1": "HCM",
+      "Everrich Infinity Q.5": "HCM",
+      "SC VivoCity": "HCM",
+      "Vincom Lê Văn Việt": "HCM",
+      "The Bonatica Q.TB": "HCM",
+      "Midtown Q.7": "HCM",
+      "Riviera Point Q7": "HCM",
+      "Saigon Ofice": "HCM",
+      "Millenium Apartment Q.4": "HCM",
+      "Parc Mall Q.8": "HCM",
+      "Saigon Mia Trung Sơn": "HCM",
+      "Đảo Ngọc Ngũ Xã HN": "Hà Nội",
+      "Imperia Sky Garden HN": "Hà Nội",
+      "Vincom Bà Triệu": "Hà Nội",
+      "Gold Coast Nha Trang": "Nha Trang",
+      "Trần Phú Đà Nẵng": "Đà Nẵng",
+      "Vincom Quang Trung": "HCM",
+    }),
+    []
+  );
+  const data: DataPoint[] = React.useMemo(
+    () => [
+      ...Array.from({ length: 30 }, (_, i) => {
+        const day = i + 1;
+        const dateStr = `${day} thg 6`;
+        const allLocations = [
+          "Crescent Mall Q7",
+          "Vincom Thảo Điền",
+          "Vista Verde",
+          "Aeon Mall Tân Phú Celadon",
+          "Westpoint Phạm Hùng",
+          "Aeon Mall Bình Tân",
+          "Vincom Phan Văn Trị",
+          "Vincom Landmark 81",
+          "TTTM Estella Place",
+          "Võ Thị Sáu Q.1",
+          "The Sun Avenue",
+          "Trương Định Q.3",
+          "Hoa Lan Q.PN",
+          "Nowzone Q.1",
+          "Everrich Infinity Q.5",
+          "SC VivoCity",
+          "Đảo Ngọc Ngũ Xã HN",
+          "Vincom Lê Văn Việt",
+          "The Bonatica Q.TB",
+          "Midtown Q.7",
+          "Trần Phú Đà Nẵng",
+          "Vincom Quang Trung",
+          "Vincom Bà Triệu",
+          "Imperia Sky Garden HN",
+          "Gold Coast Nha Trang",
+          "Riviera Point Q7",
+          "Saigon Ofice",
+          "Millenium Apartment Q.4",
+          "Parc Mall Q.8",
+          "Saigon Mia Trung Sơn",
+        ];
+        return [
+          {
+            date: dateStr,
+            value: 1200000 + (i % 5) * 20000 + i * 1000,
+            value2: 1000000 + (i % 3) * 15000 + i * 800,
+            type: "KH trải nghiệm",
+            status: "New",
+            gender: "Nam" as const,
+            region: locationRegionMap[allLocations[i % allLocations.length]],
+            branch: allLocations[i % allLocations.length],
+          },
+          {
+            date: dateStr,
+            value: 1250000 + (i % 4) * 18000 + i * 1200,
+            value2: 1050000 + (i % 2) * 17000 + i * 900,
+            type: "KH trải nghiệm",
+            status: "New",
+            gender: "Nữ" as const,
+            region:
+              locationRegionMap[allLocations[(i + 1) % allLocations.length]],
+            branch: allLocations[(i + 1) % allLocations.length],
+          },
+          {
+            date: dateStr,
+            value: 1300000 + (i % 6) * 22000 + i * 1100,
+            value2: 1100000 + (i % 4) * 13000 + i * 700,
+            type: "Khách hàng Thành viên",
+            status: "New",
+            gender: "Nam" as const,
+            region:
+              locationRegionMap[allLocations[(i + 2) % allLocations.length]],
+            branch: allLocations[(i + 2) % allLocations.length],
+          },
+          {
+            date: dateStr,
+            value: 1350000 + (i % 3) * 25000 + i * 900,
+            value2: 1150000 + (i % 5) * 12000 + i * 600,
+            type: "Khách hàng Thành viên",
+            status: "New",
+            gender: "Nữ" as const,
+            region:
+              locationRegionMap[allLocations[(i + 3) % allLocations.length]],
+            branch: allLocations[(i + 3) % allLocations.length],
+          },
+        ];
+      }).flat(),
+    ],
+    [locationRegionMap]
+  );
 
   const TotalRegionalSales: TotalRegionalSales[] = [
     {
@@ -332,12 +569,13 @@ export default function CustomerReportPage() {
     "Khác",
   ];
 
-  function isInWeek(d: DataPoint, start: CalendarDate, end: CalendarDate) {
-    const dDate = parseVNDate(d.date);
-    return dDate.compare(start) >= 0 && dDate.compare(end) <= 0;
-  }
-
-  
+  const isInWeek = React.useCallback(
+    (d: DataPoint, start: CalendarDate, end: CalendarDate) => {
+      const dDate = parseVNDate(d.date);
+      return dDate.compare(start) >= 0 && dDate.compare(end) <= 0;
+    },
+    []
+  );
 
   // Đặt các biến tuần lên trước
   const weekStart = startDate;
@@ -407,47 +645,7 @@ export default function CustomerReportPage() {
     };
   });
 
-  function StatCard({
-    title,
-    value,
-    delta,
-    className,
-    valueColor,
-  }: {
-    title: string;
-    value: number;
-    delta: number | null;
-    className?: string;
-    valueColor?: string;
-  }) {
-    const isUp = delta !== null && delta > 0;
-    const isDown = delta !== null && delta < 0;
-    return (
-      <div
-        className={`bg-white rounded-xl shadow p-6 flex flex-col items-center min-w-[220px] border-4 ${
-          className ?? "border-gray-200"
-        }`}
-      >
-        <div className="text-sm text-gray-700 mb-1 text-center">{title}</div>
-        <div
-          className={`text-4xl font-bold mb-1 text-center ${
-            valueColor ?? "text-black"
-          }`}
-        >
-          {value.toLocaleString()}
-        </div>
-        <div
-          className={`text-lg font-semibold flex items-center gap-1 ${
-            isUp ? "text-green-600" : isDown ? "text-red-500" : "text-gray-500"
-          }`}
-        >
-          {isUp && <span>↑</span>}
-          {isDown && <span>↓</span>}
-          {delta === null ? "N/A" : Math.abs(delta).toLocaleString()}
-        </div>
-      </div>
-    );
-  }
+
 
   function parseVNDate(str: string): CalendarDate {
     let match = str.match(/^(\d{1,2}) thg (\d{1,2}), (\d{4})$/);
@@ -493,11 +691,8 @@ export default function CustomerReportPage() {
       return matchRegion && matchBranch;
     });
   }
-
-  const [showServiceDropdown, setShowServiceDropdown] = useState(false);
-  const [showGenderDropdown, setShowGenderDropdown] = useState(false);
-  const [serviceSearch, setServiceSearch] = useState("");
-  const [genderSearch, setGenderSearch] = useState("");
+  const [serviceSearch] = useState("");
+  const [genderSearch] = useState("");
   const serviceDropdownRef = useRef<HTMLDivElement>(null);
   const genderDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -508,13 +703,11 @@ export default function CustomerReportPage() {
         serviceDropdownRef.current &&
         !serviceDropdownRef.current.contains(e.target as Node)
       ) {
-        setShowServiceDropdown(false);
       }
       if (
         genderDropdownRef.current &&
         !genderDropdownRef.current.contains(e.target as Node)
       ) {
-        setShowGenderDropdown(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -592,66 +785,168 @@ export default function CustomerReportPage() {
     val.avgPerShop = 5 + Math.floor(Math.random() * 11);
   });
 
-  const weekDates = [];
-  let d = weekStart;
-  while (d.compare(weekEnd) <= 0) {
-    weekDates.push(d);
-    d = d.add({ days: 1 });
-  }
+  const weekDates: CalendarDate[] = React.useMemo(() => {
+    const dates: CalendarDate[] = [];
+    let d = weekStart;
+    while (d.compare(weekEnd) <= 0) {
+      dates.push(d);
+      d = d.add({ days: 1 });
+    }
+    return dates;
+  }, [weekStart, weekEnd]);
 
-  const weeklyServiceChartData = weekDates.map((dateObj) => {
-    const dateStr = `${dateObj.day} thg ${dateObj.month}`; // Sửa lại cho khớp data
-    const combo = data.filter(
-      (d) => d.type === "Khách hàng Thành viên" && d.date === dateStr
-    ).length;
-    const service = data.filter(
-      (d) => d.type === "KH trải nghiệm" && d.date === dateStr
-    ).length;
-    const addedon = data.filter(
-      (d) => d.type === "Added on" && d.date === dateStr
-    ).length;
-    const total = combo + service + addedon;
-    const foxcard = Math.round(total * 0.218);
-    return {
-      date: dateStr,
-      combo,
-      service,
-      addedon,
-      foxcard,
-    };
-  });
+  // Xử lý dữ liệu API cho chart tổng dịch vụ thực hiện trong tuần
+  const weeklyServiceChartData = React.useMemo(() => {
+    if (!serviceTypeData) {
+      // Fallback data nếu API chưa load
+      return weekDates.map((dateObj) => {
+        const dateStr = `${dateObj.day} thg ${dateObj.month}`;
+        return {
+          date: dateStr,
+          combo: 0,
+          service: 0,
+          addedon: 0,
+          foxcard: 0,
+        };
+      });
+    }
 
-  // Tổng Combo
-  const comboThisWeek = data.filter(
-    (d) => d.type === "Khách hàng Thành viên" && isInWeek(d, weekStart, weekEnd)
-  ).length;
-  const comboLastWeek = data.filter(
-    (d) =>
-      d.type === "Khách hàng Thành viên" &&
-      isInWeek(d, prevWeekStart, prevWeekEnd)
-  ).length;
-  const deltaCombo = comboThisWeek - comboLastWeek;
+    // Tạo map để nhóm dữ liệu theo ngày
+    const dataByDate = new Map<
+      string,
+      { combo: number; service: number; addedon: number; foxcard: number }
+    >();
 
-  // Tổng dịch vụ lẻ
-  const retailThisWeek = data.filter(
-    (d) => d.type === "KH trải nghiệm" && isInWeek(d, weekStart, weekEnd)
-  ).length;
-  const retailLastWeek = data.filter(
-    (d) =>
-      d.type === "KH trải nghiệm" && isInWeek(d, prevWeekStart, prevWeekEnd)
-  ).length;
-  const deltaRetail = retailThisWeek - retailLastWeek;
+    // Khởi tạo dữ liệu cho tất cả các ngày trong tuần
+    weekDates.forEach((dateObj) => {
+      const dateKey = `${dateObj.year}-${String(dateObj.month).padStart(
+        2,
+        "0"
+      )}-${String(dateObj.day).padStart(2, "0")}`;
+      dataByDate.set(dateKey, { combo: 0, service: 0, addedon: 0, foxcard: 0 });
+    });
 
-  // Tổng dịch vụ CT và Quà tặng (không có trong data, để 0)
-  const ctThisWeek = 0,
-    deltaCT = 0;
-  const giftThisWeek = 0,
-    deltaGift = 0;
+    // Xử lý dữ liệu từ API
+    serviceTypeData.forEach((item) => {
+      const dateKey = item.date;
+      const existing = dataByDate.get(dateKey);
 
-  // Tổng dịch vụ thực hiện
-  const totalServiceThisWeek = comboThisWeek + retailThisWeek;
-  const totalServiceLastWeek = comboLastWeek + retailLastWeek;
-  const deltaTotalService = totalServiceThisWeek - totalServiceLastWeek;
+      if (existing) {
+        switch (item.type) {
+          case "Combo":
+            existing.combo = item.count;
+            break;
+          case "Dịch vụ":
+            existing.service = item.count;
+            break;
+          case "Khác":
+            existing.addedon = item.count;
+            break;
+          default:
+            // Các loại khác có thể được xử lý ở đây
+            break;
+        }
+      }
+    });
+
+    // Chuyển đổi thành format cho chart
+    return weekDates.map((dateObj) => {
+      const dateKey = `${dateObj.year}-${String(dateObj.month).padStart(
+        2,
+        "0"
+      )}-${String(dateObj.day).padStart(2, "0")}`;
+      const data = dataByDate.get(dateKey) || {
+        combo: 0,
+        service: 0,
+        addedon: 0,
+        foxcard: 0,
+      };
+      const total = data.combo + data.service + data.addedon;
+      const foxcard = Math.round(total * 0.218);
+
+      return {
+        date: `${dateObj.day} thg ${dateObj.month}`,
+        combo: data.combo,
+        service: data.service,
+        addedon: data.addedon,
+        foxcard: foxcard,
+      };
+    });
+  }, [serviceTypeData, weekDates]);
+
+
+
+  // Xử lý dữ liệu cho chart tổng dịch vụ thực hiện theo khu vực
+  const regionChartData = React.useMemo(() => {
+    if (!regionData) return [];
+
+    // Nhóm dữ liệu theo khu vực
+    const regionMap = new Map<
+      string,
+      { combo: number; service: number; other: number }
+    >();
+
+    regionData.forEach((item) => {
+      if (!regionMap.has(item.region)) {
+        regionMap.set(item.region, { combo: 0, service: 0, other: 0 });
+      }
+
+      const region = regionMap.get(item.region)!;
+      switch (item.type) {
+        case "Combo":
+          region.combo = item.total;
+          break;
+        case "Dịch vụ":
+          region.service = item.total;
+          break;
+        case "Khác":
+          region.other = item.total;
+          break;
+      }
+    });
+
+    // Chuyển đổi thành format cho chart
+    return Array.from(regionMap.entries())
+      .map(([regionName, data]) => ({
+        region: regionName,
+        combo: data.combo,
+        service: data.service,
+        other: data.other,
+        total: data.combo + data.service + data.other,
+      }))
+      .sort((a, b) => b.total - a.total); // Sắp xếp theo tổng giảm dần
+  }, [regionData]);
+
+  // Dữ liệu cho bảng dịch vụ
+  const serviceData: ServiceDataItem[] = React.useMemo(() => {
+    if (!serviceTypeData) return [];
+
+    const serviceMap = new Map<string, { count: number; type: string }>();
+
+    serviceTypeData.forEach((item) => {
+      const key = item.type;
+      if (!serviceMap.has(key)) {
+        serviceMap.set(key, { count: 0, type: item.type });
+      }
+      serviceMap.get(key)!.count += item.count;
+    });
+
+    const totalCount = Array.from(serviceMap.values()).reduce(
+      (sum, item) => sum + item.count,
+      0
+    );
+
+    return Array.from(serviceMap.entries()).map(([key, item]) => ({
+      tenDichVu: key,
+      loaiDichVu: key,
+      soLuong: item.count,
+      tongGia: item.count * 1000000, // Giả sử giá trung bình 1 triệu
+      percentSoLuong:
+        totalCount > 0 ? ((item.count / totalCount) * 100).toFixed(1) : "0.0",
+      percentTongGia:
+        totalCount > 0 ? ((item.count / totalCount) * 100).toFixed(1) : "0.0",
+    }));
+  }, [serviceTypeData]);
 
   // Lấy danh sách các cửa hàng
   const storeNames = locationOptions;
@@ -708,38 +1003,67 @@ export default function CustomerReportPage() {
     });
   }
 
-  // Tính số lượng từng loại dịch vụ theo từng cửa hàng trong tuần, có filter
-  const storeServiceChartData = storeNames
-    .map((store) => {
-      const storeData = data.filter(
-        (d) =>
-          d.branch === store &&
-          isInWeek(d, weekStart, weekEnd) &&
-          selectedServiceTypes.includes(d.type) &&
-          selectedGenders.includes(d.gender)
-      );
-      const combo = storeData.filter(
-        (d) => d.type === "Khách hàng Thành viên"
-      ).length;
-      const service = storeData.filter(
-        (d) => d.type === "KH trải nghiệm"
-      ).length;
-      const addedon = storeData.filter((d) => d.type === "Added on").length;
-      const gifts = storeData.filter((d) => d.type === "Quà tặng").length;
-      // Fox card: giả lập 21.8% tổng số đơn của cửa hàng
-      const total = combo + service + addedon + gifts;
-      const foxcard = Math.round(total * 0.218);
-      return {
-        store,
-        combo,
-        service,
-        addedon,
-        gifts,
-        foxcard,
-        total, // để sort
-      };
-    })
-    .sort((a, b) => b.total - a.total);
+  // Tính số lượng từng loại dịch vụ theo từng cửa hàng từ API data
+  const storeServiceChartData = shopData
+    ? (() => {
+        // Group data by shop name
+        const shopGroups = shopData.reduce((acc, item) => {
+          if (!acc[item.shopName]) {
+            acc[item.shopName] = {};
+          }
+          acc[item.shopName][item.serviceType] = item.total;
+          return acc;
+        }, {} as Record<string, Record<string, number>>);
+
+        // Convert to chart format
+        return Object.entries(shopGroups)
+          .map(([shopName, services]) => {
+            const combo = services["Combo"] || 0;
+            const service = services["Dịch vụ"] || 0;
+            const other = services["Khác"] || 0;
+            const total = combo + service + other;
+
+            return {
+              store: shopName,
+              combo,
+              service,
+              other,
+              total, // để sort
+            };
+          })
+          .sort((a, b) => b.total - a.total);
+      })()
+    : storeNames
+        .map((store) => {
+          const storeData = data.filter(
+            (d) =>
+              d.branch === store &&
+              isInWeek(d, weekStart, weekEnd) &&
+              selectedServiceTypes.includes(d.type) &&
+              selectedGenders.includes(d.gender)
+          );
+          const combo = storeData.filter(
+            (d) => d.type === "Khách hàng Thành viên"
+          ).length;
+          const service = storeData.filter(
+            (d) => d.type === "KH trải nghiệm"
+          ).length;
+          const addedon = storeData.filter((d) => d.type === "Added on").length;
+          const gifts = storeData.filter((d) => d.type === "Quà tặng").length;
+          // Fox card: giả lập 21.8% tổng số đơn của cửa hàng
+          const total = combo + service + addedon + gifts;
+          const foxcard = Math.round(total * 0.218);
+          return {
+            store,
+            combo,
+            service,
+            addedon,
+            gifts,
+            foxcard,
+            total, // để sort
+          };
+        })
+        .sort((a, b) => b.total - a.total);
 
   // Tính tổng actual price cho từng giới tính trong tuần (theo filter dịch vụ nếu muốn)
   const genderActualPrice = ALL_GENDERS.map((gender) => {
@@ -754,7 +1078,7 @@ export default function CustomerReportPage() {
     return { gender, total };
   });
 
-  // Pie chart data for tỉ lệ dịch vụ/combo/cộng thêm (có filter)
+  // Filtered data for pie charts and other components
   const filteredPieData = data.filter(
     (d) =>
       isInWeek(d, weekStart, weekEnd) &&
@@ -767,610 +1091,196 @@ export default function CustomerReportPage() {
       selectedServiceTypes.includes(d.type) &&
       selectedGenders.includes(d.gender)
   );
-  const pieData = [
-    {
-      key: "combo",
-      label: "Combo",
-      value: filteredPieData.filter((d) => d.type === "Khách hàng Thành viên")
-        .length,
-      color: "#795548",
-    },
-    {
-      key: "service",
-      label: "Dịch vụ",
-      value: filteredPieData.filter((d) => d.type === "KH trải nghiệm").length,
-      color: "#c5e1a5",
-    },
-    {
-      key: "addedon",
-      label: "Added on",
-      value: filteredPieData.filter((d) => d.type === "Added on").length,
-      color: "#f16a3f",
-    },
-    {
-      key: "gifts",
-      label: "Gifts",
-      value: filteredPieData.filter((d) => d.type === "Quà tặng").length,
-      color: "#8fd1fc",
-    },
-  ];
-  const totalPie = pieData.reduce((sum, d) => sum + d.value, 0);
-  const foxCardValue = Math.round(totalPie * 0.218);
-  const pieChartData = [
-    ...pieData,
-    {
-      key: "foxcard",
-      label: "Fox card",
-      value: foxCardValue,
-      color: "#b26e7a",
-    },
-  ];
+
+  // Pie chart data for tỉ lệ dịch vụ/combo/cộng thêm (có filter)
+  const pieChartData = React.useMemo(() => {
+    if (serviceSummary) {
+      // Sử dụng dữ liệu API serviceSummary
+      const pieData = [
+        {
+          key: "combo",
+          label: "Combo",
+          value: serviceSummary.totalCombo,
+          color: "#795548",
+        },
+        {
+          key: "service",
+          label: "Dịch vụ",
+          value: serviceSummary.totalLe,
+          color: "#c5e1a5",
+        },
+        {
+          key: "addedon",
+          label: "Added on",
+          value: serviceSummary.totalCT,
+          color: "#f16a3f",
+        },
+        {
+          key: "gifts",
+          label: "Gifts",
+          value: serviceSummary.totalGift,
+          color: "#8fd1fc",
+        },
+      ];
+      const totalPie = pieData.reduce((sum, d) => sum + d.value, 0);
+      const foxCardValue = Math.round(totalPie * 0.218);
+      return [
+        ...pieData,
+        {
+          key: "foxcard",
+          label: "Fox card",
+          value: foxCardValue,
+          color: "#b26e7a",
+        },
+      ];
+    }
+
+    // Fallback data nếu API chưa load
+    const pieData = [
+      {
+        key: "combo",
+        label: "Combo",
+        value: filteredPieData.filter((d) => d.type === "Khách hàng Thành viên")
+          .length,
+        color: "#795548",
+      },
+      {
+        key: "service",
+        label: "Dịch vụ",
+        value: filteredPieData.filter((d) => d.type === "KH trải nghiệm")
+          .length,
+        color: "#c5e1a5",
+      },
+      {
+        key: "addedon",
+        label: "Added on",
+        value: filteredPieData.filter((d) => d.type === "Added on").length,
+        color: "#f16a3f",
+      },
+      {
+        key: "gifts",
+        label: "Gifts",
+        value: filteredPieData.filter((d) => d.type === "Quà tặng").length,
+        color: "#8fd1fc",
+      },
+    ];
+    const totalPie = pieData.reduce((sum, d) => sum + d.value, 0);
+    const foxCardValue = Math.round(totalPie * 0.218);
+    return [
+      ...pieData,
+      {
+        key: "foxcard",
+        label: "Fox card",
+        value: foxCardValue,
+        color: "#b26e7a",
+      },
+    ];
+  }, [serviceSummary, filteredPieData]);
 
   // PieChart top 10 dịch vụ theo số lượng (có filter)
-  // Giả sử mỗi DataPoint có trường serviceName, nếu không có thì dùng type
-  const filteredServiceData = data.filter(
-    (d) =>
-      isInWeek(d, weekStart, weekEnd) &&
-      (selectedRegions.length === 0 ||
-        !d.region ||
-        selectedRegions.includes(d.region)) &&
-      (selectedBranches.length === 0 ||
-        !d.branch ||
-        selectedBranches.includes(d.branch)) &&
-      selectedServiceTypes.includes(d.type) &&
-      selectedGenders.includes(d.gender)
-  );
-  // Lấy tên dịch vụ (ưu tiên d.serviceName, fallback d.type)
-  const serviceCountMap = new Map();
-  filteredServiceData.forEach((d) => {
-    const name = d.serviceName || d.type;
-    serviceCountMap.set(name, (serviceCountMap.get(name) || 0) + 1);
-  });
-  const sortedServices = Array.from(serviceCountMap.entries()).sort(
-    (a, b) => b[1] - a[1]
-  );
-  const top10Services = sortedServices.slice(0, 10);
-  const otherCount = sortedServices
-    .slice(10)
-    .reduce((sum, [, count]) => sum + count, 0);
-  const pieTop10Data = top10Services.map(([name, value], idx) => ({
-    name,
-    value,
-    color: `hsl(0,0%,${40 + idx * 5}%)`, // gradient xám
-  }));
-  if (otherCount > 0) {
-    pieTop10Data.push({ name: "Khác", value: otherCount, color: "#ededed" });
-  }
+  const pieTop10Data = React.useMemo(() => {
+    if (top10ServicesRevenueData) {
+      // Sử dụng dữ liệu API
+      return top10ServicesRevenueData.map((service, idx) => ({
+        name: service.serviceName,
+        value: service.servicePrice,
+        color: `hsl(0,0%,${40 + idx * 5}%)`, // gradient xám
+      }));
+    }
+
+    // Fallback data nếu API chưa load
+    const filteredServiceData = data.filter(
+      (d) =>
+        isInWeek(d, weekStart, weekEnd) &&
+        (selectedRegions.length === 0 ||
+          !d.region ||
+          selectedRegions.includes(d.region)) &&
+        (selectedBranches.length === 0 ||
+          !d.branch ||
+          selectedBranches.includes(d.branch)) &&
+        selectedServiceTypes.includes(d.type) &&
+        selectedGenders.includes(d.gender)
+    );
+    // Lấy tên dịch vụ (ưu tiên d.serviceName, fallback d.type)
+    const serviceCountMap = new Map();
+    filteredServiceData.forEach((d) => {
+      const name = d.serviceName || d.type;
+      serviceCountMap.set(name, (serviceCountMap.get(name) || 0) + 1);
+    });
+    const sortedServices = Array.from(serviceCountMap.entries()).sort(
+      (a, b) => b[1] - a[1]
+    );
+    const top10Services = sortedServices.slice(0, 10);
+    const otherCount = sortedServices
+      .slice(10)
+      .reduce((sum, [, count]) => sum + count, 0);
+    const result = top10Services.map(([name, value], idx) => ({
+      name,
+      value,
+      color: `hsl(0,0%,${40 + idx * 5}%)`, // gradient xám
+    }));
+    if (otherCount > 0) {
+      result.push({ name: "Khác", value: otherCount, color: "#ededed" });
+    }
+    return result;
+  }, [
+    top10ServicesRevenueData,
+    data,
+    weekStart,
+    weekEnd,
+    isInWeek,
+    selectedRegions,
+    selectedBranches,
+    selectedServiceTypes,
+    selectedGenders,
+  ]);
 
   // PieChart top 10 dịch vụ theo giá buổi (có filter)
-  // Giả sử mỗi DataPoint có trường serviceName, nếu không có thì dùng type
-  const serviceValueMap = new Map();
-  filteredServiceData.forEach((d) => {
-    const name = d.serviceName || d.type;
-    if (!serviceValueMap.has(name)) {
-      serviceValueMap.set(name, { totalValue: 0, count: 0 });
+  const pieTop10AvgData = React.useMemo(() => {
+    if (top10ServicesUsageData) {
+      // Sử dụng dữ liệu API
+      return top10ServicesUsageData.map((service, idx) => ({
+        name: service.serviceName,
+        value: service.count,
+        color: `hsl(30, 100%, ${45 + idx * 5}%)`, // gradient cam
+      }));
     }
-    const obj = serviceValueMap.get(name);
-    obj.totalValue += d.value;
-    obj.count += 1;
-  });
-  const serviceAvgArr = Array.from(serviceValueMap.entries()).map(
-    ([name, { totalValue, count }]) => ({
-      name,
-      avg: count > 0 ? totalValue / count : 0,
-      count,
-    })
-  );
-  const sortedAvg = serviceAvgArr.sort((a, b) => b.avg - a.avg);
-  const top10Avg = sortedAvg.slice(0, 10);
-  const otherAvgSum = sortedAvg.slice(10).reduce((sum, s) => sum + s.avg, 0);
-  const pieTop10AvgData = top10Avg.map((s, idx) => ({
-    name: s.name,
-    value: s.avg,
-    color: `hsl(30, 100%, ${45 + idx * 5}%)`, // gradient cam
-  }));
-  if (sortedAvg.length > 10) {
-    pieTop10AvgData.push({
-      name: "Khác",
-      value: otherAvgSum,
-      color: "#ffe0b2",
+
+    // Fallback data nếu API chưa load
+    const serviceValueMap = new Map();
+    filteredPieData.forEach((d) => {
+      const name = d.serviceName || d.type;
+      if (!serviceValueMap.has(name)) {
+        serviceValueMap.set(name, { totalValue: 0, count: 0 });
+      }
+      const obj = serviceValueMap.get(name);
+      obj.totalValue += d.value;
+      obj.count += 1;
     });
-  }
-
-  const serviceData = [
-    {
-      tenDichVu: "QUÀ TẶNG DV KÈM THẺ TIỀN",
-      loaiDichVu: "Quà tặng",
-      soLuong: 1,
-      tongGia: 1000000,
-      giaBuoiTB: 1000000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.63,
-    },
-    {
-      tenDichVu:
-        "COMBO 7: DEEP CLEAN ACNE-CARE LÀM SẠCH SÂU VÀ CHĂM SÓC DA MỤN",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1200000,
-      giaBuoiTB: 1200000,
-      percentSoLuong: 2.63,
-      percentTongGia: 3.16,
-    },
-    {
-      tenDichVu:
-        "DV 4: LUMIGLOW CLEANSE - LÀM SÁNG VÀ ĐỀU MÀU DA, NGĂN NGỪA LÃO HÓA",
-      loaiDichVu: "Dịch vụ",
-      soLuong: 1,
-      tongGia: 900000,
-      giaBuoiTB: 900000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.37,
-    },
-    {
-      tenDichVu:
-        "DV 6: EYE-REVIVE CLEANSE - CHĂM SÓC DA MẮT, NÂNG CƠ VÀ GIẢM QUẦNG THÂM",
-      loaiDichVu: "Dịch vụ",
-      soLuong: 1,
-      tongGia: 950000,
-      giaBuoiTB: 950000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.5,
-    },
-    {
-      tenDichVu: "QUÀ TẶNG DV KÈM THẺ TIỀN",
-      loaiDichVu: "Quà tặng",
-      soLuong: 1,
-      tongGia: 1000000,
-      giaBuoiTB: 1000000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.63,
-    },
-    {
-      tenDichVu: "DV 5: GYMMING CLEANSE - LÀM SĂN CHẮC, TĂNG ĐỘ ĐÀN HỒI DA",
-      loaiDichVu: "Dịch vụ",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu:
-        "DV 2: DEEP CLEANSE - LÀM SẠCH SÂU THU NHỎ CHÂN LÔNG VÀ TĂNG ĐỘ ẨM",
-      loaiDichVu: "Dịch vụ",
-      soLuong: 1,
-      tongGia: 1050000,
-      giaBuoiTB: 1050000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.76,
-    },
-    {
-      tenDichVu: "DV 1: AQUA PEEL CLEANSE - RỬA MẶT CÔNG NGHỆ 5 BƯỚC HYDRATION",
-      loaiDichVu: "Dịch vụ",
-      soLuong: 1,
-      tongGia: 850000,
-      giaBuoiTB: 850000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.25,
-    },
-    {
-      tenDichVu: "DV 3: CRYO CLEANSE - CẤP ẨM, CĂNG BÓNG DA TRÀN ĐẦY SỨC SỐNG",
-      loaiDichVu: "Dịch vụ",
-      soLuong: 1,
-      tongGia: 980000,
-      giaBuoiTB: 980000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.58,
-    },
-    {
-      tenDichVu: "COMBO CS 2: MESO BRIGTENING - SÁNG DA MỊN MÀNG KHÔNG TÌ VẾT",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1300000,
-      giaBuoiTB: 1300000,
-      percentSoLuong: 2.63,
-      percentTongGia: 3.42,
-    },
-    {
-      tenDichVu:
-        "COMBO 6: LUMIGLOW CLEANSE CRYO GYMMING - SÁNG DA, CẤP ẨM, SĂN CHẮC",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1400000,
-      giaBuoiTB: 1400000,
-      percentSoLuong: 2.63,
-      percentTongGia: 3.68,
-    },
-    {
-      tenDichVu:
-        "COMBO 13: ANTI-AGING & HYDRATE SKINCARE - CHỐNG LÃO HÓA, CẤP ẨM",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1350000,
-      giaBuoiTB: 1350000,
-      percentSoLuong: 2.63,
-      percentTongGia: 3.55,
-    },
-    {
-      tenDichVu:
-        "COMBO 4: LUMIGLOW CLEANSE GYMMING EYE-REVIVE - SÁNG DA, SĂN CHẮC, CHĂM SÓC MẮT",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1250000,
-      giaBuoiTB: 1250000,
-      percentSoLuong: 2.63,
-      percentTongGia: 3.29,
-    },
-    {
-      tenDichVu: "COMBO CS 5: HỒI SINH VẺ ĐẸP TỰ NHIÊN",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1200000,
-      giaBuoiTB: 1200000,
-      percentSoLuong: 2.63,
-      percentTongGia: 3.16,
-    },
-    {
-      tenDichVu:
-        "COMBO 8: SOOTHING FOR SENSITIVE SKIN - LÀM DỊU & CHĂM SÓC DA NHẠY CẢM",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu:
-        "COMBO 5: GYMMING CLEANSE CRYO EYE-REVIVE - CHĂM SÓC DA, SĂN CHẮC, CẤP ẨM, CHĂM SÓC MẮT",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1150000,
-      giaBuoiTB: 1150000,
-      percentSoLuong: 2.63,
-      percentTongGia: 3.03,
-    },
-    {
-      tenDichVu:
-        "COMBO 3: GYMMING CLEANSE CRYO - CẤP ẨM CĂNG BÓNG, SĂN CHẮC DA",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1120000,
-      giaBuoiTB: 1120000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.95,
-    },
-    {
-      tenDichVu: "COMBO 7: MESO TẾ BÀO GỐC DNA CÁ HỒI",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1450000,
-      giaBuoiTB: 1450000,
-      percentSoLuong: 2.63,
-      percentTongGia: 3.82,
-    },
-    {
-      tenDichVu: "COMBO CS 5: REVIVE NATURAL BEAUTY - HỒI SINH VẺ ĐẸP TỰ NHIÊN",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1200000,
-      giaBuoiTB: 1200000,
-      percentSoLuong: 2.63,
-      percentTongGia: 3.16,
-    },
-    {
-      tenDichVu:
-        "COMBO 10: BURNT SKIN FULL FACE - PHỤC HỒI DA CHÁY NẮNG CẢ KHUÔN MẶT",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "COMBO 1: DEEP CLEANSE CRYO - LÀM SẠCH SÂU VÀ CẤP ẨM CHO DA",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1300000,
-      giaBuoiTB: 1300000,
-      percentSoLuong: 2.63,
-      percentTongGia: 3.42,
-    },
-    {
-      tenDichVu: "COMBO CS 4: SHINE WITH YOUR OWN LIGHT - RẠNG NGỜI CHẤT RIÊNG",
-      loaiDichVu: "Combo",
-      soLuong: 1,
-      tongGia: 1250000,
-      giaBuoiTB: 1250000,
-      percentSoLuong: 2.63,
-      percentTongGia: 3.29,
-    },
-    {
-      tenDichVu: "CT 1: ADDED CRYO - CỘNG THÊM CẤP ẨM",
-      loaiDichVu: "Cộng thêm",
-      soLuong: 1,
-      tongGia: 800000,
-      giaBuoiTB: 800000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.11,
-    },
-    {
-      tenDichVu: "CT 4: ADDED EYE-REVIVE - CỘNG THÊM CHĂM SÓC MẮT",
-      loaiDichVu: "Cộng thêm",
-      soLuong: 1,
-      tongGia: 850000,
-      giaBuoiTB: 850000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.25,
-    },
-    {
-      tenDichVu: "CT 2: ADDED LUMIGLOW - CỘNG THÊM SÁNG DA",
-      loaiDichVu: "Cộng thêm",
-      soLuong: 1,
-      tongGia: 900000,
-      giaBuoiTB: 900000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.37,
-    },
-    {
-      tenDichVu: "CT 6: ADDED GOODBYE ACNE - CỘNG THÊM CHĂM SÓC MỤN",
-      loaiDichVu: "Cộng thêm",
-      soLuong: 1,
-      tongGia: 950000,
-      giaBuoiTB: 950000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.5,
-    },
-    {
-      tenDichVu: "CT 3: ADDED GYMMING - CỘNG THÊM SĂN CHẮC DA",
-      loaiDichVu: "Cộng thêm",
-      soLuong: 1,
-      tongGia: 870000,
-      giaBuoiTB: 870000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.29,
-    },
-    {
-      tenDichVu: "CT 5: ADDED NECK CARE - CỘNG THÊM CHĂM SÓC VÙNG CỔ",
-      loaiDichVu: "Cộng thêm",
-      soLuong: 1,
-      tongGia: 880000,
-      giaBuoiTB: 880000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.32,
-    },
-    {
-      tenDichVu: "QUÀ TẶNG",
-      loaiDichVu: "Quà tặng",
-      soLuong: 1,
-      tongGia: 1000000,
-      giaBuoiTB: 1000000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.63,
-    },
-    {
-      tenDichVu: "QUÀ TẶNG DV KÈM THẺ TIỀN",
-      loaiDichVu: "Quà tặng",
-      soLuong: 1,
-      tongGia: 1000000,
-      giaBuoiTB: 1000000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.63,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-    {
-      tenDichVu: "Fox card",
-      loaiDichVu: "Fox card",
-      soLuong: 1,
-      tongGia: 1100000,
-      giaBuoiTB: 1100000,
-      percentSoLuong: 2.63,
-      percentTongGia: 2.89,
-    },
-  ];
-
-  function useIsMobile(breakpoint = 640) {
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => {
-      const check = () => setIsMobile(window.innerWidth < breakpoint);
-      check();
-      window.addEventListener("resize", check);
-      return () => window.removeEventListener("resize", check);
-    }, [breakpoint]);
-    return isMobile;
-  }
-
-  const isMobile = useIsMobile();
+    const serviceAvgArr = Array.from(serviceValueMap.entries()).map(
+      ([name, { totalValue, count }]) => ({
+        name,
+        avg: count > 0 ? totalValue / count : 0,
+        count,
+      })
+    );
+    const sortedAvg = serviceAvgArr.sort((a, b) => b.avg - a.avg);
+    const top10Avg = sortedAvg.slice(0, 10);
+    const otherAvgSum = sortedAvg.slice(10).reduce((sum, s) => sum + s.avg, 0);
+    const result = top10Avg.map((s, idx) => ({
+      name: s.name,
+      value: s.avg,
+      color: `hsl(30, 100%, ${45 + idx * 5}%)`, // gradient cam
+    }));
+    if (sortedAvg.length > 10) {
+      result.push({
+        name: "Khác",
+        value: otherAvgSum,
+        color: "#ffe0b2",
+      });
+    }
+    return result;
+  }, [top10ServicesUsageData, filteredPieData]);
 
   const renderPieLabel = ({
     percent,
@@ -1400,9 +1310,20 @@ export default function CustomerReportPage() {
     );
   };
 
-  const bottom3Data = (() => {
+  const bottom3Data = React.useMemo(() => {
+    if (bottom3ServicesUsageData) {
+      // Sử dụng dữ liệu API
+      const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
+      return bottom3ServicesUsageData.map((service, idx) => ({
+        name: service.serviceName,
+        value: service.count,
+        color: grayShades[idx % grayShades.length],
+      }));
+    }
+
+    // Fallback data nếu API chưa load
     const serviceCountMap = new Map();
-    filteredServiceData.forEach((d) => {
+    filteredPieData.forEach((d) => {
       const name = d.serviceName || d.type;
       serviceCountMap.set(name, (serviceCountMap.get(name) || 0) + 1);
     });
@@ -1416,7 +1337,50 @@ export default function CustomerReportPage() {
       value,
       color: grayShades[idx % grayShades.length],
     }));
-  })();
+  }, [bottom3ServicesUsageData, filteredPieData]);
+
+  // Data cho bottom 3 dịch vụ theo giá buổi
+  const bottom3RevenueData = React.useMemo(() => {
+    if (bottom3ServicesRevenueData) {
+      // Sử dụng dữ liệu API
+      const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
+      return bottom3ServicesRevenueData.map((service, idx) => ({
+        name: service.serviceName,
+        value: service.servicePrice,
+        color: grayShades[idx % grayShades.length],
+      }));
+    }
+
+    // Fallback data nếu API chưa load
+    const serviceValueMap = new Map();
+    filteredPieData.forEach((d) => {
+      const name = d.serviceName || d.type;
+      if (!serviceValueMap.has(name)) {
+        serviceValueMap.set(name, {
+          totalValue: 0,
+          count: 0,
+        });
+      }
+      const obj = serviceValueMap.get(name);
+      obj.totalValue += d.value;
+      obj.count += 1;
+    });
+    const serviceAvgArr = Array.from(serviceValueMap.entries()).map(
+      ([name, { totalValue, count }]) => ({
+        name,
+        avg: count > 0 ? totalValue / count : 0,
+        count,
+      })
+    );
+    const sortedAvg = serviceAvgArr.sort((a, b) => a.avg - b.avg);
+    const bottom3 = sortedAvg.slice(0, 3);
+    const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
+    return bottom3.map((s, idx) => ({
+      name: s.name,
+      value: s.avg,
+      color: grayShades[idx % grayShades.length],
+    }));
+  }, [bottom3ServicesRevenueData, filteredPieData]);
 
   return (
     <div className="p-2 sm:p-4 md:p-6">
@@ -1425,961 +1389,91 @@ export default function CustomerReportPage() {
           <h1 className="text-2xl font-semibold text-gray-900 mb-2">
             Services Report
           </h1>
-          <div className="w-full flex flex-col gap-4 md:flex-row md:gap-10">
-            {/* Date Picker */}
-            <div className="w-full max-w-xl flex flex-col gap-4 md:flex-row md:gap-4 bg-white p-2 rounded">
-              {/* Start Date */}
-              <div className="w-full flex flex-col gap-1">
-                <h3>Start date</h3>
-                <input
-                  type="date"
-                  className="border rounded p-2 bg-white"
-                  value={startDate.toString()}
-                  onChange={(e) => {
-                    const date = parseDate(e.target.value);
-                    setStartDate(date);
-                  }}
-                  max={today(getLocalTimeZone()).toString()}
-                />
-              </div>
-
-              {/* End Date */}
-              <div className="w-full flex flex-col gap-1">
-                <h3>End date</h3>
-                <input
-                  type="date"
-                  className="border rounded p-2 bg-white"
-                  value={endDate.toString()}
-                  onChange={(e) => {
-                    const date = parseDate(e.target.value);
-                    setEndDate(date);
-                  }}
-                  min={startDate.add({ days: 1 }).toString()}
-                  max={today(getLocalTimeZone()).toString()}
-                />
-              </div>
-            </div>
-
-            {/* Filter */}
-
-            <div className="w-full flex flex-col gap-2">
-              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full">
-                {/* Region Dropdown */}
-                <div
-                  className="relative w-fulll sm:flex-wrap gap-2 w-full"
-                  ref={regionDropdownRef}
-                >
-                  <button
-                    className="bg-yellow-300 px-3 py-2 rounded-lg font-bold flex items-center gap-2 w-full sm:w-auto border-b-2 border-yellow-400"
-                    onClick={() => setShowRegionDropdown((v) => !v)}
-                    type="button"
-                  >
-                    <span className="material-icons"></span> Region
-                  </button>
-                  {showRegionDropdown && (
-                    <div className="absolute z-20 bg-white shadow-xl rounded-b-lg w-full min-w-[250px] border border-yellow-200">
-                      <div className="bg-yellow-200 px-4 py-2 font-bold flex items-center gap-2 border-b border-yellow-300">
-                        <input
-                          type="checkbox"
-                          checked={
-                            selectedRegions.length === regionOptions.length
-                          }
-                          onChange={() =>
-                            setSelectedRegions(
-                              selectedRegions.length === regionOptions.length
-                                ? []
-                                : regionOptions.map((r) => r.name)
-                            )
-                          }
-                          className="accent-yellow-400"
-                        />
-                        Region
-                        <span className="ml-auto">Branches </span>
-                      </div>
-                      <div className="px-2 py-2 border-b">
-                        <input
-                          className="w-full border rounded px-2 py-1"
-                          placeholder="Nhập để tìm kiếm"
-                          value={regionSearch}
-                          onChange={(e) => setRegionSearch(e.target.value)}
-                        />
-                      </div>
-                      <div className="max-h-60 overflow-y-auto">
-                        {filteredRegionOptions.map((r) => (
-                          <label
-                            key={r.name}
-                            className="flex items-center gap-2 px-4 py-2 hover:bg-yellow-50 cursor-pointer border-b last:border-b-0"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedRegions.includes(r.name)}
-                              onChange={() => {
-                                setSelectedRegions((prev) =>
-                                  prev.includes(r.name)
-                                    ? prev.filter((x) => x !== r.name)
-                                    : [...prev, r.name]
-                                );
-                              }}
-                              className="accent-yellow-400"
-                            />
-                            <span className="font-medium">{r.name}</span>
-                            <span className="ml-auto text-right min-w-[70px] font-semibold">
-                              {r.total}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {/* Location Dropdown */}
-                <div
-                  className="relative w-full sm:w-auto"
-                  ref={locationDropdownRef}
-                >
-                  <button
-                    className="bg-yellow-300 px-3 py-2 rounded-lg font-bold flex items-center gap-2 w-full sm:w-auto border-b-2 border-yellow-400"
-                    onClick={() => setShowLocationDropdown((v) => !v)}
-                    type="button"
-                  >
-                    <span className="material-icons"></span> Locations
-                  </button>
-                  {showLocationDropdown && (
-                    <div className="absolute z-20 bg-white shadow-xl rounded-b-lg w-full min-w-[220px] border border-yellow-200">
-                      <div className="bg-yellow-100 px-4 py-2 font-bold flex items-center gap-2 border-b border-yellow-200">
-                        <input
-                          type="checkbox"
-                          checked={
-                            selectedBranches.length === locationOptions.length
-                          }
-                          onChange={() =>
-                            setSelectedBranches(
-                              selectedBranches.length === locationOptions.length
-                                ? []
-                                : [...locationOptions]
-                            )
-                          }
-                          className="accent-yellow-400"
-                        />
-                        Locations
-                      </div>
-                      <div className="px-2 py-2 border-b">
-                        <input
-                          className="w-full border rounded px-2 py-1"
-                          placeholder="Nhập để tìm kiếm"
-                          value={locationSearch}
-                          onChange={(e) => setLocationSearch(e.target.value)}
-                        />
-                      </div>
-                      <div className="max-h-60 overflow-y-auto">
-                        {locationOptions
-                          .filter((loc) =>
-                            loc
-                              .toLowerCase()
-                              .includes(locationSearch.toLowerCase())
-                          )
-                          .map((loc) => (
-                            <label
-                              key={loc}
-                              className="flex items-center gap-2 px-4 py-2 hover:bg-yellow-50 cursor-pointer border-b last:border-b-0"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedBranches.includes(loc)}
-                                onChange={() => {
-                                  setSelectedBranches((prev) =>
-                                    prev.includes(loc)
-                                      ? prev.filter((x) => x !== loc)
-                                      : [...prev, loc]
-                                  );
-                                }}
-                                className="accent-yellow-400"
-                              />
-                              <span className="font-medium">{loc}</span>
-                            </label>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {/* Filter dịch vụ dạng dropdown */}
-                  <div
-                    className="relative w-full sm:w-auto"
-                    ref={serviceDropdownRef}
-                  >
-                    <button
-                      className="bg-yellow-300 px-3 py-2 rounded-lg font-bold flex items-center gap-2 w-full sm:w-auto border-b-2 border-yellow-400"
-                      onClick={() => setShowServiceDropdown((v) => !v)}
-                      type="button"
-                    >
-                      <span className="material-icons"></span> Services
-                    </button>
-                    {showServiceDropdown && (
-                      <div className="absolute z-20 bg-white shadow-xl rounded-b-lg w-full min-w-[180px] border border-yellow-200">
-                        <div className="bg-yellow-200 px-4 py-2 font-bold flex items-center gap-2 border-b border-yellow-300">
-                          <input
-                            type="checkbox"
-                            checked={
-                              selectedServiceTypes.length ===
-                              ALL_SERVICE_TYPES.length
-                            }
-                            onChange={() =>
-                              setSelectedServiceTypes(
-                                selectedServiceTypes.length ===
-                                  ALL_SERVICE_TYPES.length
-                                  ? []
-                                  : ALL_SERVICE_TYPES.map((s) => s.key)
-                              )
-                            }
-                            className="accent-yellow-400"
-                          />
-                          Services
-                        </div>
-                        <div className="px-2 py-2 border-b">
-                          <input
-                            className="w-full border rounded px-2 py-1"
-                            placeholder="Nhập để tìm kiếm"
-                            value={serviceSearch}
-                            onChange={(e) => setServiceSearch(e.target.value)}
-                          />
-                        </div>
-                        <div className="max-h-60 overflow-y-auto">
-                          {filteredServiceTypes.map((s) => (
-                            <label
-                              key={s.key}
-                              className="flex items-center gap-2 px-4 py-2 hover:bg-yellow-50 cursor-pointer border-b last:border-b-0"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedServiceTypes.includes(s.key)}
-                                onChange={() => {
-                                  setSelectedServiceTypes((prev) =>
-                                    prev.includes(s.key)
-                                      ? prev.filter((x) => x !== s.key)
-                                      : [...prev, s.key]
-                                  );
-                                }}
-                                className="accent-yellow-400"
-                              />
-                              <span className="font-medium">{s.label}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {/* Filter giới tính dạng dropdown */}
-                  <div
-                    className="relative w-full sm:w-auto"
-                    ref={genderDropdownRef}
-                  >
-                    <button
-                      className="bg-yellow-300 px-3 py-2 rounded-lg font-bold flex items-center gap-2 w-full sm:w-auto border-b-2 border-yellow-400"
-                      onClick={() => setShowGenderDropdown((v) => !v)}
-                      type="button"
-                    >
-                      <span className="material-icons"></span> Gender
-                    </button>
-                    {showGenderDropdown && (
-                      <div className="absolute z-20 bg-white shadow-xl rounded-b-lg w-full min-w-[120px] border border-yellow-200">
-                        <div className="bg-yellow-200 px-4 py-2 font-bold flex items-center gap-2 border-b border-yellow-300">
-                          <input
-                            type="checkbox"
-                            checked={
-                              selectedGenders.length === ALL_GENDERS.length
-                            }
-                            onChange={() =>
-                              setSelectedGenders(
-                                selectedGenders.length === ALL_GENDERS.length
-                                  ? []
-                                  : [...ALL_GENDERS]
-                              )
-                            }
-                            className="accent-yellow-400"
-                          />
-                          Gender
-                          <span className="ml-auto">Actual price </span>
-                        </div>
-                        <div className="px-2 py-2 border-b">
-                          <input
-                            className="w-full border rounded px-2 py-1"
-                            placeholder="Nhập để tìm kiếm"
-                            value={genderSearch}
-                            onChange={(e) => setGenderSearch(e.target.value)}
-                          />
-                        </div>
-                        <div className="max-h-60 overflow-y-auto">
-                          {filteredGenders.map((g) => {
-                            const price =
-                              genderActualPrice.find((row) => row.gender === g)
-                                ?.total || 0;
-                            return (
-                              <label
-                                key={g}
-                                className="flex items-center gap-2 px-4 py-2 hover:bg-yellow-50 cursor-pointer border-b last:border-b-0 justify-between"
-                              >
-                                <span className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedGenders.includes(g)}
-                                    onChange={() => {
-                                      setSelectedGenders((prev) =>
-                                        prev.includes(g)
-                                          ? prev.filter((x) => x !== g)
-                                          : [...prev, g]
-                                      );
-                                    }}
-                                    className="accent-yellow-400"
-                                  />
-                                  <span className="font-medium">{g}</span>
-                                </span>
-                                <span className="text-xs text-gray-500 min-w-[60px] text-right">
-                                  {formatMoneyShort(price)}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <ServicesFilter
+            startDate={startDate}
+            endDate={endDate}
+            setStartDate={setStartDate}
+            setEndDate={setEndDate}
+            selectedRegions={selectedRegions}
+            setSelectedRegions={setSelectedRegions}
+            selectedBranches={selectedBranches}
+            setSelectedBranches={setSelectedBranches}
+            selectedServiceTypes={selectedServiceTypes}
+            setSelectedServiceTypes={setSelectedServiceTypes}
+            selectedGenders={selectedGenders}
+            setSelectedGenders={setSelectedGenders}
+            regionOptions={regionOptions}
+            locationOptions={locationOptions}
+            filteredRegionOptions={filteredRegionOptions}
+            ALL_SERVICE_TYPES={ALL_SERVICE_TYPES}
+            ALL_GENDERS={ALL_GENDERS}
+            filteredServiceTypes={filteredServiceTypes}
+            filteredGenders={filteredGenders}
+            genderActualPrice={genderActualPrice}
+            formatMoneyShort={formatMoneyShort}
+          />
         </div>
 
         {/* Tổng dịch vụ thực hiện trong tuần */}
+        <WeeklyServiceChartData
+          weeklyServiceChartData={weeklyServiceChartData}
+          isMobile={isMobile}
+        />
+        <PieChartData
+          pieChartData={pieChartData}
+          pieTop10Data={pieTop10Data}
+          pieTop10AvgData={pieTop10AvgData}
+          top10ServicesLoading={top10ServicesLoading}
+          top10ServicesError={top10ServicesError}
+          top10ServicesUsageLoading={top10ServicesUsageLoading}
+          top10ServicesUsageError={top10ServicesUsageError}
+          isMobile={isMobile}
+          renderPieLabel={renderPieLabel}
+        />
 
-        {/* Responsive BarChart */}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-          <div className="text-xl font-medium text-gray-700 text-center mb-4">
-            Tổng dịch vụ thực hiện trong tuần
-          </div>
-          <div className="w-full overflow-x-auto">
-            <div style={{ minWidth: 520 }}>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart
-                  data={weeklyServiceChartData}
-                  margin={{ top: 20, right: 10, left: 10, bottom: 40 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="date"
-                    angle={-30}
-                    textAnchor="end"
-                    height={isMobile ? 40 : 60}
-                    tick={{ fontSize: isMobile ? 10 : 14 }}
-                  />
-                  <YAxis tick={{ fontSize: isMobile ? 10 : 14 }} />
-                  <Tooltip />
-                  {/* Ẩn legend trên mobile */}
-                  {!isMobile && <Legend />}
-                  <Bar dataKey="combo" name="Combo" fill="#795548" />
-                  <Bar dataKey="service" name="Dịch vụ" fill="#c5e1a5" />
-                  <Bar dataKey="addedon" name="Added on" fill="#f16a3f" />
-                  <Bar dataKey="foxcard" name="Fox card" fill="#c86b82" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-          {/* Custom legend cho mobile */}
-          {isMobile && (
-            <div className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
-              <span className="flex items-center gap-1">
-                <span
-                  className="inline-block w-3 h-3 rounded-full"
-                  style={{ background: "#795548" }}
-                />
-                Combo
-              </span>
-              <span className="flex items-center gap-1">
-                <span
-                  className="inline-block w-3 h-3 rounded-full"
-                  style={{ background: "#c5e1a5" }}
-                />
-                Dịch vụ
-              </span>
-              <span className="flex items-center gap-1">
-                <span
-                  className="inline-block w-3 h-3 rounded-full"
-                  style={{ background: "#f16a3f" }}
-                />
-                Added on
-              </span>
-              <span className="flex items-center gap-1">
-                <span
-                  className="inline-block w-3 h-3 rounded-full"
-                  style={{ background: "#c86b82" }}
-                />
-                Fox card
-              </span>
-            </div>
-          )}
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:gap-3">
-          {/* PieChart tỉ lệ dịch vụ/combo/cộng thêm (có filter) */}
-          <div className="w-full sm:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Tỉ lệ dịch vụ/combo/cộng thêm
-            </div>
-            <ResponsiveContainer width="100%" height={isMobile ? 180 : 320}>
-              <PieChart>
-                <Pie
-                  data={pieChartData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={isMobile ? 60 : 120}
-                  label={renderPieLabel}
-                >
-                  {pieChartData.map((entry) => (
-                    <Cell key={entry.key} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
-              {pieChartData.map((item) => (
-                <li key={item.key} className="flex items-center gap-1">
-                  <span
-                    className="inline-block w-3 h-3 rounded-full"
-                    style={{ background: item.color }}
-                  />
-                  {item.label}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* PieChart top 10 dịch vụ theo số lượng */}
-          <div className="w-full sm:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Top 10 dịch vụ theo số lượng
-            </div>
-            <ResponsiveContainer width="100%" height={isMobile ? 180 : 320}>
-              <PieChart>
-                <Pie
-                  data={pieTop10Data}
-                  dataKey="value"
-                  nameKey="label"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={isMobile ? 60 : 120}
-                  label={renderPieLabel}
-                >
-                  {pieTop10Data.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
-              {pieTop10Data.map((item) => (
-                <li key={item.name} className="flex items-center gap-1">
-                  <span
-                    className="inline-block w-3 h-3 rounded-full"
-                    style={{ background: item.color }}
-                  />
-                  {item.name}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* PieChart top 10 dịch vụ theo giá buổi */}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-          <div className="text-xl font-medium text-gray-700 text-center mb-4">
-            Top 10 dịch vụ theo giá buổi
-          </div>
-          <ResponsiveContainer width="100%" height={isMobile ? 180 : 320}>
-            <PieChart>
-              <Pie
-                data={pieTop10AvgData}
-                dataKey="value"
-                nameKey="label"
-                cx="50%"
-                cy="50%"
-                outerRadius={isMobile ? 60 : 120}
-                label={renderPieLabel}
-              >
-                {pieTop10AvgData.map((entry) => (
-                  <Cell key={entry.name} fill={entry.color} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
-            {pieTop10AvgData.map((item) => (
-              <li key={item.name} className="flex items-center gap-1">
-                <span
-                  className="inline-block w-3 h-3 rounded-full"
-                  style={{ background: item.color }}
-                />
-                {item.name}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="flex flex-wrap gap-2 justify-center">
-          {/* PieChart bottom 3 dịch vụ theo số lượng */}
-          <div className="w-full sm:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Bottom 3 dịch vụ theo số lượng
-            </div>
-            <ResponsiveContainer width="100%" height={350}>
-              <PieChart>
-                <Pie
-                  data={(() => {
-                    // Lấy bottom 3 dịch vụ theo số lượng
-                    const serviceCountMap = new Map();
-                    filteredServiceData.forEach((d) => {
-                      const name = d.serviceName || d.type;
-                      serviceCountMap.set(
-                        name,
-                        (serviceCountMap.get(name) || 0) + 1
-                      );
-                    });
-                    const sorted = Array.from(serviceCountMap.entries()).sort(
-                      (a, b) => a[1] - b[1]
-                    );
-                    const bottom3 = sorted.slice(0, 3);
-                    // Màu xám cho từng phần
-                    const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
-                    return bottom3.map(([name, value], idx) => ({
-                      name,
-                      value,
-                      color: grayShades[idx % grayShades.length],
-                    }));
-                  })()}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={isMobile ? 60 : 90}
-                  label={({ percent }) =>
-                    percent && percent > 0.15
-                      ? `${(percent * 100).toFixed(1)}%`
-                      : ""
-                  }
-                  labelLine={false}
-                  isAnimationActive={false}
-                >
-                  {(() => {
-                    // Lặp lại logic màu xám cho Cell
-                    const serviceCountMap = new Map();
-                    filteredServiceData.forEach((d) => {
-                      const name = d.serviceName || d.type;
-                      serviceCountMap.set(
-                        name,
-                        (serviceCountMap.get(name) || 0) + 1
-                      );
-                    });
-                    const sorted = Array.from(serviceCountMap.entries()).sort(
-                      (a, b) => a[1] - b[1]
-                    );
-                    const bottom3 = sorted.slice(0, 3);
-                    const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
-                    return bottom3.map(([name], idx) => (
-                      <Cell
-                        key={name}
-                        fill={grayShades[idx % grayShades.length]}
-                      />
-                    ));
-                  })()}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
-              {bottom3Data.map((item) => (
-                <li key={item.name} className="flex items-center gap-1">
-                  <span
-                    className="inline-block w-3 h-3 rounded-full"
-                    style={{ background: item.color }}
-                  />
-                  {item.name}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* PieChart bottom 3 dịch vụ theo giá buổi */}
-          <div className="w-full sm:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
-            <div className="text-xl font-medium text-gray-700 text-center mb-4">
-              Bottom 3 dịch vụ theo giá buổi
-            </div>
-            <ResponsiveContainer width="100%" height={350}>
-              <PieChart>
-                <Pie
-                  data={(() => {
-                    // Lấy bottom 3 dịch vụ theo giá buổi trung bình
-                    const serviceValueMap = new Map();
-                    filteredServiceData.forEach((d) => {
-                      const name = d.serviceName || d.type;
-                      if (!serviceValueMap.has(name)) {
-                        serviceValueMap.set(name, {
-                          totalValue: 0,
-                          count: 0,
-                        });
-                      }
-                      const obj = serviceValueMap.get(name);
-                      obj.totalValue += d.value;
-                      obj.count += 1;
-                    });
-                    const serviceAvgArr = Array.from(
-                      serviceValueMap.entries()
-                    ).map(([name, { totalValue, count }]) => ({
-                      name,
-                      avg: count > 0 ? totalValue / count : 0,
-                      count,
-                    }));
-                    const sortedAvg = serviceAvgArr.sort(
-                      (a, b) => a.avg - b.avg
-                    );
-                    const bottom3 = sortedAvg.slice(0, 3);
-                    const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
-                    return bottom3.map((s, idx) => ({
-                      name: s.name,
-                      value: s.avg,
-                      color: grayShades[idx % grayShades.length],
-                    }));
-                  })()}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={isMobile ? 60 : 90}
-                  label={({ percent }) =>
-                    percent && percent > 0.15
-                      ? `${(percent * 100).toFixed(1)}%`
-                      : ""
-                  }
-                  labelLine={false}
-                  isAnimationActive={false}
-                >
-                  {(() => {
-                    // Lặp lại logic màu xám cho Cell
-                    const serviceValueMap = new Map();
-                    filteredServiceData.forEach((d) => {
-                      const name = d.serviceName || d.type;
-                      if (!serviceValueMap.has(name)) {
-                        serviceValueMap.set(name, {
-                          totalValue: 0,
-                          count: 0,
-                        });
-                      }
-                      const obj = serviceValueMap.get(name);
-                      obj.totalValue += d.value;
-                      obj.count += 1;
-                    });
-                    const serviceAvgArr = Array.from(
-                      serviceValueMap.entries()
-                    ).map(([name, { totalValue, count }]) => ({
-                      name,
-                      avg: count > 0 ? totalValue / count : 0,
-                      count,
-                    }));
-                    const sortedAvg = serviceAvgArr.sort(
-                      (a, b) => a.avg - b.avg
-                    );
-                    const bottom3 = sortedAvg.slice(0, 3);
-                    const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
-                    return bottom3.map((s, idx) => (
-                      <Cell
-                        key={s.name}
-                        fill={grayShades[idx % grayShades.length]}
-                      />
-                    ));
-                  })()}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
-              {bottom3Data.map((item) => (
-                <li key={item.name} className="flex items-center gap-1">
-                  <span
-                    className="inline-block w-3 h-3 rounded-full"
-                    style={{ background: item.color }}
-                  />
-                  {item.name}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+       <ServiceBottomPieData
+         bottom3ServicesUsageData={bottom3ServicesUsageData}
+         bottom3ServicesUsageLoading={bottom3ServicesUsageLoading}
+         bottom3ServicesUsageError={bottom3ServicesUsageError}
+         bottom3ServicesRevenueLoading={bottom3ServicesRevenueLoading}
+         bottom3ServicesRevenueError={bottom3ServicesRevenueError}
+         bottom3Data={bottom3Data}
+         bottom3RevenueData={bottom3RevenueData}
+         filteredPieData={filteredPieData}
+         isMobile={isMobile}
+       />
 
         {/* 5 bảng tổng dịch vụ */}
 
-        <div className="flex flex-col md:flex-row w-full gap-4 mb-5 mt-5">
-          <StatCard
-            title="Tổng Combo"
-            value={comboThisWeek}
-            delta={deltaCombo}
-            valueColor="text-black"
-            className="bg-[#33a7b5] w-full md:flex-1"
-          />
-          <StatCard
-            title="Tổng dịch vụ lẻ"
-            value={retailThisWeek}
-            delta={deltaRetail}
-            valueColor="text-black"
-            className="bg-[#9b51e0] w-full md:flex-1"
-          />
-          <StatCard
-            title="Tổng dịch vụ CT"
-            value={ctThisWeek}
-            delta={deltaCT}
-            valueColor="text-black"
-            className="bg-[#ee2c82] w-full md:flex-1"
-          />
-          <StatCard
-            title="Tổng quà tặng"
-            value={giftThisWeek}
-            delta={deltaGift}
-            valueColor="text-black"
-            className="bg-[#f16a3f] w-full md:flex-1"
-          />
-          <StatCard
-            title="Tổng dịch vụ thực hiện"
-            value={totalServiceThisWeek}
-            delta={deltaTotalService}
-            valueColor="text-black"
-            className="bg-[#7adcb4] w-full md:flex-1"
-          />
-        </div>
+        <ServiceStatCards
+          serviceSummary={serviceSummary}
+          serviceSummaryLoading={serviceSummaryLoading}
+          serviceSummaryError={serviceSummaryError}
+        />
 
         {/* Tổng dịch vụ thực hiện theo cửa hàng*/}
-        {/* Tổng dịch vụ thực hiện theo cửa hàng*/}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-          <div className="text-xl font-medium text-gray-700 text-center mb-4">
-            Tổng dịch vụ thực hiện theo cửa hàng
-          </div>
-          <div className="w-full overflow-x-auto">
-            <div className="min-w-[600px] md:min-w-0 ">
-              <ResponsiveContainer
-                width={isMobile ? 500 : "100%"}
-                height={isMobile ? 400 : 500}
-              >
-                <BarChart
-                  data={storeServiceChartData}
-                  layout="vertical"
-                  margin={{
-                    top: 20,
-                    right: 30,
-                    left: isMobile ? 40 : 100,
-                    bottom: 20,
-                  }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    type="number"
-                    tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)}
-                    tick={{ fontSize: isMobile ? 10 : 14 }}
-                  />
-                  <YAxis
-                    dataKey="store"
-                    type="category"
-                    tick={{ fontSize: isMobile ? 10 : 12 }}
-                    width={isMobile ? 120 : 150}
-                  />
-                  <Tooltip />
-                  <Legend
-                    wrapperStyle={{
-                      fontSize: isMobile ? 10 : 14,
-                    }}
-                  />
-                  <Bar
-                    dataKey="combo"
-                    name="Combo"
-                    stackId="a"
-                    fill="#795548"
-                  />
-                  <Bar
-                    dataKey="service"
-                    name="Dịch vụ"
-                    stackId="a"
-                    fill="#c5e1a5"
-                  />
-                  <Bar
-                    dataKey="addedon"
-                    name="Added on"
-                    stackId="a"
-                    fill="#f16a3f"
-                  />
-                  <Bar
-                    dataKey="gifts"
-                    name="Gifts"
-                    stackId="a"
-                    fill="#8fd1fc"
-                  />
-                  <Bar
-                    dataKey="foxcard"
-                    name="Fox card"
-                    stackId="a"
-                    fill="#c86b82"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
+        <ServiceStoreChartData
+          shopLoading={shopLoading}
+          shopError={shopError}
+          isMobile={isMobile}
+          storeServiceChartData={storeServiceChartData}
+        />
+
+        {/* Tổng dịch vụ thực hiện theo khu vực */}
+        <ServicesRegionData
+          regionLoading={regionLoading}
+          regionError={regionError}
+          isMobile={isMobile}
+          regionChartData={regionChartData}
+        />
+
         {/* Bảng thống kê tất cả các dịch vụ */}
-        <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-          <div className="text-xl font-medium text-gray-700 text-center mb-4">
-            Bảng dịch vụ
-          </div>
-          <div className="overflow-x-auto">
-            <table
-              className="text-xs sm:text-sm border table-fixed"
-              style={{ tableLayout: "fixed", width: "100%" }}
-            >
-              <thead>
-                <tr className="bg-yellow-200 text-gray-900">
-                  <th className="w-12 px-2 py-2 border text-center font-bold">
-                    STT
-                  </th>
-                  <th className="w-64 px-2 py-2 border text-left font-bold">
-                    Dịch vụ
-                  </th>
-                  <th className="w-24 px-2 py-2 border text-center font-bold">
-                    Loại
-                  </th>
-                  <th className="w-20 px-2 py-2 border text-right font-bold bg-orange-100">
-                    Số lượng
-                  </th>
-                  <th className="w-20 px-2 py-2 border text-right font-bold">
-                    Δ
-                  </th>
-                  <th className="w-24 px-2 py-2 border text-right font-bold">
-                    % Số lượng
-                  </th>
-                  <th className="w-32 px-2 py-2 border text-right font-bold bg-blue-100">
-                    Tổng giá
-                  </th>
-                  <th className="w-20 px-2 py-2 border text-right font-bold">
-                    % Δ
-                  </th>
-                  <th className="w-24 px-2 py-2 border text-right font-bold">
-                    % Tổng giá
-                  </th>
-                </tr>
-              </thead>
-            </table>
-            <div
-             
-              style={{
-                maxHeight: 400,
-                overflowY: "auto",
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-                width: "100%",
-              }}
-            >
-              <table
-               className="min-w-[700px] text-xs sm:text-sm border table-fixed"
-               style={{ tableLayout: "fixed", width: "100%" }}
-              >
-                <tbody>
-                  {serviceData.map((s, idx) => {
-                    const delta =
-                      Math.floor(Math.random() * 1000) *
-                      (Math.random() > 0.2 ? 1 : -1);
-                    const percentDelta =
-                      delta > 0
-                        ? (Math.random() * 10 + 100).toFixed(1)
-                        : (Math.random() * 10 + 90).toFixed(1);
-                    return (
-                      <tr
-                        key={`${s.tenDichVu}-${idx}`}
-                        className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                      >
-                        <td className="w-12 px-2 py-1 border text-center">
-                          {idx + 1}
-                        </td>
-                        <td
-                          className="w-64 px-2 py-1 border text-left font-medium truncate"
-                          title={s.tenDichVu}
-                        >
-                          {s.tenDichVu}
-                        </td>
-                        <td className="w-24 px-2 py-1 border text-center">
-                          {s.loaiDichVu}
-                        </td>
-                        <td className="w-20 px-2 py-1 border text-right font-bold bg-orange-100 text-orange-700">
-                          {s.soLuong?.toLocaleString?.() ?? s.soLuong}
-                        </td>
-                        <td
-                          className={`w-20 px-2 py-1 border text-right font-semibold ${
-                            delta > 0
-                              ? "text-green-600"
-                              : delta < 0
-                              ? "text-red-500"
-                              : ""
-                          }`}
-                        >
-                          {delta?.toLocaleString?.() ?? delta}{" "}
-                          {delta > 0 ? "↑" : delta < 0 ? "↓" : ""}
-                        </td>
-                        <td className="w-24 px-2 py-1 border text-right">
-                          {s.percentSoLuong}%
-                        </td>
-                        <td className="w-32 px-2 py-1 border text-right font-bold bg-blue-100 text-blue-700">
-                          {s.tongGia?.toLocaleString?.() ?? s.tongGia}
-                        </td>
-                        <td
-                          className={`w-20 px-2 py-1 border text-right font-semibold ${
-                            delta > 0
-                              ? "text-green-600"
-                              : delta < 0
-                              ? "text-red-500"
-                              : ""
-                          }`}
-                        >
-                          {percentDelta}%{" "}
-                          {delta > 0 ? "↑" : delta < 0 ? "↓" : ""}
-                        </td>
-                        <td className="w-24 px-2 py-1 border text-right">
-                          {s.percentTongGia}%
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <table
-              className="min-w-[700px] text-xs sm:text-sm border table-fixed"
-              style={{ tableLayout: "fixed", width: "100%" }}
-            >
-              <tfoot className="display:block">
-                <tr className="bg-gray-100 font-bold border-t-2 border-gray-400">
-                  <td className="w-12 px-2 py-1 border text-center"></td>
-                  <td className="w-64 px-2 py-1 border text-left">Tổng cộng</td>
-                  <td className="w-24 px-2 py-1 border text-center"></td>
-                  <td className="w-20 px-2 py-1 border text-right bg-orange-100 text-orange-700">
-                    {serviceData
-                      .reduce((sum, s) => sum + (s.soLuong || 0), 0)
-                      .toLocaleString()}
-                  </td>
-                  <td className="w-20 px-2 py-1 border text-right">—</td>
-                  <td className="w-24 px-2 py-1 border text-right">100%</td>
-                  <td className="w-32 px-2 py-1 border text-right bg-blue-100 text-blue-700">
-                    {serviceData
-                      .reduce((sum, s) => sum + (s.tongGia || 0), 0)
-                      .toLocaleString()}
-                  </td>
-                  <td className="w-20 px-2 py-1 border text-right">—</td>
-                  <td className="w-24 px-2 py-1 border text-right">100%</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
+       <ServicesTable
+         serviceTableData={serviceTableData}
+         serviceTableLoading={serviceTableLoading}
+         serviceTableError={serviceTableError}
+         serviceData={serviceData}
+       />
       </div>
     </div>
   );
