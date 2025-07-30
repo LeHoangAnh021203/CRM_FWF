@@ -1,1 +1,164 @@
-{}
+{
+  "app/customers/lazy-charts.tsx -> ./CustomerAppDownloadBarChart": {
+    "id": "app/customers/lazy-charts.tsx -> ./CustomerAppDownloadBarChart",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_customers_CustomerAppDownloadBarChart_tsx.js"
+    ]
+  },
+  "app/customers/lazy-charts.tsx -> ./CustomerAppDownloadPieChart": {
+    "id": "app/customers/lazy-charts.tsx -> ./CustomerAppDownloadPieChart",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_customers_CustomerAppDownloadPieChart_tsx.js"
+    ]
+  },
+  "app/customers/lazy-charts.tsx -> ./CustomerFacilityHourTable": {
+    "id": "app/customers/lazy-charts.tsx -> ./CustomerFacilityHourTable",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_customers_CustomerFacilityHourTable_tsx.js"
+    ]
+  },
+  "app/customers/lazy-charts.tsx -> ./CustomerFilters": {
+    "id": "app/customers/lazy-charts.tsx -> ./CustomerFilters",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_customers_CustomerFilters_tsx.js"
+    ]
+  },
+  "app/customers/lazy-charts.tsx -> ./CustomerGenderPie": {
+    "id": "app/customers/lazy-charts.tsx -> ./CustomerGenderPie",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_customers_CustomerGenderPie_tsx.js"
+    ]
+  },
+  "app/customers/lazy-charts.tsx -> ./CustomerNewChart": {
+    "id": "app/customers/lazy-charts.tsx -> ./CustomerNewChart",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_customers_CustomerNewChart_tsx.js"
+    ]
+  },
+  "app/customers/lazy-charts.tsx -> ./CustomerPaymentPieChart": {
+    "id": "app/customers/lazy-charts.tsx -> ./CustomerPaymentPieChart",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_customers_CustomerPaymentPieChart_tsx.js"
+    ]
+  },
+  "app/customers/lazy-charts.tsx -> ./CustomerSourceBarChart": {
+    "id": "app/customers/lazy-charts.tsx -> ./CustomerSourceBarChart",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_customers_CustomerSourceBarChart_tsx.js"
+    ]
+  },
+  "app/customers/lazy-charts.tsx -> ./CustomerStatsCards": {
+    "id": "app/customers/lazy-charts.tsx -> ./CustomerStatsCards",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_customers_CustomerStatsCards_tsx.js"
+    ]
+  },
+  "app/customers/lazy-charts.tsx -> ./CustomerSummaryCard": {
+    "id": "app/customers/lazy-charts.tsx -> ./CustomerSummaryCard",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_customers_CustomerSummaryCard_tsx.js"
+    ]
+  },
+  "app/customers/lazy-charts.tsx -> ./CustomerTypeTrendChart": {
+    "id": "app/customers/lazy-charts.tsx -> ./CustomerTypeTrendChart",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_customers_CustomerTypeTrendChart_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderActualCollection": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderActualCollection",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderActualCollection_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderActualStoreSale": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderActualStoreSale",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderActualStoreSale_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderCustomerTypeSaleaByDay": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderCustomerTypeSaleaByDay",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderCustomerTypeSaleaByDay_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderFilter": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderFilter",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderFilter_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderOfStore": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderOfStore",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderOfStore_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderPaymentRegionData": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderPaymentRegionData",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderPaymentRegionData_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderPiePaymentData": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderPiePaymentData",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderPiePaymentData_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderRegionalSalesByDay": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderRegionalSalesByDay",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderRegionalSalesByDay_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderStatCards": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderStatCards",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderStatCards_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderStoreTypeSalesByDay": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderStoreTypeSalesByDay",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderStoreTypeSalesByDay_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderTop10LocationChartData": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderTop10LocationChartData",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderTop10LocationChartData_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderTop10StoreOfOrder": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderTop10StoreOfOrder",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderTop10StoreOfOrder_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderTotalByDay": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderTotalByDay",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderTotalByDay_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderTotalByStore": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderTotalByStore",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderTotalByStore_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrderTotalSales": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrderTotalSales",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrderTotalSales_tsx.js"
+    ]
+  },
+  "app/orders/lazy-charts.tsx -> ./OrdersChartData": {
+    "id": "app/orders/lazy-charts.tsx -> ./OrdersChartData",
+    "files": [
+      "static/chunks/_app-pages-browser_src_app_orders_OrdersChartData_tsx.js"
+    ]
+  }
+}

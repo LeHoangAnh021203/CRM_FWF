@@ -8,6 +8,7 @@ import {
   Tooltip,
   Legend,
   Bar,
+  LabelList,
 } from "recharts";
 
 interface CustomerTypeSalesByDayData {
@@ -40,13 +41,13 @@ const OrderCustomerTypeSaleaByDay: React.FC<Props> = ({ isMobile, customerTypeSa
         <BarChart
           data={customerTypeSalesByDay}
           margin={{
-            top: 30,
-            right: isMobile ? 20 : 40,
-            left: isMobile ? 20 : 40,
-            bottom: isMobile ? 10 : 20,
+            top: 40,
+            right: isMobile ? 30 : 50,
+            left: isMobile ? 30 : 50,
+            bottom: isMobile ? 20 : 30,
           }}
-          barCategoryGap={isMobile ? 10 : 20}
-          barGap={isMobile ? 2 : 4}
+          barCategoryGap={isMobile ? 20 : 30}
+          barGap={isMobile ? 4 : 8}
         >
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
@@ -85,8 +86,8 @@ const OrderCustomerTypeSaleaByDay: React.FC<Props> = ({ isMobile, customerTypeSa
           />
           <Legend
             wrapperStyle={{
-              paddingTop: isMobile ? 5 : 10,
-              paddingBottom: isMobile ? 5 : 10,
+              paddingTop: isMobile ? 10 : 15,
+              paddingBottom: isMobile ? 10 : 15,
               display: "flex",
               justifyContent: "center",
               flexWrap: "wrap",
@@ -94,12 +95,24 @@ const OrderCustomerTypeSaleaByDay: React.FC<Props> = ({ isMobile, customerTypeSa
               fontSize: isMobile ? 10 : 14,
             }}
           />
-          <Bar dataKey="KHTraiNghiem" name="KH trải nghiệm" fill="#8d6e63" />
-          <Bar dataKey="KHIron" name="KH Iron" fill="#b6d47a" />
-          <Bar dataKey="KHSilver" name="KH Silver" fill="#ff7f7f" />
-          <Bar dataKey="KHBronze" name="KH Bronze" fill="#81d4fa" />
-          <Bar dataKey="KHDiamond" name="KH Diamond" fill="#f0bf4c" />
-          <Bar dataKey="Khac" name="Khác" fill="#bccefb" />
+          <Bar dataKey="KHTraiNghiem" name="KH trải nghiệm" fill="#8d6e63">
+            <LabelList dataKey="KHTraiNghiem" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+          </Bar>
+          <Bar dataKey="KHIron" name="KH Iron" fill="#b6d47a">
+            <LabelList dataKey="KHIron" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+          </Bar>
+          <Bar dataKey="KHSilver" name="KH Silver" fill="#ff7f7f">
+            <LabelList dataKey="KHSilver" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+          </Bar>
+          <Bar dataKey="KHBronze" name="KH Bronze" fill="#81d4fa">
+            <LabelList dataKey="KHBronze" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+          </Bar>
+          <Bar dataKey="KHDiamond" name="KH Diamond" fill="#f0bf4c">
+            <LabelList dataKey="KHDiamond" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+          </Bar>
+          <Bar dataKey="Khac" name="Khác" fill="#bccefb">
+            <LabelList dataKey="Khac" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -41,7 +41,7 @@ export function Header() {
                 className="pl-10 w-[130%] text-sm border border-orange-300 shadow"
                 onBlur={() => setShowMobileSearch(false)}
               />
-              {/* Icon search là button để đóng input khi bấm lại */}
+              
               <button
                 type="button"
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4"
@@ -61,7 +61,7 @@ export function Header() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Search..."
-              className="pl-10 w-full sm:w-64 text-sm"
+              className="pl-10 w-full sm:w-64 text-sm border-orange-500"
             />
           </div>
         </div>

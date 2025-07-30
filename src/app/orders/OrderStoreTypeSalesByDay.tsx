@@ -20,22 +20,48 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
   storeTypeSalesByDay,
   formatAxisDate,
   formatMoneyShort,
-}) => (
-  <div className="w-full bg-white rounded-xl shadow-lg mt-5">
-    <div className="text-base sm:text-xl font-medium text-gray-700 text-center mt-5">
-      Tổng doanh số loại cửa hàng
-    </div>
-    <div className="w-full bg-white rounded-xl shadow-lg">
-      <div className="w-full ">
-        <ResponsiveContainer width="100%" height={400} minWidth={320}>
-          <BarChart
-            width={1000}
-            height={400}
-            data={storeTypeSalesByDay}
-            margin={{ top: 50, right: 30, left: 20, bottom: 5 }}
+}) => {
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return (
+    <div className="w-full bg-white rounded-xl shadow-lg mt-5">
+      <div className="text-sm sm:text-base md:text-xl font-medium text-gray-700 text-center mt-5">
+        Tổng doanh số loại cửa hàng
+      </div>
+      <div className="w-full bg-white rounded-xl shadow-lg">
+        <div className="w-full overflow-x-auto">
+          <ResponsiveContainer 
+            width="100%" 
+            height={isMobile ? 300 : 400} 
+            minWidth={isMobile ? 280 : 320}
           >
+            <BarChart
+              width={1000}
+              height={isMobile ? 300 : 400}
+              data={storeTypeSalesByDay}
+              margin={{ 
+                top: isMobile ? 30 : 50, 
+                right: isMobile ? 10 : 30, 
+                left: isMobile ? 10 : 20, 
+                bottom: isMobile ? 20 : 5 
+              }}
+            >
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" tickFormatter={formatAxisDate} />
+            <XAxis 
+              dataKey="date" 
+              tickFormatter={formatAxisDate}
+              tick={{ fontSize: isMobile ? 10 : 14 }}
+            />
             <YAxis
               tickFormatter={(v) => {
                 if (typeof v === "number") {
@@ -44,6 +70,7 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
                 }
                 return v;
               }}
+              tick={{ fontSize: isMobile ? 10 : 14 }}
             />
             <Tooltip
               formatter={(value) => {
@@ -56,12 +83,13 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
             />
             <Legend
               wrapperStyle={{
-                paddingTop: 5,
-                paddingBottom: 10,
+                paddingTop: isMobile ? 3 : 5,
+                paddingBottom: isMobile ? 5 : 10,
                 display: "flex",
                 justifyContent: "center",
                 flexWrap: "wrap",
                 width: "100%",
+                fontSize: isMobile ? 10 : 14,
               }}
             />
             <Bar
@@ -78,7 +106,7 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
                     <text
                       x={Number(x)}
                       y={Number(y) - 6}
-                      fontSize={10}
+                      fontSize={isMobile ? 8 : 10}
                       fill="#ff7f7f"
                       textAnchor="middle"
                     >
@@ -102,7 +130,7 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
                     <text
                       x={Number(x)}
                       y={Number(y) - 6}
-                      fontSize={10}
+                      fontSize={isMobile ? 8 : 10}
                       fill="#b39ddb"
                       textAnchor="middle"
                     >
@@ -126,7 +154,7 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
                     <text
                       x={Number(x)}
                       y={Number(y) - 6}
-                      fontSize={10}
+                      fontSize={isMobile ? 8 : 10}
                       fill="#8d6e63"
                       textAnchor="middle"
                     >
@@ -150,7 +178,7 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
                     <text
                       x={Number(x)}
                       y={Number(y) - 6}
-                      fontSize={10}
+                      fontSize={isMobile ? 8 : 10}
                       fill="#c5e1a5"
                       textAnchor="middle"
                     >
@@ -174,7 +202,7 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
                     <text
                       x={Number(x)}
                       y={Number(y) - 6}
-                      fontSize={10}
+                      fontSize={isMobile ? 8 : 10}
                       fill="#81d4fa"
                       textAnchor="middle"
                     >
@@ -189,6 +217,7 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
       </div>
     </div>
   </div>
-);
+  );
+};
 
 export default StoreTypeSalesByDay;

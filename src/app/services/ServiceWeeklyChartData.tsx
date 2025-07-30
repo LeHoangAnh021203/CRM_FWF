@@ -9,6 +9,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  LabelList,
 } from "recharts";
 
 interface WeeklyServiceChartDataProps {
@@ -21,6 +22,8 @@ interface WeeklyServiceChartDataProps {
   }>;
   isMobile: boolean;
 }
+
+
 
 export default function WeeklyServiceChartData({
   weeklyServiceChartData,
@@ -50,10 +53,18 @@ export default function WeeklyServiceChartData({
               <Tooltip />
               {/* Ẩn legend trên mobile */}
               {!isMobile && <Legend />}
-              <Bar dataKey="combo" name="Combo" fill="#795548" />
-              <Bar dataKey="service" name="Dịch vụ" fill="#c5e1a5" />
-              <Bar dataKey="addedon" name="Added on" fill="#f16a3f" />
-              <Bar dataKey="foxcard" name="Fox card" fill="#c86b82" />
+              <Bar dataKey="combo" name="Combo" fill="#795548">
+                <LabelList dataKey="combo" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+              </Bar>
+              <Bar dataKey="service" name="Dịch vụ" fill="#c5e1a5">
+                <LabelList dataKey="service" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+              </Bar>
+              <Bar dataKey="addedon" name="Added on" fill="#f16a3f">
+                <LabelList dataKey="addedon" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+              </Bar>
+              <Bar dataKey="foxcard" name="Fox card" fill="#c86b82">
+                <LabelList dataKey="foxcard" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -127,7 +127,7 @@ const CustomerGenderPie: React.FC<CustomerGenderPieProps> = ({
               <Line
                 type="natural"
                 dataKey="value2"
-                name="Số khách mới trong hệ thống (31 ngày trước)"
+                name="Số khách mới trong hệ thống (kỳ trước)"
                 stroke="#eb94cf"
                 strokeWidth={2}
                 dot={false}

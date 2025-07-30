@@ -50,7 +50,7 @@ const OrderActualCollection: React.FC<OrderActualCollectionProps> = ({
               <th className="px-4 py-2 border-b font-semibold text-right">Δ</th>
               <th className="px-4 py-2 border-b font-semibold text-right">Thực thu</th>
               <th className="px-4 py-2 border-b font-semibold text-right">% Δ</th>
-              <th className="px-4 py-2 border-b font-semibold text-right">%Thực thu</th>
+              <th className="px-4 py-2 border-b font-semibold text-right">Tỉ trọng</th>
             </tr>
           </thead>
           <tbody>

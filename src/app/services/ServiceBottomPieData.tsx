@@ -5,12 +5,44 @@ import {
   Pie,
   Cell,
   ResponsiveContainer,
+  Tooltip,
 } from "recharts";
 
 interface Top10ServicesUsageData {
   serviceName: string;
   count: number;
 }
+
+// Custom tooltip component
+interface TooltipPayload {
+  value: number;
+  name?: string;
+  payload: {
+    name?: string;
+  };
+}
+
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0];
+    
+    return (
+      <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+        <p className="font-medium text-gray-900">{data.name || data.payload.name}</p>
+        <p className="text-sm text-gray-600">
+          {label?.includes('giá buổi') ? 'Doanh thu: ' : 'Số lượng: '}
+          <span className="font-semibold">
+            {label?.includes('giá buổi') 
+              ? `${(data.value / 1000000).toFixed(1)}M VNĐ`
+              : data.value.toLocaleString()
+            }
+          </span>
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
 
 
 
@@ -147,6 +179,7 @@ export default function ServiceBottomPieData({
                 ));
               })()}
             </Pie>
+            <Tooltip content={<CustomTooltip label="Bottom 3 dịch vụ theo số lượng" />} />
           </PieChart>
         </ResponsiveContainer>
         <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
@@ -199,6 +232,7 @@ export default function ServiceBottomPieData({
                 <Cell key={item.name} fill={item.color} />
               ))}
             </Pie>
+            <Tooltip content={<CustomTooltip label="Bottom 3 dịch vụ theo giá buổi" />} />
           </PieChart>
         </ResponsiveContainer>
         <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">

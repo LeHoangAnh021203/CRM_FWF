@@ -3,6 +3,8 @@ import React from "react";
 interface CustomerSummaryRaw {
   totalNewCustomers?: number;
   actualCustomers?: number;
+  growthTotal?: number;
+  growthActual?: number;
 }
 
 interface CustomerNewChartProps {
@@ -31,6 +33,20 @@ const CustomerNewChart: React.FC<CustomerNewChartProps> = ({
           customerSummaryRaw?.totalNewCustomers?.toLocaleString() ?? 0
         )}
       </div>
+      {/* Percentage change indicator */}
+      {!loadingCustomerSummary && !errorCustomerSummary && customerSummaryRaw?.growthTotal !== undefined && (
+        <div className={`flex items-center gap-1 text-sm font-medium ${
+          customerSummaryRaw.growthTotal >= 0 ? 'text-green-600' : 'text-red-600'
+        }`}>
+          <span>
+            {customerSummaryRaw.growthTotal >= 0 ? '↗' : '↘'}
+          </span>
+          <span>
+            {Math.abs(customerSummaryRaw.growthTotal).toFixed(1)}%
+          </span>
+          <span className="text-gray-500">so với kỳ trước</span>
+        </div>
+      )}
     </div>
     {/* Tổng số khách mới thực đi */}
     <div className="flex-1 bg-white rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
@@ -46,6 +62,20 @@ const CustomerNewChart: React.FC<CustomerNewChartProps> = ({
           customerSummaryRaw?.actualCustomers?.toLocaleString() ?? 0
         )}
       </div>
+      {/* Percentage change indicator */}
+      {!loadingCustomerSummary && !errorCustomerSummary && customerSummaryRaw?.growthActual !== undefined && (
+        <div className={`flex items-center gap-1 text-sm font-medium ${
+          customerSummaryRaw.growthActual >= 0 ? 'text-green-600' : 'text-red-600'
+        }`}>
+          <span>
+            {customerSummaryRaw.growthActual >= 0 ? '↗' : '↘'}
+          </span>
+          <span>
+            {Math.abs(customerSummaryRaw.growthActual).toFixed(1)}%
+          </span>
+          <span className="text-gray-500">so với kỳ trước</span>
+        </div>
+      )}
     </div>
   </div>
 );

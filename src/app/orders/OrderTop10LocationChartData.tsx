@@ -8,6 +8,7 @@ import {
   Tooltip,
   Legend,
   Bar,
+  LabelList,
 } from "recharts";
 import { Props as LabelProps } from "recharts/types/component/Label";
 
@@ -88,8 +89,8 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
                 left: isMobile ? 40 : 60,
                 bottom: 20,
               }}
-              barCategoryGap={isMobile ? 20 : 40}
-              barGap={isMobile ? 4 : 8}
+              barCategoryGap={isMobile ? 30 : 50}
+              barGap={isMobile ? 8 : 12}
             >
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
               <XAxis
@@ -124,7 +125,9 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
                   position: "right",
                   content: (props: LabelProps) => renderBarLabel({ ...props, fill: "#8d6e63" }),
                 }}
-              />
+              >
+                <LabelList dataKey="revenue" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+              </Bar>
               <Bar
                 dataKey="foxie"
                 name="Trả bằng thẻ Foxie"
@@ -135,7 +138,9 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
                   position: "right",
                   content: (props: LabelProps) => renderBarLabel({ ...props, fill: "#b6d47a" }),
                 }}
-              />
+              >
+                <LabelList dataKey="foxie" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -130,7 +130,7 @@ export default function ServicesFilter({
               const date = parseDate(e.target.value);
               setEndDate(date);
             }}
-            min={startDate.add({ days: 1 }).toString()}
+            min={startDate.toString()}
             max={today(getLocalTimeZone()).toString()}
           />
         </div>

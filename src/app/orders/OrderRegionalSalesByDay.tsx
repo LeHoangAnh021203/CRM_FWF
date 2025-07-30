@@ -22,25 +22,43 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
   regionalSalesByDay,
   formatAxisDate,
   formatMoneyShort,
-}) => (
-  <div className="w-full bg-white rounded-xl shadow-lg mt-5">
-    <div className="text-base sm:text-xl font-medium text-gray-700 text-center mt-5">
-      Tổng doanh số vùng
-    </div>
-    <div className="w-full bg-white rounded-xl shadow-lg">
+}) => {
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return (
+    <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+      <div className="text-sm sm:text-base md:text-xl font-medium text-gray-700 text-center mb-4">
+        Tổng doanh số vùng
+      </div>
       <div className="w-full overflow-x-auto">
-        <ResponsiveContainer width="100%" height={400} minWidth={320}>
+        <ResponsiveContainer width="100%" height={isMobile ? 300 : 400} minWidth={280}>
           <BarChart
-            width={1000}
-            height={400}
             data={regionalSalesByDay}
-            margin={{ top: 50, right: 30, left: 20, bottom: 5 }}
+            margin={{ 
+              top: isMobile ? 30 : 50, 
+              right: isMobile ? 10 : 30, 
+              left: isMobile ? 10 : 20, 
+              bottom: isMobile ? 20 : 5 
+            }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="date"
               tickFormatter={formatAxisDate}
-              fontSize={12}
+              fontSize={isMobile ? 10 : 12}
+              angle={isMobile ? -45 : 0}
+              textAnchor={isMobile ? "end" : "middle"}
+              height={isMobile ? 60 : 30}
             />
             <YAxis
               tickFormatter={(v) => {
@@ -49,6 +67,8 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                 if (typeof v === "number") return v.toLocaleString();
                 return v;
               }}
+              fontSize={isMobile ? 10 : 12}
+              width={isMobile ? 60 : 80}
             />
             <Tooltip
               formatter={(value) => {
@@ -59,8 +79,20 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                 }
                 return value;
               }}
+              contentStyle={{
+                fontSize: isMobile ? 12 : 14,
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                padding: '8px'
+              }}
             />
-            <Legend />
+            <Legend 
+              wrapperStyle={{
+                fontSize: isMobile ? 10 : 12,
+                paddingTop: isMobile ? 10 : 20
+              }}
+            />
             <Bar
               dataKey="HCM"
               fill="#ff7f7f"
@@ -78,7 +110,7 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                     <text
                       x={xNum}
                       y={yNum - 6}
-                      fontSize={10}
+                      fontSize={isMobile ? 8 : 10}
                       fill="#ff7f7f"
                       textAnchor="middle"
                     >
@@ -107,7 +139,7 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                     <text
                       x={xNum}
                       y={yNum - 6}
-                      fontSize={10}
+                      fontSize={isMobile ? 8 : 10}
                       fill="#b39ddb"
                       textAnchor="middle"
                     >
@@ -136,7 +168,7 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                     <text
                       x={xNum}
                       y={yNum - 6}
-                      fontSize={10}
+                      fontSize={isMobile ? 8 : 10}
                       fill="#8d6e63"
                       textAnchor="middle"
                     >
@@ -165,7 +197,7 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                     <text
                       x={xNum}
                       y={yNum - 6}
-                      fontSize={10}
+                      fontSize={isMobile ? 8 : 10}
                       fill="#c5e1a5"
                       textAnchor="middle"
                     >
@@ -195,7 +227,7 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                     <text
                       x={xNum}
                       y={yNum - 6}
-                      fontSize={10}
+                      fontSize={isMobile ? 8 : 10}
                       fill="#f0bf4c"
                       textAnchor="middle"
                     >
@@ -225,7 +257,7 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                     <text
                       x={xNum}
                       y={yNum - 6}
-                      fontSize={10}
+                      fontSize={isMobile ? 8 : 10}
                       fill="#4db6ac"
                       textAnchor="middle"
                     >
@@ -249,14 +281,14 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
               style={{
                 fontWeight: "bold",
                 fill: "#f0bf4c",
-                fontSize: 16,
+                fontSize: isMobile ? 12 : 16,
               }}
             />
           </BarChart>
         </ResponsiveContainer>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default OrderRegionalSalesByDay;

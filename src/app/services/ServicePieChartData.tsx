@@ -5,6 +5,7 @@ import {
   Pie,
   Cell,
   ResponsiveContainer,
+  Tooltip,
 } from "recharts";
 
 interface PieChartDataProps {
@@ -37,6 +38,49 @@ interface PieChartDataProps {
   }) => React.JSX.Element | null;
 }
 
+// Custom tooltip component
+interface TooltipPayload {
+  value: number;
+  name?: string;
+  payload: {
+    label?: string;
+  };
+}
+
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0];
+    
+    // Calculate total from all payload items (this should be the total for the specific chart)
+    const total = payload.reduce((sum: number, item: TooltipPayload) => sum + item.value, 0);
+    const percentage = total > 0 ? ((data.value / total) * 100).toFixed(1) : '0.0';
+    
+    // Determine if this is revenue data based on the chart title
+    const isRevenueChart = label?.includes('giá buổi') || label?.includes('doanh thu') || label?.includes('Top 10 dịch vụ theo giá buổi');
+    
+    console.log('Tooltip label:', label, 'isRevenueChart:', isRevenueChart, 'data.value:', data.value, 'total:', total, 'percentage:', percentage);
+    
+    return (
+      <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+        <p className="font-medium text-gray-900">{data.name || data.payload.label}</p>
+        <p className="text-sm text-gray-600">
+          {isRevenueChart ? 'Doanh thu: ' : 'Số lượng: '}
+          <span className="font-semibold">
+            {isRevenueChart 
+              ? `${(data.value / 1000000).toFixed(1)}M VNĐ`
+              : data.value.toLocaleString()
+            }
+          </span>
+        </p>
+        <p className="text-sm text-gray-600">
+          Tỷ lệ: <span className="font-semibold">{percentage}%</span>
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function PieChartData({
   pieChartData,
   pieTop10Data,
@@ -60,7 +104,7 @@ export default function PieChartData({
             <Pie
               data={pieChartData}
               dataKey="value"
-              nameKey="name"
+              nameKey="label"
               cx="50%"
               cy="50%"
               outerRadius={isMobile ? 60 : 120}
@@ -70,6 +114,7 @@ export default function PieChartData({
                 <Cell key={entry.key} fill={entry.color} />
               ))}
             </Pie>
+            <Tooltip content={<CustomTooltip label="Tỉ lệ dịch vụ/combo/cộng thêm" />} />
           </PieChart>
         </ResponsiveContainer>
         <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
@@ -105,7 +150,7 @@ export default function PieChartData({
             <Pie
               data={pieTop10Data}
               dataKey="value"
-              nameKey="label"
+              nameKey="name"
               cx="50%"
               cy="50%"
               outerRadius={isMobile ? 60 : 120}
@@ -115,6 +160,7 @@ export default function PieChartData({
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
+            <Tooltip content={<CustomTooltip label="Top 10 dịch vụ theo số lượng" />} />
           </PieChart>
         </ResponsiveContainer>
         <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
@@ -151,7 +197,7 @@ export default function PieChartData({
             <Pie
               data={pieTop10AvgData}
               dataKey="value"
-              nameKey="label"
+              nameKey="name"
               cx="50%"
               cy="50%"
               outerRadius={isMobile ? 60 : 120}
@@ -161,6 +207,7 @@ export default function PieChartData({
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
+            <Tooltip content={<CustomTooltip label="Top 10 dịch vụ theo giá buổi" />} />
           </PieChart>
         </ResponsiveContainer>
         <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">

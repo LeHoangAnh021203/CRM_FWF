@@ -16,6 +16,11 @@ import ServiceStatCards from "./ServiceStatCards";
 import ServiceStoreChartData from "./ServiceStoreChartData";
 import ServicesRegionData from "./ServicesRegionData";
 import ServicesTable from "./ServicesTable";
+import { Notification, useNotification } from "@/components/notification";
+import {
+  useLocalStorageState,
+  clearLocalStorageKeys,
+} from "@/hooks/useLocalStorageState";
 
 interface DataPoint {
   date: string;
@@ -159,13 +164,62 @@ function useApiData<T>(url: string, fromDate: string, toDate: string) {
 }
 
 export default function CustomerReportPage() {
-  const [startDate, setStartDate] = useState<CalendarDate>(
+  const { notification, showSuccess, showError, hideNotification } =
+    useNotification();
+  const hasShownSuccess = useRef(false);
+  const hasShownError = useRef(false);
+
+  // Function để reset tất cả filter về mặc định
+  const resetFilters = () => {
+    clearLocalStorageKeys([
+      "services-startDate",
+      "services-endDate",
+      "services-selectedBranches",
+      "services-selectedRegions",
+      "services-selectedServiceTypes",
+      "services-selectedGenders",
+    ]);
+    setStartDate(today(getLocalTimeZone()).subtract({ days: 7 }));
+    setEndDate(today(getLocalTimeZone()));
+    setSelectedBranches([]);
+    setSelectedRegions([]);
+    setSelectedServiceTypes([
+      "Khách hàng Thành viên",
+      "KH trải nghiệm",
+      "Added on",
+      "Quà tặng",
+    ]);
+    setSelectedGenders(["Nam", "Nữ", "#N/A"]);
+    showSuccess("Đã reset tất cả filter về mặc định!");
+  };
+
+  const [startDate, setStartDate] = useLocalStorageState<CalendarDate>(
+    "services-startDate",
     today(getLocalTimeZone()).subtract({ days: 7 })
   );
-  const [endDate, setEndDate] = useState<CalendarDate>(
+  const [endDate, setEndDate] = useLocalStorageState<CalendarDate>(
+    "services-endDate",
     today(getLocalTimeZone())
   );
-  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
+  const [selectedBranches, setSelectedBranches] = useLocalStorageState<
+    string[]
+  >("services-selectedBranches", []);
+  const [selectedRegions, setSelectedRegions] = useLocalStorageState<string[]>(
+    "services-selectedRegions",
+    []
+  );
+  const [selectedServiceTypes, setSelectedServiceTypes] = useLocalStorageState<
+    string[]
+  >("services-selectedServiceTypes", [
+    "Khách hàng Thành viên",
+    "KH trải nghiệm",
+    "Added on",
+    "Quà tặng",
+  ]);
+  const [selectedGenders, setSelectedGenders] = useLocalStorageState<string[]>(
+    "services-selectedGenders",
+    ["Nam", "Nữ", "#N/A"]
+  );
 
   const fromDate = startDate
     ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
@@ -265,6 +319,47 @@ export default function CustomerReportPage() {
     toDate
   );
 
+  // Track overall loading and error states for notifications
+  const allLoadingStates = [
+    serviceSummaryLoading,
+    regionLoading,
+    shopLoading,
+    top10ServicesLoading,
+    top10ServicesUsageLoading,
+    bottom3ServicesUsageLoading,
+    bottom3ServicesRevenueLoading,
+    serviceTableLoading,
+  ];
+
+  const allErrorStates = [
+    serviceSummaryError,
+    regionError,
+    shopError,
+    top10ServicesError,
+    top10ServicesUsageError,
+    bottom3ServicesUsageError,
+    bottom3ServicesRevenueError,
+    serviceTableError,
+  ];
+
+  const isLoading = allLoadingStates.some((loading) => loading);
+  const hasError = allErrorStates.some((error) => error);
+
+  // Show notifications based on loading and error states
+  useEffect(() => {
+    if (!isLoading && !hasError && serviceSummary && !hasShownSuccess.current) {
+      showSuccess("Dữ liệu dịch vụ đã được tải thành công!");
+      hasShownSuccess.current = true;
+    }
+  }, [isLoading, hasError, serviceSummary, showSuccess]);
+
+  useEffect(() => {
+    if (hasError && !hasShownError.current) {
+      showError("Không thể kết nối đến API. Vui lòng thử lại sau.");
+      hasShownError.current = true;
+    }
+  }, [hasError, showError]);
+
   // Hook lấy width window với debounce để tránh performance issues
   function useWindowWidth() {
     const [width, setWidth] = useState(1024);
@@ -299,7 +394,6 @@ export default function CustomerReportPage() {
     { key: "Fox card", label: "Fox card" },
   ];
   const ALL_GENDERS = ["Nam", "Nữ", "#N/A"];
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [regionSearch] = useState("");
   const locationOptions = React.useMemo(
     () => [
@@ -645,8 +739,6 @@ export default function CustomerReportPage() {
     };
   });
 
-
-
   function parseVNDate(str: string): CalendarDate {
     let match = str.match(/^(\d{1,2}) thg (\d{1,2}), (\d{4})$/);
     if (match) {
@@ -874,8 +966,6 @@ export default function CustomerReportPage() {
     });
   }, [serviceTypeData, weekDates]);
 
-
-
   // Xử lý dữ liệu cho chart tổng dịch vụ thực hiện theo khu vực
   const regionChartData = React.useMemo(() => {
     if (!regionData) return [];
@@ -950,19 +1040,6 @@ export default function CustomerReportPage() {
 
   // Lấy danh sách các cửa hàng
   const storeNames = locationOptions;
-
-  // Thêm state cho filter dịch vụ và giới tính
-  const [selectedServiceTypes, setSelectedServiceTypes] = useState<string[]>([
-    "Khách hàng Thành viên",
-    "KH trải nghiệm",
-    "Added on",
-    "Quà tặng",
-  ]);
-  const [selectedGenders, setSelectedGenders] = useState<string[]>([
-    "Nam",
-    "Nữ",
-    "#N/A",
-  ]);
 
   // Bổ sung data mẫu cho các trường type và gender nếu chưa có
   // (Chỉ thêm vào cuối mảng data, không ảnh hưởng logic cũ)
@@ -1179,11 +1256,11 @@ export default function CustomerReportPage() {
 
   // PieChart top 10 dịch vụ theo số lượng (có filter)
   const pieTop10Data = React.useMemo(() => {
-    if (top10ServicesRevenueData) {
-      // Sử dụng dữ liệu API
-      return top10ServicesRevenueData.map((service, idx) => ({
+    if (top10ServicesUsageData) {
+      // Sử dụng dữ liệu API - số lượng
+      return top10ServicesUsageData.map((service, idx) => ({
         name: service.serviceName,
-        value: service.servicePrice,
+        value: service.count,
         color: `hsl(0,0%,${40 + idx * 5}%)`, // gradient xám
       }));
     }
@@ -1224,7 +1301,7 @@ export default function CustomerReportPage() {
     }
     return result;
   }, [
-    top10ServicesRevenueData,
+    top10ServicesUsageData,
     data,
     weekStart,
     weekEnd,
@@ -1237,11 +1314,11 @@ export default function CustomerReportPage() {
 
   // PieChart top 10 dịch vụ theo giá buổi (có filter)
   const pieTop10AvgData = React.useMemo(() => {
-    if (top10ServicesUsageData) {
-      // Sử dụng dữ liệu API
-      return top10ServicesUsageData.map((service, idx) => ({
+    if (top10ServicesRevenueData) {
+      // Sử dụng dữ liệu API - doanh thu
+      return top10ServicesRevenueData.map((service, idx) => ({
         name: service.serviceName,
-        value: service.count,
+        value: service.servicePrice,
         color: `hsl(30, 100%, ${45 + idx * 5}%)`, // gradient cam
       }));
     }
@@ -1280,7 +1357,7 @@ export default function CustomerReportPage() {
       });
     }
     return result;
-  }, [top10ServicesUsageData, filteredPieData]);
+  }, [top10ServicesRevenueData, filteredPieData]);
 
   const renderPieLabel = ({
     percent,
@@ -1383,12 +1460,26 @@ export default function CustomerReportPage() {
   }, [bottom3ServicesRevenueData, filteredPieData]);
 
   return (
-    <div className="p-2 sm:p-4 md:p-6">
+    <div className="p-2 sm:p-4 md:p-6 max-w-full">
+      <Notification
+        type={notification.type}
+        message={notification.message}
+        isVisible={notification.isVisible}
+        onClose={hideNotification}
+      />
       <div className="mb-6">
-        <div className=" p-2">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-            Services Report
-          </h1>
+        <div className="p-2">
+          <div className="flex justify-between items-center mb-2">
+            <h1 className="text-2xl font-semibold text-gray-900">
+              Services Report
+            </h1>
+            <button
+              onClick={resetFilters}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+            >
+              Reset Filters
+            </button>
+          </div>
           <ServicesFilter
             startDate={startDate}
             endDate={endDate}
@@ -1431,17 +1522,17 @@ export default function CustomerReportPage() {
           renderPieLabel={renderPieLabel}
         />
 
-       <ServiceBottomPieData
-         bottom3ServicesUsageData={bottom3ServicesUsageData}
-         bottom3ServicesUsageLoading={bottom3ServicesUsageLoading}
-         bottom3ServicesUsageError={bottom3ServicesUsageError}
-         bottom3ServicesRevenueLoading={bottom3ServicesRevenueLoading}
-         bottom3ServicesRevenueError={bottom3ServicesRevenueError}
-         bottom3Data={bottom3Data}
-         bottom3RevenueData={bottom3RevenueData}
-         filteredPieData={filteredPieData}
-         isMobile={isMobile}
-       />
+        <ServiceBottomPieData
+          bottom3ServicesUsageData={bottom3ServicesUsageData}
+          bottom3ServicesUsageLoading={bottom3ServicesUsageLoading}
+          bottom3ServicesUsageError={bottom3ServicesUsageError}
+          bottom3ServicesRevenueLoading={bottom3ServicesRevenueLoading}
+          bottom3ServicesRevenueError={bottom3ServicesRevenueError}
+          bottom3Data={bottom3Data}
+          bottom3RevenueData={bottom3RevenueData}
+          filteredPieData={filteredPieData}
+          isMobile={isMobile}
+        />
 
         {/* 5 bảng tổng dịch vụ */}
 
@@ -1468,12 +1559,12 @@ export default function CustomerReportPage() {
         />
 
         {/* Bảng thống kê tất cả các dịch vụ */}
-       <ServicesTable
-         serviceTableData={serviceTableData}
-         serviceTableLoading={serviceTableLoading}
-         serviceTableError={serviceTableError}
-         serviceData={serviceData}
-       />
+        <ServicesTable
+          serviceTableData={serviceTableData}
+          serviceTableLoading={serviceTableLoading}
+          serviceTableError={serviceTableError}
+          serviceData={serviceData}
+        />
       </div>
     </div>
   );

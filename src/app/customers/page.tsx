@@ -1,24 +1,40 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, useRef } from "react";
 import {
   CalendarDate,
   today,
   getLocalTimeZone,
   parseDate,
 } from "@internationalized/date";
-import CustomerFacilityHourTable from "./CustomerFacilityHourTable";
-import CustomerFilters from "./CustomerFilters";
-import CustomerSummaryCard from "./CustomerSummaryCard";
-import CustomerStatsCards from "./CustomerStatsCards";
-import CustomerGenderPie from "./CustomerGenderPie";
-import CustomerNewChart from "./CustomerNewChart";
-import CustomerTypeTrendChart from "./CustomerTypeTrendChart";
-import CustomerSourceBarChart from "./CustomerSourceBarChart";
-import CustomerAppDownloadBarChart from "./CustomerAppDownloadBarChart";
-import CustomerAppDownloadPieChart from "./CustomerAppDownloadPieChart";
-import CustomerPaymentPieChart from "./CustomerPaymentPieChart";
+import {
+  LazyCustomerFacilityHourTable,
+  LazyCustomerFilters,
+  LazyCustomerSummaryCard,
+  LazyCustomerStatsCards,
+  LazyCustomerGenderPie,
+  LazyCustomerNewChart,
+  LazyCustomerTypeTrendChart,
+  LazyCustomerSourceBarChart,
+  LazyCustomerAppDownloadBarChart,
+  LazyCustomerAppDownloadPieChart,
+  LazyCustomerPaymentPieChart,
+} from "./lazy-charts";
+import { Notification, useNotification } from "@/components/notification";
+import { useLocalStorageState, clearLocalStorageKeys } from "@/hooks/useLocalStorageState";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+// Function để clear tất cả filter state
+function clearCustomerFilters() {
+  clearLocalStorageKeys([
+    'customer-selectedType',
+    'customer-selectedStatus', 
+    'customer-startDate',
+    'customer-endDate',
+    'customer-selectedRegions',
+    'customer-selectedBranches'
+  ]);
+}
 
 // Custom hook dùng chung cho fetch API động
 function useApiData<T>(url: string, fromDate: string, toDate: string) {
@@ -65,21 +81,47 @@ function useWindowWidth() {
 }
 
 export default function CustomerReportPage() {
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
+  const hasShownSuccess = useRef(false);
+  const hasShownError = useRef(false);
+  
+  // Function để reset tất cả filter về mặc định
+  const resetFilters = () => {
+    clearCustomerFilters();
+    setSelectedType([]);
+    setSelectedStatus(null);
+    setStartDate(today(getLocalTimeZone()).subtract({ days: 7 }));
+    setEndDate(today(getLocalTimeZone()));
+    setSelectedRegions([]);
+    setSelectedBranches([]);
+    showSuccess("Đã reset tất cả filter về mặc định!");
+  };
+  
   const [customerSaleData] = useState([]);
-  const [selectedType, setSelectedType] = useState<string[]>([]);
-  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  
+  // Sử dụng localStorage để lưu trữ state
+  const [selectedType, setSelectedType] = useLocalStorageState<string[]>("customer-selectedType", []);
+  const [selectedStatus, setSelectedStatus] = useLocalStorageState<string | null>("customer-selectedStatus", null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const [startDate, setStartDate] = useState<CalendarDate>(
+  
+  // Lưu trữ ngày tháng vào localStorage
+  const [startDate, setStartDate] = useLocalStorageState<CalendarDate>(
+    "customer-startDate",
     today(getLocalTimeZone()).subtract({ days: 7 })
   );
-  const [endDate, setEndDate] = useState<CalendarDate>(
+  const [endDate, setEndDate] = useLocalStorageState<CalendarDate>(
+    "customer-endDate",
     today(getLocalTimeZone())
   );
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  
+  const [selectedRegions, setSelectedRegions] = useLocalStorageState<string[]>("customer-selectedRegions", []);
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
-  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
+  const [selectedBranches, setSelectedBranches] = useLocalStorageState<string[]>("customer-selectedBranches", []);
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+
+
+
   const COLORS = [
     "#5bd1d7",
     "#eb94cf",
@@ -235,6 +277,47 @@ export default function CustomerReportPage() {
     fromDate,
     toDate
   );
+
+  // Track overall loading and error states for notifications
+  const allLoadingStates = [
+    loadingNewCustomer,
+    loadingGenderRatio,
+    loading,
+    loadingAppDownload,
+    loadingCustomerOldNewOrder,
+    loadingCustomerSummary,
+    loadingGenderRevenue,
+    loadingFacilityHour,
+  ];
+
+  const allErrorStates = [
+    errorNewCustomer,
+    errorGenderRatio,
+    error,
+    errorAppDownload,
+    errorCustomerOldNewOrder,
+    errorCustomerSummary,
+    errorGenderRevenue,
+    errorFacilityHour,
+  ];
+
+  const isLoading = allLoadingStates.some(loading => loading);
+  const hasError = allErrorStates.some(error => error);
+
+  // Show notifications based on loading and error states
+  useEffect(() => {
+    if (!isLoading && !hasError && customerSummaryRaw && !hasShownSuccess.current) {
+      showSuccess("Dữ liệu khách hàng đã được tải thành công!");
+      hasShownSuccess.current = true;
+    }
+  }, [isLoading, hasError, customerSummaryRaw, showSuccess]);
+
+  useEffect(() => {
+    if (hasError && !hasShownError.current) {
+      showError("Không thể kết nối đến API. Vui lòng thử lại sau.");
+      hasShownError.current = true;
+    }
+  }, [hasError, showError]);
 
   // 1. Số khách tạo mới
   const newCustomerChartData = React.useMemo(() => {
@@ -633,143 +716,193 @@ export default function CustomerReportPage() {
   }, [appDownloadStatusData]);
 
   return (
-    <div className="p-4 lg:p-6">
-      <div className="mb-4 lg:mb-6">
+    <div className="p-2 sm:p-4 md:p-6 max-w-full">
+      <Notification
+        type={notification.type}
+        message={notification.message}
+        isVisible={notification.isVisible}
+        onClose={hideNotification}
+      />
+      <div className="mb-6">
         <div className="p-2">
-          <h1 className="text-xl lg:text-2xl font-semibold text-gray-900 mb-2">
-            Customer Report
-          </h1>
+          <div className="flex justify-between items-center mb-2">
+            <h1 className="text-xl lg:text-2xl font-semibold text-gray-900">
+              Customer Report
+            </h1>
+            <button
+              onClick={resetFilters}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+            >
+              Reset Filters
+            </button>
+          </div>
 
           {/* Filter */}
-
-          <CustomerFilters
-            startDate={startDate}
-            endDate={endDate}
-            setStartDate={setStartDate}
-            setEndDate={setEndDate}
-            today={today}
-            getLocalTimeZone={getLocalTimeZone}
-            parseDate={parseDate}
-            selectedType={selectedType}
-            setSelectedType={setSelectedType}
-            showTypeDropdown={showTypeDropdown}
-            setShowTypeDropdown={setShowTypeDropdown}
-            customerTypes={customerTypes}
-            selectedStatus={selectedStatus}
-            setSelectedStatus={setSelectedStatus}
-            showStatusDropdown={showStatusDropdown}
-            setShowStatusDropdown={setShowStatusDropdown}
-            customerStatus={customerStatus}
-            selectedRegions={selectedRegions}
-            setSelectedRegions={setSelectedRegions}
-            showRegionDropdown={showRegionDropdown}
-            setShowRegionDropdown={setShowRegionDropdown}
-            allRegions={allRegions}
-            selectedBranches={selectedBranches}
-            setSelectedBranches={setSelectedBranches}
-            showBranchDropdown={showBranchDropdown}
-            setShowBranchDropdown={setShowBranchDropdown}
-            allBranches={allBranches}
-          />
+          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-10 bg-gray-200 rounded"></div></div>}>
+            <LazyCustomerFilters
+              startDate={startDate}
+              endDate={endDate}
+              setStartDate={setStartDate}
+              setEndDate={setEndDate}
+              today={today}
+              getLocalTimeZone={getLocalTimeZone}
+              parseDate={parseDate}
+              selectedType={selectedType}
+              setSelectedType={setSelectedType}
+              showTypeDropdown={showTypeDropdown}
+              setShowTypeDropdown={setShowTypeDropdown}
+              customerTypes={customerTypes}
+              selectedStatus={selectedStatus}
+              setSelectedStatus={setSelectedStatus}
+              showStatusDropdown={showStatusDropdown}
+              setShowStatusDropdown={setShowStatusDropdown}
+              customerStatus={customerStatus}
+              selectedRegions={selectedRegions}
+              setSelectedRegions={setSelectedRegions}
+              showRegionDropdown={showRegionDropdown}
+              setShowRegionDropdown={setShowRegionDropdown}
+              allRegions={allRegions}
+              selectedBranches={selectedBranches}
+              setSelectedBranches={setSelectedBranches}
+              showBranchDropdown={showBranchDropdown}
+              setShowBranchDropdown={setShowBranchDropdown}
+              allBranches={allBranches}
+            />
+          </Suspense>
 
           {/* Card tổng số khách trong khoảng ngày đã chọn */}
-          <CustomerSummaryCard
-            value={uniqueCustomersComparisonRaw?.current?.toLocaleString() ?? 0}
-            label="Tổng số khách trong khoảng ngày đã chọn"
-            percentChange={uniqueCustomersComparisonRaw?.changePercent}
-          />
+          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-6 mb-4 animate-pulse"><div className="h-8 bg-gray-200 rounded w-1/2"></div></div>}>
+            <LazyCustomerSummaryCard
+              value={uniqueCustomersComparisonRaw?.current?.toLocaleString() ?? 0}
+              label="Tổng số khách trong khoảng ngày đã chọn"
+              percentChange={uniqueCustomersComparisonRaw?.changePercent}
+            />
+          </Suspense>
 
           {/* 4 bảng thống kê */}
-          <CustomerStatsCards
-            loading={loadingGenderRevenue}
-            error={errorGenderRevenue}
-            avgRevenueMale={
-              genderRevenueRaw?.avgRevenueMale?.toLocaleString() ?? 0
-            }
-            avgRevenueFemale={
-              genderRevenueRaw?.avgRevenueFemale?.toLocaleString() ?? 0
-            }
-            avgServiceMale={
-              genderRevenueRaw?.avgServiceMale?.toLocaleString() ?? 0
-            }
-            avgServiceFemale={
-              genderRevenueRaw?.avgServiceFemale?.toLocaleString() ?? 0
-            }
-          />
+          <Suspense fallback={<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-white rounded-xl shadow-lg p-4 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>}>
+            <LazyCustomerStatsCards
+              loading={loadingGenderRevenue}
+              error={errorGenderRevenue}
+              avgRevenueMale={
+                genderRevenueRaw?.avgRevenueMale?.toLocaleString() ?? 0
+              }
+              avgRevenueFemale={
+                genderRevenueRaw?.avgRevenueFemale?.toLocaleString() ?? 0
+              }
+              avgServiceMale={
+                genderRevenueRaw?.avgServiceMale?.toLocaleString() ?? 0
+              }
+              avgServiceFemale={
+                genderRevenueRaw?.avgServiceFemale?.toLocaleString() ?? 0
+              }
+            />
+          </Suspense>
 
           {/* Số khách tạo mới và tỷ lệ nam nữ/khách mới tạo */}
-          <CustomerGenderPie
-            isMobile={isMobile}
-            loadingNewCustomer={loadingNewCustomer}
-            errorNewCustomer={errorNewCustomer}
-            newCustomerChartData={newCustomerChartData}
-            loadingGenderRatio={loadingGenderRatio}
-            errorGenderRatio={errorGenderRatio}
-            genderRatioData={genderRatioData}
-            COLORS={COLORS}
-          />
+          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+            <LazyCustomerGenderPie
+              isMobile={isMobile}
+              loadingNewCustomer={loadingNewCustomer}
+              errorNewCustomer={errorNewCustomer}
+              newCustomerChartData={newCustomerChartData}
+              loadingGenderRatio={loadingGenderRatio}
+              errorGenderRatio={errorGenderRatio}
+              genderRatioData={genderRatioData}
+              COLORS={COLORS}
+            />
+          </Suspense>
+
           {/* Tổng số khách mới */}
-          <CustomerNewChart
-            loadingCustomerSummary={loadingCustomerSummary}
-            errorCustomerSummary={errorCustomerSummary}
-            customerSummaryRaw={customerSummaryRaw}
-          />
+          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-32 bg-gray-200 rounded"></div></div>}>
+            <LazyCustomerNewChart
+              loadingCustomerSummary={loadingCustomerSummary}
+              errorCustomerSummary={errorCustomerSummary}
+              customerSummaryRaw={customerSummaryRaw}
+            />
+          </Suspense>
+
           {/* Số khách tới chia theo phân loại */}
-          <CustomerTypeTrendChart
-            isMobile={isMobile}
-            customerTypeTrendData={customerTypeTrendData}
-            customerTypeKeys={customerTypeKeys}
-            COLORS={COLORS}
-          />
+          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+            <LazyCustomerTypeTrendChart
+              isMobile={isMobile}
+              customerTypeTrendData={customerTypeTrendData}
+              customerTypeKeys={customerTypeKeys}
+              COLORS={COLORS}
+            />
+          </Suspense>
 
           {/* Nguồn của đơn hàng */}
-
-          <CustomerSourceBarChart
-            isMobile={isMobile}
-            customerSourceTrendData={customerSourceTrendData}
-            customerSourceKeys={customerSourceKeys}
-            COLORS={COLORS}
-          />
+          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+            <LazyCustomerSourceBarChart
+              isMobile={isMobile}
+              customerSourceTrendData={customerSourceTrendData}
+              customerSourceKeys={customerSourceKeys}
+              COLORS={COLORS}
+            />
+          </Suspense>
 
           {/* Khách hàng tải app */}
-          <CustomerAppDownloadBarChart
-            isMobile={isMobile}
-            loading={loading}
-            error={error}
-            sortedAppDownloadStatusData={sortedAppDownloadStatusData}
-          />
+          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+            <LazyCustomerAppDownloadBarChart
+              isMobile={isMobile}
+              loading={loading}
+              error={error}
+              sortedAppDownloadStatusData={sortedAppDownloadStatusData}
+            />
+          </Suspense>
 
           {/* Tỉ lệ khách hàng tải app và tỉ lệ khách mới/cũ*/}
-          <CustomerAppDownloadPieChart
-            loadingAppDownload={loadingAppDownload}
-            errorAppDownload={errorAppDownload}
-            appDownloadPieData={appDownloadPieData}
-            APP_CUSTOMER_PIE_COLORS={APP_CUSTOMER_PIE_COLORS}
-            loadingCustomerOldNewOrder={loadingCustomerOldNewOrder}
-            errorCustomerOldNewOrder={errorCustomerOldNewOrder}
-            customerOldNewOrderPieData={customerOldNewOrderPieData}
-            NEW_OLD_COLORS={NEW_OLD_COLORS}
-          />
+          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+            <LazyCustomerAppDownloadPieChart
+              loadingAppDownload={loadingAppDownload}
+              errorAppDownload={errorAppDownload}
+              appDownloadPieData={appDownloadPieData}
+              APP_CUSTOMER_PIE_COLORS={APP_CUSTOMER_PIE_COLORS}
+              loadingCustomerOldNewOrder={loadingCustomerOldNewOrder}
+              errorCustomerOldNewOrder={errorCustomerOldNewOrder}
+              customerOldNewOrderPieData={customerOldNewOrderPieData}
+              NEW_OLD_COLORS={NEW_OLD_COLORS}
+            />
+          </Suspense>
 
           {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới) và (khách cũ) */}
-          <CustomerPaymentPieChart
-            isMobile={isMobile}
-            paymentPercentNewPieData={paymentPercentNewPieData}
-            paymentPercentOldPieData={paymentPercentOldPieData}
-          />
+          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+            <LazyCustomerPaymentPieChart
+              isMobile={isMobile}
+              paymentPercentNewPieData={paymentPercentNewPieData}
+              paymentPercentOldPieData={paymentPercentOldPieData}
+            />
+          </Suspense>
 
           {/* Thời gian đơn hàng được tạo */}
-          <CustomerFacilityHourTable
-            allHourRanges={allHourRanges}
-            peakHours={peakHours}
-            facilityHourTableData={facilityHourTableData}
-            peakFacilities={peakFacilities}
-            rowMaxMap={rowMaxMap}
-            getCellBg={getCellBg}
-            isMobile={isMobile}
-            loadingFacilityHour={loadingFacilityHour}
-            errorFacilityHour={errorFacilityHour}
-          />
+          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 animate-pulse">
+            <div className="h-5 bg-gray-200 rounded w-1/4 mb-4"></div>
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="h-8 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </div>}>
+            <LazyCustomerFacilityHourTable
+              allHourRanges={allHourRanges}
+              peakHours={peakHours}
+              facilityHourTableData={facilityHourTableData}
+              peakFacilities={peakFacilities}
+              rowMaxMap={rowMaxMap}
+              getCellBg={getCellBg}
+              isMobile={isMobile}
+              loadingFacilityHour={loadingFacilityHour}
+              errorFacilityHour={errorFacilityHour}
+            />
+          </Suspense>
         </div>
       </div>
     </div>

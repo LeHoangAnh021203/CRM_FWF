@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import {
   CalendarDate,
   today,
@@ -10,22 +10,26 @@ import salesData1 from "../../data/danh_sach_ban_hang.json";
 import salesData2 from "../../data/ban_hang_doanh_so.json";
 import salesData3 from "../../data/dich_vu_ban_hang.json";
 import khAppData from "../../data/khach_hang_su_dung_app.json";
-import OrderFilter from "./OrderFilter";
-import OrderRegionalSalesByDay from "./OrderRegionalSalesByDay";
-import OrderStoreTypeSalesByDay from "./OrderStoreTypeSalesByDay";
-import OrderTotalSales from "./OrderTotalSales";
-import OrderActualCollection from "./OrderActualCollection";
-import OrderTotalByDay from "./OrderTotalByDay";
-import OrderTotalByStore from "./OrderTotalByStore";
-import OrderCustomerTypeSaleaByDay from "./OrderCustomerTypeSaleaByDay";
-import OrderTop10LocationChartData from "./OrderTop10LocationChartData";
-import OrderActualStoreSale from "./OrderActualStoreSale";
-import OrdersChartData from "./OrdersChartData";
-import OrderTop10StoreOfOrder from "./OrderTop10StoreOfOrder";
-import OrderOfStore from "./OrderOfStore";
-import OrderStatCards from "./OrderStatCards";
-import OrderPiePaymentData from "./OrderPiePaymentData";
-import OrderPaymentRegionData from "./OrderPaymentRegionData";
+import {
+  LazyOrderFilter,
+  LazyOrderRegionalSalesByDay,
+  LazyOrderStoreTypeSalesByDay,
+  LazyOrderTotalSales,
+  LazyOrderActualCollection,
+  LazyOrderTotalByDay,
+  LazyOrderTotalByStore,
+  LazyOrderCustomerTypeSaleaByDay,
+  LazyOrderTop10LocationChartData,
+  LazyOrderActualStoreSale,
+  LazyOrdersChartData,
+  LazyOrderTop10StoreOfOrder,
+  LazyOrderOfStore,
+  LazyOrderStatCards,
+  LazyOrderPiePaymentData,
+  LazyOrderPaymentRegionData,
+} from "./lazy-charts";
+import { Notification, useNotification } from "@/components/notification";
+import { useLocalStorageState, clearLocalStorageKeys } from "@/hooks/useLocalStorageState";
 
 interface DataPoint {
   date: string;
@@ -198,16 +202,37 @@ const locationRegionMap: Record<string, string> = {
 };
 
 export default function CustomerReportPage() {
-  const [startDate, setStartDate] = useState<CalendarDate>(
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
+  const hasShownSuccess = useRef(false);
+  const hasShownError = useRef(false);
+  
+  // Function để reset tất cả filter về mặc định
+  const resetFilters = () => {
+    clearLocalStorageKeys([
+      'orders-startDate',
+      'orders-endDate',
+      'orders-selectedBranches',
+      'orders-selectedRegions'
+    ]);
+    setStartDate(today(getLocalTimeZone()).subtract({ days: 7 }));
+    setEndDate(today(getLocalTimeZone()));
+    setSelectedBranches([]);
+    setSelectedRegions([]);
+    showSuccess("Đã reset tất cả filter về mặc định!");
+  };
+  
+  const [startDate, setStartDate] = useLocalStorageState<CalendarDate>(
+    "orders-startDate",
     today(getLocalTimeZone()).subtract({ days: 7 })
   );
-  const [endDate, setEndDate] = useState<CalendarDate>(
+  const [endDate, setEndDate] = useLocalStorageState<CalendarDate>(
+    "orders-endDate",
     today(getLocalTimeZone())
   );
-  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
+  const [selectedBranches, setSelectedBranches] = useLocalStorageState<string[]>("orders-selectedBranches", []);
 
   // Thêm state cho Region và Branch
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [selectedRegions, setSelectedRegions] = useLocalStorageState<string[]>("orders-selectedRegions", []);
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [regionSearch, setRegionSearch] = useState("");
@@ -264,17 +289,17 @@ export default function CustomerReportPage() {
 
   // XỬ LÍ API
 
-  const { data: regionRevenueRaw } = useApiData<{
+  const { data: regionRevenueRaw, loading: regionRevenueLoading, error: regionRevenueError } = useApiData<{
     currentRange: { region: string; date: string; totalRevenue: number }[];
     previousRange: { region: string; date: string; totalRevenue: number }[];
   }>(`${API_BASE_URL}/api/sales/region-revenue`, fromDate, toDate);
 
-  const { data: shopTyperegionRevenueRaw } = useApiData<{
+  const { data: shopTyperegionRevenueRaw, loading: shopTypeLoading, error: shopTypeError } = useApiData<{
     currentRange: { shopType: string; date: string; actualRevenue: number }[];
     previousRange: { shopType: string; date: string; actualRevenue: number }[];
   }>(`${API_BASE_URL}/api/sales/shop-type-revenue`, fromDate, toDate);
 
-  const { data: revenueSummaryRaw } = useApiData<{
+  const { data: revenueSummaryRaw, loading: revenueSummaryLoading, error: revenueSummaryError } = useApiData<{
     currentRange: { shopType: string; date: string; totalRevenue: number }[];
     previousRange: { shopType: string; date: string; totalRevenue: number }[];
     totalRevenue: number;
@@ -283,13 +308,13 @@ export default function CustomerReportPage() {
     actualGrowth: number;
   }>(`${API_BASE_URL}/api/sales/revenue-summary`, fromDate, toDate);
 
-  const { data: regionStatRaw } = useApiData<RegionStatData[]>(
+  const { data: regionStatRaw, loading: regionStatLoading, error: regionStatError } = useApiData<RegionStatData[]>(
     `${API_BASE_URL}/api/sales/region-stat`,
     fromDate,
     toDate
   );
 
-  const { data: regionActualPie } = useApiData<{
+  const { data: regionActualPie, loading: regionActualLoading, error: regionActualError } = useApiData<{
     currentRange: { shopType: string; date: string; totalRevenue: number }[];
     previousRange: { shopType: string; date: string; totalRevenue: number }[];
     totalRevenue: number;
@@ -298,7 +323,7 @@ export default function CustomerReportPage() {
     actualGrowth: number;
   }>(`${API_BASE_URL}/api/sales/region-actual-pie`, fromDate, toDate);
 
-  const { data: dailyRegionRevenue } = useApiData<{
+  const { data: dailyRegionRevenue, loading: dailyRegionLoading, error: dailyRegionError } = useApiData<{
     currentRange: { shopType: string; date: string; totalRevenue: number }[];
     previousRange: { shopType: string; date: string; totalRevenue: number }[];
     totalRevenue: number;
@@ -307,7 +332,7 @@ export default function CustomerReportPage() {
     actualGrowth: number;
   }>(`${API_BASE_URL}/api/sales/daily-region-revenue`, fromDate, toDate);
 
-  const { data: dailyByCustomerType } = useApiData<
+  const { data: dailyByCustomerType, loading: dailyCustomerLoading, error: dailyCustomerError } = useApiData<
     {
       date: string;
       customerType: string;
@@ -315,7 +340,7 @@ export default function CustomerReportPage() {
     }[]
   >(`${API_BASE_URL}/api/sales/daily-by-customer-type`, fromDate, toDate);
 
-  const { data: dailyOrderStats } = useApiData<
+  const { data: dailyOrderStats, loading: dailyOrderLoading, error: dailyOrderError } = useApiData<
     {
       date: string;
       customerType: string;
@@ -325,7 +350,7 @@ export default function CustomerReportPage() {
     }[]
   >(`${API_BASE_URL}/api/sales/daily-order-stats`, fromDate, toDate);
 
-  const { data: fullStoreRevenue } = useApiData<
+  const { data: fullStoreRevenue, loading: fullStoreLoading, error: fullStoreError } = useApiData<
     {
       storeName: string;
       currentOrders: number;
@@ -338,6 +363,49 @@ export default function CustomerReportPage() {
       orderPercent: number;
     }[]
   >(`${API_BASE_URL}/api/sales/full-store-revenue`, fromDate, toDate);
+
+  // Track overall loading and error states for notifications
+  const allLoadingStates = [
+    regionRevenueLoading,
+    shopTypeLoading,
+    revenueSummaryLoading,
+    regionStatLoading,
+    regionActualLoading,
+    dailyRegionLoading,
+    dailyCustomerLoading,
+    dailyOrderLoading,
+    fullStoreLoading,
+  ];
+
+  const allErrorStates = [
+    regionRevenueError,
+    shopTypeError,
+    revenueSummaryError,
+    regionStatError,
+    regionActualError,
+    dailyRegionError,
+    dailyCustomerError,
+    dailyOrderError,
+    fullStoreError,
+  ];
+
+  const isLoading = allLoadingStates.some(loading => loading);
+  const hasError = allErrorStates.some(error => error);
+
+  // Show notifications based on loading and error states
+  useEffect(() => {
+    if (!isLoading && !hasError && revenueSummaryRaw && !hasShownSuccess.current) {
+      showSuccess("Dữ liệu đơn hàng đã được tải thành công!");
+      hasShownSuccess.current = true;
+    }
+  }, [isLoading, hasError, revenueSummaryRaw, showSuccess]);
+
+  useEffect(() => {
+    if (hasError && !hasShownError.current) {
+      showError("Không thể kết nối đến API. Vui lòng thử lại sau.");
+      hasShownError.current = true;
+    }
+  }, [hasError, showError]);
 
   function parseVNDate(str: string): CalendarDate | null {
     if (!str || typeof str !== "string") return null;
@@ -817,27 +885,13 @@ export default function CustomerReportPage() {
         (a, b) => b[1] - a[1]
       );
       const top10 = sortedLocations.slice(0, 10);
-      const other = sortedLocations.slice(10);
-      const otherTotal = other.reduce((sum, [, revenue]) => sum + revenue, 0);
 
-      return [
-        ...top10.map(([name, revenue], idx) => ({
-          name,
-          revenue: Number(revenue),
-          foxie: Math.round(Number(revenue) * 0.45),
-          rank: idx + 1,
-        })),
-        ...(otherTotal > 0
-          ? [
-              {
-                name: "Khác",
-                revenue: otherTotal,
-                foxie: Math.round(otherTotal * 0.45),
-                rank: null,
-              },
-            ]
-          : []),
-      ];
+      return top10.map(([name, revenue], idx) => ({
+        name,
+        revenue: Number(revenue),
+        foxie: Math.round(Number(revenue) * 0.45),
+        rank: idx + 1,
+      }));
     }
 
     // Use API data
@@ -845,30 +899,13 @@ export default function CustomerReportPage() {
       (a, b) => b.actualRevenue - a.actualRevenue
     );
     const top10 = sortedStores.slice(0, 10);
-    const other = sortedStores.slice(10);
-    const otherTotal = other.reduce(
-      (sum, store) => sum + store.actualRevenue,
-      0
-    );
 
-    return [
-      ...top10.map((store, idx) => ({
-        name: store.storeName,
-        revenue: store.actualRevenue,
-        foxie: store.foxieRevenue,
-        rank: idx + 1,
-      })),
-      ...(otherTotal > 0
-        ? [
-            {
-              name: "Khác",
-              revenue: otherTotal,
-              foxie: Math.round(otherTotal * 0.45), // Estimate foxie for "Khác"
-              rank: null,
-            },
-          ]
-        : []),
-    ];
+    return top10.map((store, idx) => ({
+      name: store.storeName,
+      revenue: store.actualRevenue,
+      foxie: store.foxieRevenue,
+      rank: idx + 1,
+    }));
   }, [fullStoreRevenue, realData, weekStart, weekEnd, locationOptions]);
 
   // Hàm custom label cho BarChart
@@ -1427,160 +1464,227 @@ export default function CustomerReportPage() {
 
   return (
     <div className="p-2 sm:p-4 md:p-6 max-w-full">
+      <Notification
+        type={notification.type}
+        message={notification.message}
+        isVisible={notification.isVisible}
+        onClose={hideNotification}
+      />
       <div className="mb-6">
         <div className="p-2">
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-2">
-            Order Report
-          </h1>
+          <div className="flex justify-between items-center mb-2">
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
+              Order Report
+            </h1>
+            <button
+              onClick={resetFilters}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+            >
+              Reset Filters
+            </button>
+          </div>
 
           {/* Filter */}
-          <OrderFilter
-            startDate={startDate}
-            setStartDate={setStartDate}
-            endDate={endDate}
-            setEndDate={setEndDate}
-            today={() => today(getLocalTimeZone())}
-            parseDate={parseDate}
-            selectedRegions={selectedRegions}
-            setSelectedRegions={setSelectedRegions}
-            regionOptions={regionOptions}
-            regionSearch={regionSearch}
-            setRegionSearch={setRegionSearch}
-            filteredRegionOptions={filteredRegionOptions}
-            showRegionDropdown={showRegionDropdown}
-            setShowRegionDropdown={setShowRegionDropdown}
-            regionDropdownRef={regionDropdownRef}
-            selectedBranches={selectedBranches}
-            setSelectedBranches={setSelectedBranches}
-            locationOptions={locationOptions}
-            locationSearch={locationSearch}
-            setLocationSearch={setLocationSearch}
-            filteredLocationOptions={filteredLocationOptions}
-            showLocationDropdown={showLocationDropdown}
-            setShowLocationDropdown={setShowLocationDropdown}
-            locationDropdownRef={locationDropdownRef}
-          />
+          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-10 bg-gray-200 rounded"></div></div>}>
+            <LazyOrderFilter
+              startDate={startDate}
+              setStartDate={setStartDate}
+              endDate={endDate}
+              setEndDate={setEndDate}
+              today={() => today(getLocalTimeZone())}
+              parseDate={parseDate}
+              selectedRegions={selectedRegions}
+              setSelectedRegions={setSelectedRegions}
+              regionOptions={regionOptions}
+              regionSearch={regionSearch}
+              setRegionSearch={setRegionSearch}
+              filteredRegionOptions={filteredRegionOptions}
+              showRegionDropdown={showRegionDropdown}
+              setShowRegionDropdown={setShowRegionDropdown}
+              regionDropdownRef={regionDropdownRef}
+              selectedBranches={selectedBranches}
+              setSelectedBranches={setSelectedBranches}
+              locationOptions={locationOptions}
+              locationSearch={locationSearch}
+              setLocationSearch={setLocationSearch}
+              filteredLocationOptions={filteredLocationOptions}
+              showLocationDropdown={showLocationDropdown}
+              setShowLocationDropdown={setShowLocationDropdown}
+              locationDropdownRef={locationDropdownRef}
+            />
+          </Suspense>
         </div>
         {/* Tổng doanh số vùng */}
-        <OrderRegionalSalesByDay
-          regionalSalesByDay={regionalSalesByDay}
-          formatAxisDate={formatAxisDate}
-          formatMoneyShort={formatMoneyShort}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+          <LazyOrderRegionalSalesByDay
+            regionalSalesByDay={regionalSalesByDay}
+            formatAxisDate={formatAxisDate}
+            formatMoneyShort={formatMoneyShort}
+          />
+        </Suspense>
         {/* Tổng doanh số loại cửa hàng*/}
-        <OrderStoreTypeSalesByDay
-          storeTypeSalesByDay={storeTypeSalesByDay}
-          formatAxisDate={formatAxisDate}
-          formatMoneyShort={(val: number) => (val / 1_000_000).toFixed(1) + "M"}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+          <LazyOrderStoreTypeSalesByDay
+            storeTypeSalesByDay={storeTypeSalesByDay}
+            formatAxisDate={formatAxisDate}
+            formatMoneyShort={(val: number) => (val / 1_000_000).toFixed(1) + "M"}
+          />
+        </Suspense>
         {/* Tổng doanh số và Tổng thực thu */}
-        <OrderTotalSales
-          totalWeekSales={revenueSummaryRaw?.totalRevenue ?? 0}
-          weekSalesChange={revenueSummaryRaw?.revenueGrowth ?? 0}
-          totalRevenueThisWeek={revenueSummaryRaw?.actualRevenue ?? 0}
-          weekRevenueChange={revenueSummaryRaw?.actualGrowth ?? 0}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-32 bg-gray-200 rounded"></div></div>}>
+          <LazyOrderTotalSales
+            totalWeekSales={revenueSummaryRaw?.totalRevenue ?? 0}
+            weekSalesChange={revenueSummaryRaw?.revenueGrowth ?? 0}
+            totalRevenueThisWeek={revenueSummaryRaw?.actualRevenue ?? 0}
+            weekRevenueChange={revenueSummaryRaw?.actualGrowth ?? 0}
+          />
+        </Suspense>
         {/* Thực thu tại các khu vực trong tuần */}
-        <OrderActualCollection
-          regionStats={regionStats}
-          totalRevenueThisWeek={
-            regionActualPie?.actualRevenue ||
-            (Array.isArray(regionStatRaw)
-              ? regionStatRaw.reduce((sum, r) => sum + r.revenue, 0)
-              : 0)
-          }
-          pieRegionRevenueData={pieRegionRevenueData}
-          isMobile={isMobile}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+          <LazyOrderActualCollection
+            regionStats={regionStats}
+            totalRevenueThisWeek={
+              regionActualPie?.actualRevenue ||
+              (Array.isArray(regionStatRaw)
+                ? regionStatRaw.reduce((sum, r) => sum + r.revenue, 0)
+                : 0)
+            }
+            pieRegionRevenueData={pieRegionRevenueData}
+            isMobile={isMobile}
+          />
+        </Suspense>
         {/* Tổng thực thu tại các khu vực theo ngày */}
-        <OrderTotalByDay
-          key={`regional-chart-${fromDate}-${toDate}`}
-          data={regionalSalesByDay}
-          isMobile={isMobile}
-          formatAxisDate={formatAxisDate}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+          <LazyOrderTotalByDay
+            key={`regional-chart-${fromDate}-${toDate}`}
+            data={regionalSalesByDay}
+            isMobile={isMobile}
+            formatAxisDate={formatAxisDate}
+          />
+        </Suspense>
         {/* Tổng thực thu theo loại cửa hàng */}
-        <OrderTotalByStore
-          data={storeTypeSalesByDay}
-          formatAxisDate={formatAxisDate}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+          <LazyOrderTotalByStore
+            data={storeTypeSalesByDay}
+            formatAxisDate={formatAxisDate}
+          />
+        </Suspense>
         {/* Tổng thực thu theo loại khách hàng trong tuần */}
-        <OrderCustomerTypeSaleaByDay
-          isMobile={isMobile}
-          customerTypeSalesByDay={customerTypeSalesByDay}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+          <LazyOrderCustomerTypeSaleaByDay
+            isMobile={isMobile}
+            customerTypeSalesByDay={customerTypeSalesByDay}
+          />
+        </Suspense>
         {/* Top 10 cửa hàng trong tuần theo thực thu và 6 bảng thống kê */}
-        <OrderTop10LocationChartData
-          isMobile={isMobile}
-          top10LocationChartData={top10LocationChartData}
-          formatMoneyShort={formatMoneyShort}
-          renderBarLabel={renderBarLabel}
-          totalRevenueThisWeek={totalRevenueThisWeek}
-          percentRevenue={percentRevenue}
-          retailThisWeek={retailThisWeek}
-          percentRetail={percentRetail}
-          productThisWeek={productThisWeek}
-          percentProduct={percentProduct}
-          cardThisWeek={cardThisWeek}
-          percentCard={percentCard}
-          foxieThisWeek={foxieThisWeek}
-          percentFoxie={percentFoxie}
-          avgRevenueThisWeek={avgRevenueThisWeek}
-          percentAvg={percentAvg}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+          <LazyOrderTop10LocationChartData
+            isMobile={isMobile}
+            top10LocationChartData={top10LocationChartData}
+            formatMoneyShort={formatMoneyShort}
+            renderBarLabel={renderBarLabel}
+            totalRevenueThisWeek={totalRevenueThisWeek}
+            percentRevenue={percentRevenue}
+            retailThisWeek={retailThisWeek}
+            percentRetail={percentRetail}
+            productThisWeek={productThisWeek}
+            percentProduct={percentProduct}
+            cardThisWeek={cardThisWeek}
+            percentCard={percentCard}
+            foxieThisWeek={foxieThisWeek}
+            percentFoxie={percentFoxie}
+            avgRevenueThisWeek={avgRevenueThisWeek}
+            percentAvg={percentAvg}
+          />
+        </Suspense>
         {/* Thực thu cửa hàng */}
-        <OrderActualStoreSale
-          storeTableData={storeTableData}
-          avgRevenuePercent={avgRevenuePercent}
-          avgFoxiePercent={avgFoxiePercent}
-          avgOrderPercent={avgOrderPercent}
-          avgRevenueAll={avgRevenueAll}
-          avgRevenueDeltaAll={avgRevenueDeltaAll}
-          totalFoxieAll={totalFoxieAll}
-          totalOrdersAll={totalOrdersAll}
-          avgOrdersDeltaAll={avgOrdersDeltaAll}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
+          <div className="h-5 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+              <div key={i} className="h-8 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>}>
+          <LazyOrderActualStoreSale
+            storeTableData={storeTableData}
+            avgRevenuePercent={avgRevenuePercent}
+            avgFoxiePercent={avgFoxiePercent}
+            avgOrderPercent={avgOrderPercent}
+            avgRevenueAll={avgRevenueAll}
+            avgRevenueDeltaAll={avgRevenueDeltaAll}
+            totalFoxieAll={totalFoxieAll}
+            totalOrdersAll={totalOrdersAll}
+            avgOrdersDeltaAll={avgOrdersDeltaAll}
+          />
+        </Suspense>
         {/* Số lượng đơn hàng theo ngày (- đơn mua thẻ) dạng chart */}
-        <OrdersChartData
-          isMobile={isMobile}
-          ordersChartData={ordersChartData}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+          <LazyOrdersChartData
+            isMobile={isMobile}
+            ordersChartData={ordersChartData}
+          />
+        </Suspense>
         {/* Top 10 cửa hàng theo đơn hàng */}
-        <OrderTop10StoreOfOrder
-          chartOrderData={chartOrderData}
-          isMobile={isMobile}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+          <LazyOrderTop10StoreOfOrder
+            chartOrderData={chartOrderData}
+            isMobile={isMobile}
+          />
+        </Suspense>
         {/* Số đơn tại các cửa hàng */}
-        <OrderOfStore
-          storeOrderTableData={storeOrderTableData}
-          totalOrderSumAll={totalOrderSumAll}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
+          <div className="h-5 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+              <div key={i} className="h-8 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>}>
+          <LazyOrderOfStore
+            storeOrderTableData={storeOrderTableData}
+            totalOrderSumAll={totalOrderSumAll}
+          />
+        </Suspense>
         {/* 5 bảng tổng số liệu */}
-        <OrderStatCards
-          totalOrdersThisWeek={totalOrdersThisWeek}
-          deltaOrders={deltaOrders}
-          cardOrdersThisWeek={cardOrdersThisWeek}
-          deltaCardOrders={deltaCardOrders}
-          retailOrdersThisWeek={retailOrdersThisWeek}
-          deltaRetailOrders={deltaRetailOrders}
-          foxieOrdersThisWeek={foxieOrdersThisWeek}
-          deltaFoxieOrders={deltaFoxieOrders}
-          productOrdersThisWeek={productOrdersThisWeek}
-          deltaProductOrders={deltaProductOrders}
-        />
+        <Suspense fallback={<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="bg-white rounded-xl shadow-lg p-4 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>}>
+          <LazyOrderStatCards
+            totalOrdersThisWeek={totalOrdersThisWeek}
+            deltaOrders={deltaOrders}
+            cardOrdersThisWeek={cardOrdersThisWeek}
+            deltaCardOrders={deltaCardOrders}
+            retailOrdersThisWeek={retailOrdersThisWeek}
+            deltaRetailOrders={deltaRetailOrders}
+            foxieOrdersThisWeek={foxieOrdersThisWeek}
+            deltaFoxieOrders={deltaFoxieOrders}
+            productOrdersThisWeek={productOrdersThisWeek}
+            deltaProductOrders={deltaProductOrders}
+          />
+        </Suspense>
         {/* PieChart tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ */}
-        <OrderPiePaymentData
-          piePaymentData={piePaymentData}
-          totalAllPie={totalAllPie}
-          isMobile={isMobile}
-          renderPieLabel={renderPieLabel}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+          <LazyOrderPiePaymentData
+            piePaymentData={piePaymentData}
+            totalAllPie={totalAllPie}
+            isMobile={isMobile}
+            renderPieLabel={renderPieLabel}
+          />
+        </Suspense>
 
         {/* Hình thức thanh toán theo vùng */}
-        <OrderPaymentRegionData
-          paymentRegionData={paymentRegionData}
-          isMobile={isMobile}
-        />
+        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
+          <LazyOrderPaymentRegionData
+            paymentRegionData={paymentRegionData}
+            isMobile={isMobile}
+          />
+        </Suspense>
       </div>
     </div>
   );
