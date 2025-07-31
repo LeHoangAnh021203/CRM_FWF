@@ -56,6 +56,15 @@ const OrderFilter = React.memo(function OrderFilter({
   setShowLocationDropdown,
   locationDropdownRef,
 }: OrderFilterProps) {
+  // Use state to prevent hydration mismatch
+  const [todayString, setTodayString] = React.useState<string>("");
+  const [minEndDate, setMinEndDate] = React.useState<string>("");
+
+  // Set dates after hydration to prevent mismatch
+  React.useEffect(() => {
+    setTodayString(today().toString());
+    setMinEndDate(startDate.add({ days: 1 }).toString());
+  }, [today, startDate]);
 
     
   return (
@@ -72,7 +81,7 @@ const OrderFilter = React.memo(function OrderFilter({
                     const date = parseDate(e.target.value);
                     setStartDate(date);
                   }}
-                  max={today().toString()}
+                  max={todayString}
                 />
               </div>
               <div className="w-full bg-white flex flex-col gap-1">
@@ -85,8 +94,8 @@ const OrderFilter = React.memo(function OrderFilter({
                     const date = parseDate(e.target.value);
                     setEndDate(date);
                   }}
-                  min={startDate.add({ days: 1 }).toString()}
-                  max={today().toString()}
+                  min={minEndDate}
+                  max={todayString}
                 />
               </div>
             </div>

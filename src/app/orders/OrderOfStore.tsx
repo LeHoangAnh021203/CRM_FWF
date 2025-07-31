@@ -33,6 +33,74 @@ export default function OrderOfStore({
   storeOrderTableData,
   totalOrderSumAll,
 }: OrderOfStoreProps) {
+  const [isClient, setIsClient] = React.useState(false);
+  
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  // Show loading state during SSR to prevent hydration mismatch
+  if (!isClient) {
+    return (
+      <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+        <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+          Số đơn tại các cửa hàng
+        </div>
+        <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
+          <table className="min-w-[700px] w-full text-xs sm:text-sm">
+            <thead className="sticky top-0 z-10 bg-yellow-200">
+              <tr className="bg-yellow-200 font-bold text-gray-900">
+                <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
+                <th className="px-3 py-3 text-left">Locations</th>
+                <th className="px-3 py-3 text-right ">Số đơn hàng</th>
+                <th className="px-3 py-3 text-right">Δ</th>
+                <th className="px-3 py-3 text-right ">Đơn mua thẻ</th>
+                <th className="px-3 py-3 text-right">Δ</th>
+                <th className="px-3 py-3 text-right ">Đơn dịch vụ lẻ</th>
+                <th className="px-3 py-3 text-right">Δ</th>
+                <th className="px-3 py-3 text-right ">
+                  Đơn trả bằng thẻ Foxie
+                </th>
+                <th className="px-3 py-3 text-right rounded-tr-xl">Δ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {storeOrderTableData.map((row: StoreOrderTableData, idx: number) => (
+                <tr key={row.location}>
+                  <td className="px-3 py-2 text-left">{idx + 1}</td>
+                  <td className="px-3 py-2 text-left">{row.location}</td>
+                  <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">-</td>
+                  <td className="px-3 py-2 text-right">-</td>
+                  <td className="px-3 py-2 text-right bg-[#8ed1fc]">-</td>
+                  <td className="px-3 py-2 text-right">-</td>
+                  <td className="px-3 py-2 text-right bg-[#fcb900]">-</td>
+                  <td className="px-3 py-2 text-right">-</td>
+                  <td className="px-3 py-2 text-right bg-[#a9b8c3]">-</td>
+                  <td className="px-3 py-2 text-right">-</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="sticky bottom-0 bg-gray-100 z-20">
+              <tr className="font-bold">
+                <td colSpan={2} className="px-3 py-2 text-left rounded-bl-xl">
+                  Tổng cộng
+                </td>
+                <td className="px-3 py-2 text-right bg-[#f8a0ca]">-</td>
+                <td className="px-3 py-2 text-right">-</td>
+                <td className="px-3 py-2 text-right bg-[#8ed1fc]">-</td>
+                <td className="px-3 py-2 text-right">-</td>
+                <td className="px-3 py-2 text-right bg-[#fcb900]">-</td>
+                <td className="px-3 py-2 text-right">-</td>
+                <td className="px-3 py-2 text-right bg-[#a9b8c3]">-</td>
+                <td className="px-3 py-2 text-right rounded-br-xl">-</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
       <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">

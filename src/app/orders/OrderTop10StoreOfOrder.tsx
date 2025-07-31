@@ -9,6 +9,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  LabelList,
 } from "recharts";
 
 interface ChartOrderData {
@@ -28,6 +29,12 @@ export default function OrderTop10StoreOfOrder({
   chartOrderData,
   isMobile,
 }: OrderTop10StoreOfOrderProps) {
+  // Tính giá trị cao nhất cho mỗi loại bar
+  const maxTotalOrders = Math.max(...chartOrderData.map(item => item.totalOrders));
+  const maxRetailOrders = Math.max(...chartOrderData.map(item => item.retailOrders));
+  const maxCardOrders = Math.max(...chartOrderData.map(item => item.cardOrders));
+  const maxFoxieOrders = Math.max(...chartOrderData.map(item => item.foxieOrders));
+
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
       <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
@@ -36,7 +43,7 @@ export default function OrderTop10StoreOfOrder({
       <div className="w-full overflow-x-auto">
         <ResponsiveContainer
           width="100%"
-          height={isMobile ? 300 : 400}
+          height={isMobile ? 300 : 600}
           minWidth={320}
         >
           <BarChart
@@ -85,25 +92,77 @@ export default function OrderTop10StoreOfOrder({
               name="Số đơn hàng"
               fill="#bc8b6f"
               barSize={5}
-            />
+            >
+              <LabelList
+                dataKey="totalOrders"
+                position="right"
+                formatter={(value: React.ReactNode) => {
+                  if (typeof value === "number") {
+                    return value === maxTotalOrders && value > 0 ? value.toString() : "";
+                  }
+                  return "";
+                }}
+                fill="#bc8b6f"
+                fontSize={isMobile ? 10 : 12}
+              />
+            </Bar>
             <Bar
               dataKey="retailOrders"
               name="Đơn dịch vụ lẻ/sản phẩm"
               fill="#f16a3f"
               barSize={5}
-            />
+            >
+              <LabelList
+                dataKey="retailOrders"
+                position="right"
+                formatter={(value: React.ReactNode) => {
+                  if (typeof value === "number") {
+                    return value === maxRetailOrders && value > 0 ? value.toString() : "";
+                  }
+                  return "";
+                }}
+                fill="#f16a3f"
+                fontSize={isMobile ? 10 : 12}
+              />
+            </Bar>
             <Bar
               dataKey="cardOrders"
               name="Đơn mua thẻ"
               fill="#b6d47a"
               barSize={5}
-            />
+            >
+              <LabelList
+                dataKey="cardOrders"
+                position="right"
+                formatter={(value: React.ReactNode) => {
+                  if (typeof value === "number") {
+                    return value === maxCardOrders && value > 0 ? value.toString() : "";
+                  }
+                  return "";
+                }}
+                fill="#b6d47a"
+                fontSize={isMobile ? 10 : 12}
+              />
+            </Bar>
             <Bar
               dataKey="foxieOrders"
               name="Đơn trả bằng thẻ Foxie"
               fill="#81d4fa"
               barSize={5}
-            />
+            >
+              <LabelList
+                dataKey="foxieOrders"
+                position="right"
+                formatter={(value: React.ReactNode) => {
+                  if (typeof value === "number") {
+                    return value === maxFoxieOrders && value > 0 ? value.toString() : "";
+                  }
+                  return "";
+                }}
+                fill="#81d4fa"
+                fontSize={isMobile ? 10 : 12}
+              />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

@@ -10,7 +10,6 @@ import {
   Bar,
   LabelList,
 } from "recharts";
-import { Props as LabelProps } from "recharts/types/component/Label";
 
 interface Top10LocationData {
   name: string;
@@ -23,7 +22,6 @@ interface Props {
   isMobile: boolean;
   top10LocationChartData: Top10LocationData[];
   formatMoneyShort: (val: number) => string;
-  renderBarLabel: (props: LabelProps) => React.ReactNode;
   totalRevenueThisWeek: number;
   percentRevenue: number | null;
   retailThisWeek: number;
@@ -38,14 +36,83 @@ interface Props {
   percentAvg: number | null;
 }
 
-const StatCard = ({ title, value, delta, valueColor }: { title: string; value: number; delta: number | null; valueColor?: string }) => {
+const StatCard = ({
+  title,
+  value,
+  delta,
+  valueColor,
+}: {
+  title: string;
+  value: number;
+  delta: number | null;
+  valueColor?: string;
+}) => {
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const isUp = delta !== null && delta > 0;
   const isDown = delta !== null && delta < 0;
+
+  // Use consistent number formatting to prevent hydration mismatch
+  const formatNumber = (num: number) => {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
+
+  // Show loading state during SSR to prevent hydration mismatch
+  if (!isClient) {
+    return (
+      <div
+        className={`bg-white rounded-xl shadow p-3 flex flex-col items-center w-full border-2 ${
+          valueColor ?? "border-gray-200"
+        }`}
+      >
+        <div className="text-xs font-semibold text-gray-700 mb-2 text-center leading-tight">
+          {title}
+        </div>
+        <div
+          className={`text-lg sm:text-xl lg:text-2xl font-bold mb-2 text-center break-words ${
+            valueColor ?? "text-black"
+          }`}
+        >
+          -
+        </div>
+        <div
+          className={`text-xs font-semibold flex items-center gap-1 text-gray-500`}
+        >
+          -
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`bg-white rounded-xl shadow p-3 flex flex-col items-center w-full border-2 ${valueColor ?? "border-gray-200"}`}>
-      <div className="text-xs font-semibold text-gray-700 mb-2 text-center leading-tight">{title}</div>
-      <div className={`text-lg sm:text-xl lg:text-2xl font-bold mb-2 text-center break-words ${valueColor ?? "text-black"}`}>{value.toLocaleString()}</div>
-      <div className={`text-xs font-semibold flex items-center gap-1 ${isUp ? "text-green-600" : isDown ? "text-red-500" : "text-gray-500"}`}>{isUp && <span>↑</span>}{isDown && <span>↓</span>}{delta === null ? "N/A" : Math.abs(delta).toLocaleString()}</div>
+    <div
+      className={`bg-white rounded-xl shadow p-3 flex flex-col items-center w-full border-2 ${
+        valueColor ?? "border-gray-200"
+      }`}
+    >
+      <div className="text-xs font-semibold text-gray-700 mb-2 text-center leading-tight">
+        {title}
+      </div>
+      <div
+        className={`text-lg sm:text-xl lg:text-2xl font-bold mb-2 text-center break-words ${
+          valueColor ?? "text-black"
+        }`}
+      >
+        {formatNumber(value)}
+      </div>
+      <div
+        className={`text-xs font-semibold flex items-center gap-1 ${
+          isUp ? "text-green-600" : isDown ? "text-red-500" : "text-gray-500"
+        }`}
+      >
+        {isUp && <span>↑</span>}
+        {isDown && <span>↓</span>}
+        {delta === null ? "N/A" : formatNumber(Math.abs(delta))}
+      </div>
     </div>
   );
 };
@@ -54,7 +121,6 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
   isMobile,
   top10LocationChartData,
   formatMoneyShort,
-  renderBarLabel,
   totalRevenueThisWeek,
   percentRevenue,
   retailThisWeek,
@@ -77,7 +143,7 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
         <div className="w-full overflow-x-auto">
           <ResponsiveContainer
             width="100%"
-            height={isMobile ? 400 : 600}
+            height={isMobile ? 400 : 700}
             minWidth={500}
           >
             <BarChart
@@ -121,12 +187,19 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
                 fill="#8d6e63"
                 radius={[0, 8, 8, 0]}
                 maxBarSize={50}
-                label={{
-                  position: "right",
-                  content: (props: LabelProps) => renderBarLabel({ ...props, fill: "#8d6e63" }),
-                }}
               >
-                <LabelList dataKey="revenue" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+                <LabelList
+                  dataKey="revenue"
+                  position="right"
+                  fontSize={isMobile ? 10 : 12}
+                  fill="#8d6e63"
+                  formatter={(value: React.ReactNode) => {
+                    if (typeof value === "number" && value > 0) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
+                  }}
+                />
               </Bar>
               <Bar
                 dataKey="foxie"
@@ -134,12 +207,19 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
                 fill="#b6d47a"
                 radius={[0, 8, 8, 0]}
                 maxBarSize={50}
-                label={{
-                  position: "right",
-                  content: (props: LabelProps) => renderBarLabel({ ...props, fill: "#b6d47a" }),
-                }}
               >
-                <LabelList dataKey="foxie" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+                <LabelList
+                  dataKey="foxie"
+                  position="right"
+                  fontSize={isMobile ? 10 : 12}
+                  fill="#b6d47a"
+                  formatter={(value: React.ReactNode) => {
+                    if (typeof value === "number" && value > 0) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
+                  }}
+                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -147,12 +227,42 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
       </div>
       <div className="w-full lg:w-80 bg-white rounded-xl shadow-lg p-2 sm:p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
-          <StatCard title="Thực thu" value={totalRevenueThisWeek} delta={percentRevenue} valueColor="text-[#a9b8c3]" />
-          <StatCard title="Thực thu của dịch vụ lẻ" value={retailThisWeek} delta={percentRetail} valueColor="text-[#fcb900]" />
-          <StatCard title="Thực thu mua sản phẩm" value={productThisWeek} delta={percentProduct} valueColor="text-[#b6d47a]" />
-          <StatCard title="Thực thu của mua thẻ" value={cardThisWeek} delta={percentCard} valueColor="text-[#8ed1fc]" />
-          <StatCard title="Tổng trả bằng thẻ Foxie" value={foxieThisWeek} delta={percentFoxie} valueColor="text-[#a9b8c3]" />
-          <StatCard title="Trung bình thực thu mỗi ngày" value={avgRevenueThisWeek} delta={percentAvg} valueColor="text-[#b39ddb]" />
+          <StatCard
+            title="Thực thu"
+            value={totalRevenueThisWeek}
+            delta={percentRevenue}
+            valueColor="text-[#a9b8c3]"
+          />
+          <StatCard
+            title="Thực thu của dịch vụ lẻ"
+            value={retailThisWeek}
+            delta={percentRetail}
+            valueColor="text-[#fcb900]"
+          />
+          <StatCard
+            title="Thực thu mua sản phẩm"
+            value={productThisWeek}
+            delta={percentProduct}
+            valueColor="text-[#b6d47a]"
+          />
+          <StatCard
+            title="Thực thu của mua thẻ"
+            value={cardThisWeek}
+            delta={percentCard}
+            valueColor="text-[#8ed1fc]"
+          />
+          <StatCard
+            title="Tổng trả bằng thẻ Foxie"
+            value={foxieThisWeek}
+            delta={percentFoxie}
+            valueColor="text-[#a9b8c3]"
+          />
+          <StatCard
+            title="Trung bình thực thu mỗi ngày"
+            value={avgRevenueThisWeek}
+            delta={percentAvg}
+            valueColor="text-[#b39ddb]"
+          />
         </div>
       </div>
     </div>

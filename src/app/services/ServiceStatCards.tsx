@@ -116,9 +116,7 @@ export default function ServiceStatCards({
             ❌ Lỗi API: {serviceSummaryError}
           </div>
         )}
-        {serviceSummary && !serviceSummaryLoading && (
-          <div className="text-green-600 text-sm">✅ Dữ liệu đã tải xong</div>
-        )}
+
       </div>
 
       <div className="flex flex-col md:flex-row w-full gap-4 mb-5 mt-5">

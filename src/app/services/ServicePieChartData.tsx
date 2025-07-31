@@ -117,17 +117,19 @@ export default function PieChartData({
             <Tooltip content={<CustomTooltip label="Tỉ lệ dịch vụ/combo/cộng thêm" />} />
           </PieChart>
         </ResponsiveContainer>
-        <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
-          {pieChartData.map((item) => (
-            <li key={item.key} className="flex items-center gap-1">
-              <span
-                className="inline-block w-3 h-3 rounded-full"
-                style={{ background: item.color }}
-              />
-              {item.label}
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-hidden">
+          <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
+            {pieChartData.map((item) => (
+              <li key={item.key} className="flex items-start gap-1">
+                <span
+                  className="inline-block w-3 h-3 rounded-full flex-shrink-0 mt-0.5"
+                  style={{ background: item.color }}
+                />
+                <span className="break-words">{item.label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       {/* PieChart top 10 dịch vụ theo số lượng */}
@@ -163,17 +165,19 @@ export default function PieChartData({
             <Tooltip content={<CustomTooltip label="Top 10 dịch vụ theo số lượng" />} />
           </PieChart>
         </ResponsiveContainer>
-        <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
-          {pieTop10Data.map((item) => (
-            <li key={item.name} className="flex items-center gap-1">
-              <span
-                className="inline-block w-3 h-3 rounded-full"
-                style={{ background: item.color }}
-              />
-              {item.name}
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-hidden">
+          <ul className="flex flex-wrap gap-2 mt-2 text-xs">
+            {pieTop10Data.map((item) => (
+              <li key={item.name} className="flex items-start gap-1">
+                <span
+                  className="inline-block w-3 h-3 rounded-full flex-shrink-0 mt-0.5"
+                  style={{ background: item.color }}
+                />
+                <span className="break-words">{item.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       {/* PieChart top 10 dịch vụ theo giá buổi */}
@@ -210,17 +214,19 @@ export default function PieChartData({
             <Tooltip content={<CustomTooltip label="Top 10 dịch vụ theo giá buổi" />} />
           </PieChart>
         </ResponsiveContainer>
-        <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
-          {pieTop10AvgData.map((item) => (
-            <li key={item.name} className="flex items-center gap-1">
-              <span
-                className="inline-block w-3 h-3 rounded-full"
-                style={{ background: item.color }}
-              />
-              {item.name}
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-hidden">
+          <ul className="flex flex-wrap gap-2 mt-2 text-xs">
+            {pieTop10AvgData.map((item) => (
+              <li key={item.name} className="flex items-start gap-1">
+                <span
+                  className="inline-block w-3 h-3 rounded-full flex-shrink-0 mt-0.5"
+                  style={{ background: item.color }}
+                />
+                <span className="break-words">{item.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   );

@@ -36,7 +36,7 @@ export default function ServicesTable({
 }: ServicesTableProps) {
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-      <div className="text-xl font-medium text-gray-700 text-center mb-4">
+      <div className="text-lg lg:text-xl font-medium text-gray-700 text-center mb-4">
         Bảng dịch vụ
       </div>
       {serviceTableLoading && (
@@ -50,42 +50,6 @@ export default function ServicesTable({
         </div>
       )}
       <div className="overflow-x-auto">
-        <table
-          className="text-xs sm:text-sm border table-fixed"
-          style={{ tableLayout: "fixed", width: "100%" }}
-        >
-          <thead>
-            <tr className="bg-yellow-200 text-gray-900">
-              <th className="w-12 px-2 py-2 border text-center font-bold">
-                STT
-              </th>
-              <th className="w-64 px-2 py-2 border text-left font-bold">
-                Dịch vụ
-              </th>
-              <th className="w-24 px-2 py-2 border text-center font-bold">
-                Loại
-              </th>
-              <th className="w-20 px-2 py-2 border text-right font-bold bg-orange-100">
-                Số lượng
-              </th>
-              <th className="w-20 px-2 py-2 border text-right font-bold">
-                Δ
-              </th>
-              <th className="w-24 px-2 py-2 border text-right font-bold">
-                % Số lượng
-              </th>
-              <th className="w-32 px-2 py-2 border text-right font-bold bg-blue-100">
-                Tổng giá
-              </th>
-              <th className="w-20 px-2 py-2 border text-right font-bold">
-                % Δ
-              </th>
-              <th className="w-24 px-2 py-2 border text-right font-bold">
-                % Tổng giá
-              </th>
-            </tr>
-          </thead>
-        </table>
         <div
           style={{
             maxHeight: 400,
@@ -96,9 +60,40 @@ export default function ServicesTable({
           }}
         >
           <table
-            className="min-w-[700px] text-xs sm:text-sm border table-fixed"
+            className="min-w-[700px] lg:min-w-full text-xs sm:text-sm border table-fixed"
             style={{ tableLayout: "fixed", width: "100%" }}
           >
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-yellow-200 text-gray-900">
+                <th className="w-12 px-2 py-2 border text-center font-bold">
+                  STT
+                </th>
+                <th className="w-64 px-2 py-2 border text-left font-bold">
+                  Dịch vụ
+                </th>
+                <th className="w-24 px-2 py-2 border text-center font-bold">
+                  Loại
+                </th>
+                <th className="w-20 px-2 py-2 border text-right font-bold bg-orange-100">
+                  Số lượng
+                </th>
+                <th className="w-20 px-2 py-2 border text-right font-bold">
+                  Δ
+                </th>
+                <th className="w-24 px-2 py-2 border text-right font-bold">
+                  % Số lượng
+                </th>
+                <th className="w-32 px-2 py-2 border text-right font-bold bg-blue-100">
+                  Tổng giá
+                </th>
+                <th className="w-20 px-2 py-2 border text-right font-bold">
+                  % Δ
+                </th>
+                <th className="w-24 px-2 py-2 border text-right font-bold">
+                  % Tổng giá
+                </th>
+              </tr>
+            </thead>
             <tbody>
               {serviceTableData
                 ? serviceTableData.map((s: ServiceTableData, idx: number) => (
@@ -110,10 +105,13 @@ export default function ServicesTable({
                         {idx + 1}
                       </td>
                       <td
-                        className="w-64 px-2 py-1 border text-left font-medium truncate"
+                        className="w-64 px-2 py-1 border text-left font-medium"
                         title={s.serviceName}
                       >
-                        {s.serviceName}
+                        <div className="truncate">
+                          <span className="hidden lg:inline">{s.serviceName}</span>
+                          <span className="lg:hidden text-xs">{s.serviceName.length > 15 ? s.serviceName.substring(0, 15) + '...' : s.serviceName}</span>
+                        </div>
                       </td>
                       <td className="w-24 px-2 py-1 border text-center">
                         {s.type}
@@ -185,10 +183,13 @@ export default function ServicesTable({
                           {idx + 1}
                         </td>
                         <td
-                          className="w-64 px-2 py-1 border text-left font-medium truncate"
+                          className="w-64 px-2 py-1 border text-left font-medium"
                           title={s.tenDichVu}
                         >
-                          {s.tenDichVu}
+                          <div className="truncate">
+                            <span className="hidden lg:inline">{s.tenDichVu}</span>
+                            <span className="lg:hidden text-xs">{s.tenDichVu.length > 15 ? s.tenDichVu.substring(0, 15) + '...' : s.tenDichVu}</span>
+                          </div>
                         </td>
                         <td className="w-24 px-2 py-1 border text-center">
                           {s.loaiDichVu}
@@ -233,60 +234,58 @@ export default function ServicesTable({
                     );
                   })}
             </tbody>
+            <tfoot>
+              <tr className="bg-gray-100 font-bold border-t-2 border-gray-400 sticky bottom-0 z-10">
+                <td className="w-12 px-2 py-1 border text-center"></td>
+                <td className="w-64 px-2 py-1 border text-left">
+                  <span className="hidden lg:inline">Tổng cộng</span>
+                  <span className="lg:hidden text-xs">Tổng</span>
+                </td>
+                <td className="w-24 px-2 py-1 border text-center"></td>
+                <td className="w-20 px-2 py-1 border text-right bg-orange-100 text-orange-700">
+                  {serviceTableData
+                    ? serviceTableData
+                        .reduce((sum: number, s: ServiceTableData) => sum + (s.usageCount || 0), 0)
+                        .toLocaleString()
+                    : serviceData
+                        .reduce((sum: number, s: ServiceDataItem) => sum + (s.soLuong || 0), 0)
+                        .toLocaleString()}
+                </td>
+                <td className="w-20 px-2 py-1 border text-right">
+                  {serviceTableData
+                    ? (
+                        serviceTableData.reduce(
+                          (sum: number, s: ServiceTableData) => sum + (s.usageDeltaCount || 0),
+                          0
+                        ) / serviceTableData.length
+                      ).toFixed(0)
+                    : "—"}
+                </td>
+                <td className="w-24 px-2 py-1 border text-right">100%</td>
+                <td className="w-32 px-2 py-1 border text-right bg-blue-100 text-blue-700">
+                  {serviceTableData
+                    ? serviceTableData
+                        .reduce((sum: number, s: ServiceTableData) => sum + (s.totalRevenue || 0), 0)
+                        .toLocaleString()
+                    : serviceData
+                        .reduce((sum: number, s: ServiceDataItem) => sum + (s.tongGia || 0), 0)
+                        .toLocaleString()}
+                </td>
+                <td className="w-20 px-2 py-1 border text-right">
+                  {serviceTableData
+                    ? (
+                        serviceTableData.reduce(
+                          (sum: number, s: ServiceTableData) => sum + (s.revenueDeltaPercent || 0),
+                          0
+                        ) / serviceTableData.length
+                      ).toFixed(1)
+                    : "—"}
+                </td>
+                <td className="w-24 px-2 py-1 border text-right">100%</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
-        <table
-          className="min-w-[700px] text-xs sm:text-sm border table-fixed"
-          style={{ tableLayout: "fixed", width: "100%" }}
-        >
-          <tfoot className="display:block">
-            <tr className="bg-gray-100 font-bold border-t-2 border-gray-400">
-              <td className="w-12 px-2 py-1 border text-center"></td>
-              <td className="w-64 px-2 py-1 border text-left">Tổng cộng</td>
-              <td className="w-24 px-2 py-1 border text-center"></td>
-              <td className="w-20 px-2 py-1 border text-right bg-orange-100 text-orange-700">
-                {serviceTableData
-                  ? serviceTableData
-                      .reduce((sum: number, s: ServiceTableData) => sum + (s.usageCount || 0), 0)
-                      .toLocaleString()
-                  : serviceData
-                      .reduce((sum: number, s: ServiceDataItem) => sum + (s.soLuong || 0), 0)
-                      .toLocaleString()}
-              </td>
-              <td className="w-20 px-2 py-1 border text-right">
-                {serviceTableData
-                  ? (
-                      serviceTableData.reduce(
-                        (sum: number, s: ServiceTableData) => sum + (s.usageDeltaCount || 0),
-                        0
-                      ) / serviceTableData.length
-                    ).toFixed(0)
-                  : "—"}
-              </td>
-              <td className="w-24 px-2 py-1 border text-right">100%</td>
-              <td className="w-32 px-2 py-1 border text-right bg-blue-100 text-blue-700">
-                {serviceTableData
-                  ? serviceTableData
-                      .reduce((sum: number, s: ServiceTableData) => sum + (s.totalRevenue || 0), 0)
-                      .toLocaleString()
-                  : serviceData
-                      .reduce((sum: number, s: ServiceDataItem) => sum + (s.tongGia || 0), 0)
-                      .toLocaleString()}
-              </td>
-              <td className="w-20 px-2 py-1 border text-right">
-                {serviceTableData
-                  ? (
-                      serviceTableData.reduce(
-                        (sum: number, s: ServiceTableData) => sum + (s.revenueDeltaPercent || 0),
-                        0
-                      ) / serviceTableData.length
-                    ).toFixed(1)
-                  : "—"}
-              </td>
-              <td className="w-24 px-2 py-1 border text-right">100%</td>
-            </tr>
-          </tfoot>
-        </table>
       </div>
     </div>
   );

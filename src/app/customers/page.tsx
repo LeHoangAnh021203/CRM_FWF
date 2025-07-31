@@ -621,7 +621,7 @@ export default function CustomerReportPage() {
 
   const facilityHourTableData = React.useMemo(() => {
     if (!facilityHourServiceRaw) return [];
-    return facilityHourServiceRaw.map(
+    const data = facilityHourServiceRaw.map(
       (item) =>
         ({
           facility: item.facility,
@@ -633,6 +633,9 @@ export default function CustomerReportPage() {
           [key: string]: number | string;
         })
     );
+    
+    // Sắp xếp theo tổng số đơn hàng giảm dần từ trên xuống
+    return data.sort((a, b) => (b.total as number) - (a.total as number));
   }, [facilityHourServiceRaw]);
 
   const customerTypeKeys =
@@ -648,51 +651,34 @@ export default function CustomerReportPage() {
     );
   }, [customerSourceTrendData]);
 
-  // Calculate peak hours and facilities for coloring
-  const hourTotals = React.useMemo(() => {
-    const totals: Record<string, number> = {};
-    facilityHourTableData.forEach((row) => {
-      allHourRanges.forEach((hour) => {
-        const val = Number(row[hour] ?? 0);
-        totals[hour] = (totals[hour] || 0) + val;
-      });
-    });
-    return totals;
-  }, [facilityHourTableData, allHourRanges]);
-  const maxHourTotal = Math.max(...Object.values(hourTotals));
-  const peakHours = Object.keys(hourTotals).filter(
-    (h) => hourTotals[h] === maxHourTotal
-  );
 
-  const maxFacilityTotal = React.useMemo(() => {
-    return Math.max(
-      ...facilityHourTableData.map((row) => Number(row.total ?? 0))
-    );
-  }, [facilityHourTableData]);
-  const peakFacilities = facilityHourTableData
-    .filter((row) => Number(row.total ?? 0) === maxFacilityTotal)
-    .map((row) => row.facility);
 
-  // Tính max cho từng hàng (chi nhánh)
-  const rowMaxMap = React.useMemo(() => {
+
+  // Tính max cho từng cột (khung giờ)
+  const columnMaxMap = React.useMemo(() => {
     const map: Record<string, number> = {};
-    facilityHourTableData.forEach((row) => {
+    allHourRanges.forEach((hour) => {
       const max = Math.max(
-        ...allHourRanges.map((hour) => Number(row[hour] ?? 0))
+        ...facilityHourTableData.map((row) => Number(row[hour] ?? 0))
       );
-      map[row.facility] = max;
+      map[hour] = max;
     });
     return map;
   }, [facilityHourTableData, allHourRanges]);
 
-  // Helper for cell color scale (dùng max của từng hàng)
-  function getCellBg(val: number, max: number) {
-    if (!max || max === 0) return "";
-    const percent = val / max;
-    if (percent > 0.85) return "bg-[#ffe5e5]"; // very high
-    if (percent > 0.6) return "bg-[#fff3cd]"; // high
-    if (percent > 0.3) return "bg-[#e3fcec]"; // medium
-    return "";
+  // Helper for cell color scale - so sánh theo khung giờ
+  function getCellBg(val: number, hour: string) {
+    const maxInColumn = columnMaxMap[hour] || 0;
+    if (!maxInColumn || maxInColumn === 0 || val === 0) return "";
+    const percent = val / maxInColumn;
+    
+    // Sử dụng bộ màu teal-green từ ảnh
+    if (percent >= 0.9) return "bg-[#68B2A0]"; // Đậm vừa - Cao điểm
+    if (percent >= 0.7) return "bg-[#CDE0C9]"; // Trung bình - Bận rộn
+    if (percent >= 0.5) return "bg-[#E0ECDE]"; // Nhạt vừa - Khá bận
+    if (percent >= 0.3) return "bg-[#F0F8F0]"; // Rất nhạt - Ít bận
+    if (percent >= 0.1) return "bg-[#F8FCF8]"; // Cực nhạt - Thưa thớt
+    return ""; // Không màu - Không có đơn hàng
   }
 
   const sortedAppDownloadStatusData = React.useMemo(() => {
@@ -893,10 +879,7 @@ export default function CustomerReportPage() {
           </div>}>
             <LazyCustomerFacilityHourTable
               allHourRanges={allHourRanges}
-              peakHours={peakHours}
               facilityHourTableData={facilityHourTableData}
-              peakFacilities={peakFacilities}
-              rowMaxMap={rowMaxMap}
               getCellBg={getCellBg}
               isMobile={isMobile}
               loadingFacilityHour={loadingFacilityHour}

@@ -9,6 +9,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  LabelList,
 } from "recharts";
 
 interface PaymentRegionDataItem {
@@ -27,6 +28,8 @@ export default function OrderPaymentRegionData({
   paymentRegionData,
   isMobile,
 }: OrderPaymentRegionDataProps) {
+
+
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-8 p-4 sm:p-6">
       <div className="text-base sm:text-2xl font-semibold text-gray-800 mb-4">
@@ -76,17 +79,71 @@ export default function OrderPaymentRegionData({
             <Legend wrapperStyle={{ fontSize: isMobile ? 10 : 14 }} />
             <Bar
               dataKey="bank"
-              name="Bank Transfer"
+              name="Chuyển khoản"
               fill="#795548"
               barSize={40}
-            />
-            <Bar dataKey="cash" name="Cash" fill="#c5e1a5" barSize={40} />
+            >
+              <LabelList
+                dataKey="bank"
+                position="top"
+                formatter={(value: React.ReactNode) => {
+                  if (typeof value === "number") {
+                    // Tìm khu vực hiện tại từ dữ liệu
+                    const currentDataPoint = paymentRegionData.find(item => item.bank === value);
+                    if (currentDataPoint) {
+                      const maxValue = Math.max(currentDataPoint.bank, currentDataPoint.cash, currentDataPoint.card);
+                      return value === maxValue && value > 0 ? (value / 1_000_000).toFixed(1) + "M" : "";
+                    }
+                  }
+                  return "";
+                }}
+                fill="#795548"
+                fontSize={isMobile ? 10 : 12}
+              />
+            </Bar>
+            <Bar dataKey="cash" name="Tiền mặt" fill="#c5e1a5" barSize={40}>
+              <LabelList
+                dataKey="cash"
+                position="top"
+                formatter={(value: React.ReactNode) => {
+                  if (typeof value === "number") {
+                    // Tìm khu vực hiện tại từ dữ liệu
+                    const currentDataPoint = paymentRegionData.find(item => item.cash === value);
+                    if (currentDataPoint) {
+                      const maxValue = Math.max(currentDataPoint.bank, currentDataPoint.cash, currentDataPoint.card);
+                      return value === maxValue && value > 0 ? (value / 1_000_000).toFixed(1) + "M" : "";
+                    }
+                  }
+                  return "";
+                }}
+                fill="#c5e1a5"
+                fontSize={isMobile ? 10 : 12}
+              />
+            </Bar>
             <Bar
               dataKey="card"
-              name="Credit/Debit card"
+              name="Thẻ tín dụng/Ghi nợ"
               fill="#ff7f7f"
               barSize={40}
-            />
+            >
+              <LabelList
+                dataKey="card"
+                position="top"
+                formatter={(value: React.ReactNode) => {
+                  if (typeof value === "number") {
+                    // Tìm khu vực hiện tại từ dữ liệu
+                    const currentDataPoint = paymentRegionData.find(item => item.card === value);
+                    if (currentDataPoint) {
+                      const maxValue = Math.max(currentDataPoint.bank, currentDataPoint.cash, currentDataPoint.card);
+                      return value === maxValue && value > 0 ? (value / 1_000_000).toFixed(1) + "M" : "";
+                    }
+                  }
+                  return "";
+                }}
+                fill="#ff7f7f"
+                fontSize={isMobile ? 10 : 12}
+              />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

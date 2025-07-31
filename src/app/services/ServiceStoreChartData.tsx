@@ -9,6 +9,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  LabelList,
 } from "recharts";
 
 
@@ -54,7 +55,7 @@ export default function ServiceStoreChartData({
         <div className="min-w-[600px] md:min-w-0 ">
           <ResponsiveContainer
             width={isMobile ? 500 : "100%"}
-            height={isMobile ? 400 : 500}
+            height={isMobile ? 800 : 800}
           >
             <BarChart
               data={storeServiceChartData}
@@ -62,7 +63,7 @@ export default function ServiceStoreChartData({
               margin={{
                 top: 20,
                 right: 30,
-                left: isMobile ? 40 : 100,
+                left: isMobile ? 60 : 120,
                 bottom: 20,
               }}
             >
@@ -76,7 +77,10 @@ export default function ServiceStoreChartData({
                 dataKey="store"
                 type="category"
                 tick={{ fontSize: isMobile ? 10 : 12 }}
-                width={isMobile ? 120 : 150}
+                width={isMobile ? 150 : 200}
+                tickLine={false}
+                axisLine={false}
+                interval={0}
               />
               <Tooltip />
               <Legend
@@ -96,7 +100,25 @@ export default function ServiceStoreChartData({
                 stackId="a"
                 fill="#c5e1a5"
               />
-              <Bar dataKey="other" name="Khác" stackId="a" fill="#f16a3f" />
+              <Bar 
+                dataKey="other" 
+                name="Khác" 
+                stackId="a" 
+                fill="#f16a3f"
+              >
+                <LabelList
+                  dataKey="total"
+                  position="right"
+                  formatter={(value: React.ReactNode) => {
+                    if (typeof value === "number") {
+                      return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toString();
+                    }
+                    return "";
+                  }}
+                  fill="#333"
+                  fontSize={isMobile ? 10 : 12}
+                />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>

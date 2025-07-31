@@ -1,5 +1,5 @@
 import React from "react";
-import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from "recharts";
+import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, LabelList } from "recharts";
 
 interface StoreTypeSalesByDayData {
   date: string;
@@ -13,15 +13,29 @@ interface StoreTypeSalesByDayData {
 interface StoreTypeSalesByDayProps {
   storeTypeSalesByDay: StoreTypeSalesByDayData[];
   formatAxisDate: (date: string) => string;
-  formatMoneyShort: (val: number) => string;
 }
 
 const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
   storeTypeSalesByDay,
   formatAxisDate,
-  formatMoneyShort,
 }) => {
   const [isMobile, setIsMobile] = React.useState(false);
+
+  // Create a map of max values for each date
+  const maxValuesByDate = React.useMemo(() => {
+    const maxMap = new Map<string, number>();
+    storeTypeSalesByDay.forEach(item => {
+      const values = [
+        item.Mall || 0,
+        item.Shophouse || 0,
+        item.NhaPho || 0,
+        item.DaDongCua || 0,
+        item.Khac || 0
+      ];
+      maxMap.set(item.date, Math.max(...values));
+    });
+    return maxMap;
+  }, [storeTypeSalesByDay]);
 
   React.useEffect(() => {
     const checkMobile = () => {
@@ -92,127 +106,126 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
                 fontSize: isMobile ? 10 : 14,
               }}
             />
-            <Bar
-              dataKey="Mall"
-              fill="#ff7f7f"
-              name="Mall"
-              label={{
-                position: "top",
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                content: (props: any) => {
-                  const { value, x, y } = props;
-                  if (typeof value !== "number" || value === 0) return null;
-                  return (
-                    <text
-                      x={Number(x)}
-                      y={Number(y) - 6}
-                      fontSize={isMobile ? 8 : 10}
-                      fill="#ff7f7f"
-                      textAnchor="middle"
-                    >
-                      {formatMoneyShort(value)}
-                    </text>
+            <Bar dataKey="Mall" name="Mall" fill="#ff7f7f">
+              <LabelList 
+                dataKey="Mall" 
+                position="top" 
+                fontSize={isMobile ? 10 : 12} 
+                fill="#ff7f7f"
+                formatter={(value: React.ReactNode) => {
+                  if (typeof value === "number" && value === 0) {
+                    return "";
+                  }
+                  // Find the current data point to get the date
+                  const currentDataPoint = storeTypeSalesByDay.find(item => 
+                    item.Mall === value
                   );
-                },
-              }}
-            />
-            <Bar
-              dataKey="Shophouse"
-              fill="#b39ddb"
-              name="Shophouse"
-              label={{
-                position: "top",
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                content: (props: any) => {
-                  const { value, x, y } = props;
-                  if (typeof value !== "number" || value === 0) return null;
-                  return (
-                    <text
-                      x={Number(x)}
-                      y={Number(y) - 6}
-                      fontSize={isMobile ? 8 : 10}
-                      fill="#b39ddb"
-                      textAnchor="middle"
-                    >
-                      {formatMoneyShort(value)}
-                    </text>
+                  if (!currentDataPoint) return "";
+                  
+                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                  if (typeof value === "number" && value === maxValue && value > 0) {
+                    return (value / 1_000_000).toFixed(1) + "M";
+                  }
+                  return "";
+                }}
+              />
+            </Bar>
+            <Bar dataKey="Shophouse" name="Shophouse" fill="#b39ddb">
+              <LabelList 
+                dataKey="Shophouse" 
+                position="top" 
+                fontSize={isMobile ? 10 : 12} 
+                fill="#b39ddb"
+                formatter={(value: React.ReactNode) => {
+                  if (typeof value === "number" && value === 0) {
+                    return "";
+                  }
+                  const currentDataPoint = storeTypeSalesByDay.find(item => 
+                    item.Shophouse === value
                   );
-                },
-              }}
-            />
-            <Bar
-              dataKey="NhaPho"
-              fill="#8d6e63"
-              name="Nhà phố"
-              label={{
-                position: "top",
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                content: (props: any) => {
-                  const { value, x, y } = props;
-                  if (typeof value !== "number" || value === 0) return null;
-                  return (
-                    <text
-                      x={Number(x)}
-                      y={Number(y) - 6}
-                      fontSize={isMobile ? 8 : 10}
-                      fill="#8d6e63"
-                      textAnchor="middle"
-                    >
-                      {formatMoneyShort(value)}
-                    </text>
+                  if (!currentDataPoint) return "";
+                  
+                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                  if (typeof value === "number" && value === maxValue && value > 0) {
+                    return (value / 1_000_000).toFixed(1) + "M";
+                  }
+                  return "";
+                }}
+              />
+            </Bar>
+            <Bar dataKey="NhaPho" name="Nhà phố" fill="#8d6e63">
+              <LabelList 
+                dataKey="NhaPho" 
+                position="top" 
+                fontSize={isMobile ? 10 : 12} 
+                fill="#8d6e63"
+                formatter={(value: React.ReactNode) => {
+                  if (typeof value === "number" && value === 0) {
+                    return "";
+                  }
+                  const currentDataPoint = storeTypeSalesByDay.find(item => 
+                    item.NhaPho === value
                   );
-                },
-              }}
-            />
-            <Bar
-              dataKey="DaDongCua"
-              fill="#c5e1a5"
-              name="Đã đóng cửa"
-              label={{
-                position: "top",
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                content: (props: any) => {
-                  const { value, x, y } = props;
-                  if (typeof value !== "number" || value === 0) return null;
-                  return (
-                    <text
-                      x={Number(x)}
-                      y={Number(y) - 6}
-                      fontSize={isMobile ? 8 : 10}
-                      fill="#c5e1a5"
-                      textAnchor="middle"
-                    >
-                      {formatMoneyShort(value)}
-                    </text>
+                  if (!currentDataPoint) return "";
+                  
+                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                  if (typeof value === "number" && value === maxValue && value > 0) {
+                    return (value / 1_000_000).toFixed(1) + "M";
+                  }
+                  return "";
+                }}
+              />
+            </Bar>
+            <Bar dataKey="DaDongCua" name="Đã đóng cửa" fill="#c5e1a5">
+              <LabelList 
+                dataKey="DaDongCua" 
+                position="top" 
+                fontSize={isMobile ? 10 : 12} 
+                fill="#c5e1a5"
+                formatter={(value: React.ReactNode) => {
+                  if (typeof value === "number" && value === 0) {
+                    return "";
+                  }
+                  const currentDataPoint = storeTypeSalesByDay.find(item => 
+                    item.DaDongCua === value
                   );
-                },
-              }}
-            />
-            <Bar
-              dataKey="Khac"
-              fill="#81d4fa"
-              name="Khác"
-              label={{
-                position: "top",
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                content: (props: any) => {
-                  const { value, x, y } = props;
-                  if (typeof value !== "number" || value === 0) return null;
-                  return (
-                    <text
-                      x={Number(x)}
-                      y={Number(y) - 6}
-                      fontSize={isMobile ? 8 : 10}
-                      fill="#81d4fa"
-                      textAnchor="middle"
-                    >
-                      {formatMoneyShort(value)}
-                    </text>
+                  if (!currentDataPoint) return "";
+                  
+                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                  if (typeof value === "number" && value === maxValue && value > 0) {
+                    if (value >= 1_000_000) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return value.toString();
+                  }
+                  return "";
+                }}
+              />
+            </Bar>
+            <Bar dataKey="Khac" name="Khác" fill="#81d4fa">
+              <LabelList 
+                dataKey="Khac" 
+                position="top" 
+                fontSize={isMobile ? 10 : 12} 
+                fill="#81d4fa"
+                formatter={(value: React.ReactNode) => {
+                  if (typeof value === "number" && value === 0) {
+                    return "";
+                  }
+                  const currentDataPoint = storeTypeSalesByDay.find(item => 
+                    item.Khac === value
                   );
-                },
-              }}
-            />
-          </BarChart>
+                  if (!currentDataPoint) return "";
+                  
+                                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                  if (typeof value === "number" && value === maxValue && value > 0) {
+                    return (value / 1_000_000).toFixed(1) + "M";
+                  }
+                  return "";
+                }}
+              />
+            </Bar>
+            </BarChart>
         </ResponsiveContainer>
       </div>
     </div>

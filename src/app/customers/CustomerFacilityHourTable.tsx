@@ -8,11 +8,8 @@ interface FacilityHourRow {
 
 interface CustomerFacilityHourTableProps {
   allHourRanges: string[];
-  peakHours: string[];
   facilityHourTableData: FacilityHourRow[];
-  peakFacilities: string[];
-  rowMaxMap: Record<string, number>;
-  getCellBg: (val: number, max: number) => string;
+  getCellBg: (val: number, hour: string) => string;
   isMobile: boolean;
   loadingFacilityHour: boolean;
   errorFacilityHour: string | null;
@@ -20,10 +17,7 @@ interface CustomerFacilityHourTableProps {
 
 const CustomerFacilityHourTable: React.FC<CustomerFacilityHourTableProps> = ({
   allHourRanges,
-  peakHours,
   facilityHourTableData,
-  peakFacilities,
-  rowMaxMap,
   getCellBg,
   isMobile,
   loadingFacilityHour,
@@ -36,17 +30,20 @@ const CustomerFacilityHourTable: React.FC<CustomerFacilityHourTableProps> = ({
           Thời gian đơn hàng được tạo
         </h2>
         <div className="flex flex-wrap gap-2 text-xs mt-2 sm:mt-0">
-          <span className="inline-flex items-center px-2 py-1 rounded bg-[#ffe5e5]">
-            Khung giờ cao điểm
+          <span className="inline-flex items-center px-2 py-1 rounded bg-[#68B2A0] text-white">
+            Cao điểm (≥90%)
           </span>
-          <span className="inline-flex items-center px-2 py-1 rounded bg-[#fff3cd]">
-            Giá trị cao
+          <span className="inline-flex items-center px-2 py-1 rounded bg-[#CDE0C9]">
+            Bận rộn (≥70%)
           </span>
-          <span className="inline-flex items-center px-2 py-1 rounded bg-[#e3fcec]">
-            Giá trị trung bình
+          <span className="inline-flex items-center px-2 py-1 rounded bg-[#E0ECDE]">
+            Khá bận (≥50%)
           </span>
-          <span className="inline-flex items-center px-2 py-1 rounded bg-[#d1e7dd] border border-[#0f5132]">
-            Chi nhánh cao điểm
+          <span className="inline-flex items-center px-2 py-1 rounded bg-[#F0F8F0]">
+            Ít bận (≥30%)
+          </span>
+          <span className="inline-flex items-center px-2 py-1 rounded bg-[#F8FCF8]">
+            Thưa thớt (≥10%)
           </span>
         </div>
       </div>
@@ -61,42 +58,36 @@ const CustomerFacilityHourTable: React.FC<CustomerFacilityHourTableProps> = ({
               <table className={`min-w-[600px] w-full border text-center ${isMobile ? 'text-xs' : ''}`}>
                 <thead>
                   <tr>
-                    <th className={`border px-2 py-1 bg-gray-100 text-left font-bold ${isMobile ? 'text-xs' : ''} sticky left-0 z-10 bg-white`}>Cơ sở</th>
+                    <th className={`border px-2 py-1 bg-[#2C6975] text-white text-left font-bold ${isMobile ? 'text-xs' : ''} sticky left-0 z-10`}>Cơ sở</th>
                     {allHourRanges.map((hour) => (
                       <th
                         key={hour}
-                        className={`border px-2 py-1 font-bold text-sm ${peakHours.includes(hour) ? 'bg-[#ffe5e5]' : ''} ${isMobile ? 'text-xs px-1 py-0.5' : ''}`}
+                        className={`border px-2 py-1 font-bold text-sm bg-[#2C6975] text-white ${isMobile ? 'text-xs px-1 py-0.5' : ''}`}
                       >
                         {hour}
                       </th>
                     ))}
-                    <th className={`border px-2 py-1 bg-gray-100 font-bold ${isMobile ? 'text-xs' : ''} sticky right-0 z-10 bg-[#e0e7ff]`}>Tổng</th>
+                    <th className={`border px-2 py-1 bg-[#2C6975] text-white font-bold ${isMobile ? 'text-xs' : ''} sticky right-0 z-10`}>Tổng</th>
                   </tr>
                 </thead>
                 <tbody>
                   {facilityHourTableData.map((row) => (
                     <tr
                       key={row.facility}
-                      className={
-                        peakFacilities.includes(row.facility)
-                          ? 'bg-[#d1e7dd] border-2 border-[#0f5132] font-bold'
-                          : ''
-                      }
                     >
-                      <td className={`border px-2 py-1 text-left font-semibold ${isMobile ? 'text-xs px-1 py-0.5' : ''} sticky left-0 z-10 bg-white`}>{row.facility}</td>
+                      <td className={`border px-2 py-1 text-left font-semibold ${isMobile ? 'text-xs px-1 py-0.5' : ''} sticky left-0 z-10 bg-gray-50`}>{row.facility}</td>
                       {allHourRanges.map((hour) => {
                         const val = Number(row[hour] ?? 0);
-                        const maxRow = rowMaxMap[row.facility] || 1;
                         return (
                           <td
                             key={hour}
-                            className={`border px-2 py-1 ${peakHours.includes(hour) ? 'bg-[#ffe5e5]' : ''} ${getCellBg(val, maxRow)} ${isMobile ? 'text-xs px-1 py-0.5' : ''}`}
+                            className={`border px-2 py-1 ${getCellBg(val, hour)} ${isMobile ? 'text-xs px-1 py-0.5' : ''}`}
                           >
                             {val}
                           </td>
                         );
                       })}
-                      <td className={`border px-2 py-1 font-bold ${isMobile ? 'text-xs px-1 py-0.5' : ''} sticky right-0 z-10 bg-[#e0e7ff]`}>{row.total}</td>
+                      <td className={`border px-2 py-1 font-bold ${isMobile ? 'text-xs px-1 py-0.5' : ''} sticky right-0 z-10 bg-gray-100`}>{row.total}</td>
                     </tr>
                   ))}
                 </tbody>

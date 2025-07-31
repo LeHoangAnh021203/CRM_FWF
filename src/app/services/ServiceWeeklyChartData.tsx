@@ -29,6 +29,8 @@ export default function WeeklyServiceChartData({
   weeklyServiceChartData,
   isMobile,
 }: WeeklyServiceChartDataProps) {
+
+
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
       <div className="text-xl font-medium text-gray-700 text-center mb-4">
@@ -54,16 +56,76 @@ export default function WeeklyServiceChartData({
               {/* Ẩn legend trên mobile */}
               {!isMobile && <Legend />}
               <Bar dataKey="combo" name="Combo" fill="#795548">
-                <LabelList dataKey="combo" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+                <LabelList 
+                  dataKey="combo" 
+                  position="top" 
+                  fontSize={isMobile ? 10 : 12} 
+                  fill="#795548"
+                  formatter={(value: React.ReactNode) => {
+                    if (typeof value === "number") {
+                      const currentDataPoint = weeklyServiceChartData.find(item => item.combo === value);
+                      if (currentDataPoint) {
+                        const maxValue = Math.max(currentDataPoint.combo, currentDataPoint.service, currentDataPoint.addedon, currentDataPoint.foxcard);
+                        return value === maxValue && value > 0 ? value.toString() : "";
+                      }
+                    }
+                    return "";
+                  }}
+                />
               </Bar>
               <Bar dataKey="service" name="Dịch vụ" fill="#c5e1a5">
-                <LabelList dataKey="service" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+                <LabelList 
+                  dataKey="service" 
+                  position="top" 
+                  fontSize={isMobile ? 10 : 12} 
+                  fill="#c5e1a5"
+                  formatter={(value: React.ReactNode) => {
+                    if (typeof value === "number") {
+                      const currentDataPoint = weeklyServiceChartData.find(item => item.service === value);
+                      if (currentDataPoint) {
+                        const maxValue = Math.max(currentDataPoint.combo, currentDataPoint.service, currentDataPoint.addedon, currentDataPoint.foxcard);
+                        return value === maxValue && value > 0 ? value.toString() : "";
+                      }
+                    }
+                    return "";
+                  }}
+                />
               </Bar>
               <Bar dataKey="addedon" name="Added on" fill="#f16a3f">
-                <LabelList dataKey="addedon" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+                <LabelList 
+                  dataKey="addedon" 
+                  position="top" 
+                  fontSize={isMobile ? 10 : 12} 
+                  fill="#f16a3f"
+                  formatter={(value: React.ReactNode) => {
+                    if (typeof value === "number") {
+                      const currentDataPoint = weeklyServiceChartData.find(item => item.addedon === value);
+                      if (currentDataPoint) {
+                        const maxValue = Math.max(currentDataPoint.combo, currentDataPoint.service, currentDataPoint.addedon, currentDataPoint.foxcard);
+                        return value === maxValue && value > 0 ? value.toString() : "";
+                      }
+                    }
+                    return "";
+                  }}
+                />
               </Bar>
               <Bar dataKey="foxcard" name="Fox card" fill="#c86b82">
-                <LabelList dataKey="foxcard" position="top" fontSize={isMobile ? 10 : 12} fill="#666" />
+                <LabelList 
+                  dataKey="foxcard" 
+                  position="top" 
+                  fontSize={isMobile ? 10 : 12} 
+                  fill="#c86b82"
+                  formatter={(value: React.ReactNode) => {
+                    if (typeof value === "number") {
+                      const currentDataPoint = weeklyServiceChartData.find(item => item.foxcard === value);
+                      if (currentDataPoint) {
+                        const maxValue = Math.max(currentDataPoint.combo, currentDataPoint.service, currentDataPoint.addedon, currentDataPoint.foxcard);
+                        return value === maxValue && value > 0 ? value.toString() : "";
+                      }
+                    }
+                    return "";
+                  }}
+                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>

@@ -1,12 +1,6 @@
 "use client";
 import React from "react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 interface Top10ServicesUsageData {
   serviceName: string;
@@ -22,20 +16,29 @@ interface TooltipPayload {
   };
 }
 
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) => {
+const CustomTooltip = ({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: string;
+}) => {
   if (active && payload && payload.length) {
     const data = payload[0];
-    
+
     return (
       <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-        <p className="font-medium text-gray-900">{data.name || data.payload.name}</p>
+        <p className="font-medium text-gray-900">
+          {data.name || data.payload.name}
+        </p>
         <p className="text-sm text-gray-600">
-          {label?.includes('giá buổi') ? 'Doanh thu: ' : 'Số lượng: '}
+          {label?.includes("giá buổi") ? "Doanh thu: " : "Số lượng: "}
           <span className="font-semibold">
-            {label?.includes('giá buổi') 
+            {label?.includes("giá buổi")
               ? `${(data.value / 1000000).toFixed(1)}M VNĐ`
-              : data.value.toLocaleString()
-            }
+              : data.value.toLocaleString()}
           </span>
         </p>
       </div>
@@ -43,8 +46,6 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
   }
   return null;
 };
-
-
 
 interface OrderBottomPieDataProps {
   bottom3ServicesUsageData: Top10ServicesUsageData[] | null;
@@ -81,10 +82,16 @@ export default function ServiceBottomPieData({
   isMobile,
 }: OrderBottomPieDataProps) {
   return (
-    <div className="flex gap-2 justify-center">
+    <>
+      <style jsx>{`
+        .recharts-pie-label-text {
+          font-size: ${isMobile ? '8px' : '12px'} !important;
+        }
+      `}</style>
+    <div className="flex flex-col lg:flex-row gap-2 justify-center">
       {/* PieChart bottom 3 dịch vụ theo số lượng */}
-      <div className="w-1/2 sm:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
-        <div className="text-xl font-medium text-gray-700 text-center mb-4">
+      <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
+        <div className="text-lg lg:text-xl font-medium text-gray-700 text-center mb-4">
           Bottom 3 dịch vụ theo số lượng
         </div>
         {bottom3ServicesUsageLoading && (
@@ -97,7 +104,7 @@ export default function ServiceBottomPieData({
             ❌ Lỗi API bottom 3 dịch vụ: {bottom3ServicesUsageError}
           </div>
         )}
-        <ResponsiveContainer width="100%" height={350}>
+        <ResponsiveContainer width="100%" height={isMobile ? 250 : 350}>
           <PieChart>
             <Pie
               data={(() => {
@@ -136,7 +143,7 @@ export default function ServiceBottomPieData({
               nameKey="name"
               cx="50%"
               cy="50%"
-              outerRadius={isMobile ? 60 : 90}
+              outerRadius={isMobile ? 45 : 90}
               label={({ percent }: { percent?: number }) =>
                 percent && percent > 0.15
                   ? `${(percent * 100).toFixed(1)}%`
@@ -172,32 +179,33 @@ export default function ServiceBottomPieData({
                 const bottom3 = sorted.slice(0, 3);
                 const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
                 return bottom3.map(([name], idx) => (
-                  <Cell
-                    key={name}
-                    fill={grayShades[idx % grayShades.length]}
-                  />
+                  <Cell key={name} fill={grayShades[idx % grayShades.length]} />
                 ));
               })()}
             </Pie>
-            <Tooltip content={<CustomTooltip label="Bottom 3 dịch vụ theo số lượng" />} />
+            <Tooltip
+              content={<CustomTooltip label="Bottom 3 dịch vụ theo số lượng" />}
+            />
           </PieChart>
         </ResponsiveContainer>
-        <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
-          {bottom3Data.map((item) => (
-            <li key={item.name} className="flex items-center gap-1">
-              <span
-                className="inline-block w-3 h-3 rounded-full"
-                style={{ background: item.color }}
-              />
-              {item.name}
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-hidden">
+          <ul className="flex flex-wrap gap-2 mt-2 text-xs">
+            {bottom3Data.map((item) => (
+              <li key={item.name} className="flex items-start gap-1">
+                <span
+                  className="inline-block w-3 h-3 rounded-full flex-shrink-0 mt-0.5"
+                  style={{ background: item.color }}
+                />
+                <span className="break-words">{item.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       {/* PieChart bottom 3 dịch vụ theo giá buổi */}
-      <div className="w-1/2 sm:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
-        <div className="text-xl font-medium text-gray-700 text-center mb-4">
+      <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
+        <div className="text-lg lg:text-xl font-medium text-gray-700 text-center mb-4">
           Bottom 3 dịch vụ theo giá buổi
         </div>
         {bottom3ServicesRevenueLoading && (
@@ -211,7 +219,7 @@ export default function ServiceBottomPieData({
             {bottom3ServicesRevenueError}
           </div>
         )}
-        <ResponsiveContainer width="100%" height={350}>
+        <ResponsiveContainer width="100%" height={isMobile ? 250 : 350}>
           <PieChart>
             <Pie
               data={bottom3RevenueData}
@@ -219,7 +227,7 @@ export default function ServiceBottomPieData({
               nameKey="name"
               cx="50%"
               cy="50%"
-              outerRadius={isMobile ? 60 : 90}
+              outerRadius={isMobile ? 45 : 90}
               label={({ percent }: { percent?: number }) =>
                 percent && percent > 0.15
                   ? `${(percent * 100).toFixed(1)}%`
@@ -232,12 +240,14 @@ export default function ServiceBottomPieData({
                 <Cell key={item.name} fill={item.color} />
               ))}
             </Pie>
-            <Tooltip content={<CustomTooltip label="Bottom 3 dịch vụ theo giá buổi" />} />
+            <Tooltip
+              content={<CustomTooltip label="Bottom 3 dịch vụ theo giá buổi" />}
+            />
           </PieChart>
         </ResponsiveContainer>
-        <ul className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
+        <ul className="flex flex-wrap  gap-3 mt-2 text-xs">
           {bottom3Data.map((item) => (
-            <li key={item.name} className="flex items-center gap-1">
+            <li key={item.name} className=" flex gap-1">
               <span
                 className="inline-block w-3 h-3 rounded-full"
                 style={{ background: item.color }}
@@ -248,5 +258,6 @@ export default function ServiceBottomPieData({
         </ul>
       </div>
     </div>
+    </>
   );
 }
