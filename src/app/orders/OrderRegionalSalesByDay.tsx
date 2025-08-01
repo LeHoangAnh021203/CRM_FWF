@@ -23,6 +23,44 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
 }) => {
   const [isMobile, setIsMobile] = React.useState(false);
 
+
+
+  // Find the peak day for each region
+  const peakDays = React.useMemo(() => {
+    const peaks: Record<string, { date: string; value: number }> = {
+      HCM: { date: '', value: 0 },
+      HaNoi: { date: '', value: 0 },
+      DaNang: { date: '', value: 0 },
+      NhaTrang: { date: '', value: 0 },
+      DaDongCua: { date: '', value: 0 },
+      VungTau: { date: '', value: 0 }
+    };
+    
+    regionalSalesByDay.forEach(item => {
+      // Check each region
+      if ((item.HCM || 0) > peaks.HCM.value) {
+        peaks.HCM = { date: item.date, value: item.HCM || 0 };
+      }
+      if ((item.HaNoi || 0) > peaks.HaNoi.value) {
+        peaks.HaNoi = { date: item.date, value: item.HaNoi || 0 };
+      }
+      if ((item.DaNang || 0) > peaks.DaNang.value) {
+        peaks.DaNang = { date: item.date, value: item.DaNang || 0 };
+      }
+      if ((item.NhaTrang || 0) > peaks.NhaTrang.value) {
+        peaks.NhaTrang = { date: item.date, value: item.NhaTrang || 0 };
+      }
+      if ((item.DaDongCua || 0) > peaks.DaDongCua.value) {
+        peaks.DaDongCua = { date: item.date, value: item.DaDongCua || 0 };
+      }
+      if ((item.VungTau || 0) > peaks.VungTau.value) {
+        peaks.VungTau = { date: item.date, value: item.VungTau || 0 };
+      }
+    });
+    
+    return peaks;
+  }, [regionalSalesByDay]);
+
   // Create a map of max values for each date
   const maxValuesByDate = React.useMemo(() => {
     const maxMap = new Map<string, number>();
@@ -118,17 +156,30 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                   if (typeof value === "number" && value === 0) {
                     return "";
                   }
-                  // Find the current data point to get the date
-                  const currentDataPoint = regionalSalesByDay.find(item => 
-                    item.HCM === value
-                  );
-                  if (!currentDataPoint) return "";
-                  
-                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
-                  if (typeof value === "number" && value === maxValue && value > 0) {
-                    return (value / 1_000_000).toFixed(1) + "M";
+                  if (isMobile) {
+                    // On mobile: only show label for the peak day
+                    const currentDataPoint = regionalSalesByDay.find(item => 
+                      item.HCM === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    if (currentDataPoint.date === peakDays.HCM.date && value === peakDays.HCM.value) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
+                  } else {
+                    // On desktop: show label for highest bar of each day
+                    const currentDataPoint = regionalSalesByDay.find(item => 
+                      item.HCM === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                    if (typeof value === "number" && value === maxValue && value > 0) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
                   }
-                  return "";
                 }}
               />
             </Bar>
@@ -142,16 +193,30 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                   if (typeof value === "number" && value === 0) {
                     return "";
                   }
-                  const currentDataPoint = regionalSalesByDay.find(item => 
-                    item.HaNoi === value
-                  );
-                  if (!currentDataPoint) return "";
-                  
-                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
-                  if (typeof value === "number" && value === maxValue && value > 0) {
-                    return (value / 1_000_000).toFixed(1) + "M";
+                  if (isMobile) {
+                    // On mobile: only show label for the peak day
+                    const currentDataPoint = regionalSalesByDay.find(item => 
+                      item.HaNoi === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    if (currentDataPoint.date === peakDays.HaNoi.date && value === peakDays.HaNoi.value) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
+                  } else {
+                    // On desktop: show label for highest bar of each day
+                    const currentDataPoint = regionalSalesByDay.find(item => 
+                      item.HaNoi === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                    if (typeof value === "number" && value === maxValue && value > 0) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
                   }
-                  return "";
                 }}
               />
             </Bar>
@@ -165,16 +230,30 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                   if (typeof value === "number" && value === 0) {
                     return "";
                   }
-                  const currentDataPoint = regionalSalesByDay.find(item => 
-                    item.DaNang === value
-                  );
-                  if (!currentDataPoint) return "";
-                  
-                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
-                  if (typeof value === "number" && value === maxValue && value > 0) {
-                    return (value / 1_000_000).toFixed(1) + "M";
+                  if (isMobile) {
+                    // On mobile: only show label for the peak day
+                    const currentDataPoint = regionalSalesByDay.find(item => 
+                      item.DaNang === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    if (currentDataPoint.date === peakDays.DaNang.date && value === peakDays.DaNang.value) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
+                  } else {
+                    // On desktop: show label for highest bar of each day
+                    const currentDataPoint = regionalSalesByDay.find(item => 
+                      item.DaNang === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                    if (typeof value === "number" && value === maxValue && value > 0) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
                   }
-                  return "";
                 }}
               />
             </Bar>
@@ -188,16 +267,30 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                   if (typeof value === "number" && value === 0) {
                     return "";
                   }
-                  const currentDataPoint = regionalSalesByDay.find(item => 
-                    item.NhaTrang === value
-                  );
-                  if (!currentDataPoint) return "";
-                  
-                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
-                  if (typeof value === "number" && value === maxValue && value > 0) {
-                    return (value / 1_000_000).toFixed(1) + "M";
+                  if (isMobile) {
+                    // On mobile: only show label for the peak day
+                    const currentDataPoint = regionalSalesByDay.find(item => 
+                      item.NhaTrang === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    if (currentDataPoint.date === peakDays.NhaTrang.date && value === peakDays.NhaTrang.value) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
+                  } else {
+                    // On desktop: show label for highest bar of each day
+                    const currentDataPoint = regionalSalesByDay.find(item => 
+                      item.NhaTrang === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                    if (typeof value === "number" && value === maxValue && value > 0) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
                   }
-                  return "";
                 }}
               />
             </Bar>
@@ -211,16 +304,30 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                   if (typeof value === "number" && value === 0) {
                     return "";
                   }
-                  const currentDataPoint = regionalSalesByDay.find(item => 
-                    item.DaDongCua === value
-                  );
-                  if (!currentDataPoint) return "";
-                  
-                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
-                  if (typeof value === "number" && value === maxValue && value > 0) {
-                    return (value / 1_000_000).toFixed(1) + "M";
+                  if (isMobile) {
+                    // On mobile: only show label for the peak day
+                    const currentDataPoint = regionalSalesByDay.find(item => 
+                      item.DaDongCua === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    if (currentDataPoint.date === peakDays.DaDongCua.date && value === peakDays.DaDongCua.value) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
+                  } else {
+                    // On desktop: show label for highest bar of each day
+                    const currentDataPoint = regionalSalesByDay.find(item => 
+                      item.DaDongCua === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                    if (typeof value === "number" && value === maxValue && value > 0) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
                   }
-                  return "";
                 }}
               />
             </Bar>
@@ -234,19 +341,36 @@ const OrderRegionalSalesByDay: React.FC<RegionalSalesByDayProps> = ({
                   if (typeof value === "number" && value === 0) {
                     return "";
                   }
-                  const currentDataPoint = regionalSalesByDay.find(item => 
-                    item.VungTau === value
-                  );
-                  if (!currentDataPoint) return "";
-                  
-                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
-                  if (typeof value === "number" && value === maxValue && value > 0) {
-                    if (value >= 1_000_000) {
-                      return (value / 1_000_000).toFixed(1) + "M";
+                  if (isMobile) {
+                    // On mobile: only show label for the peak day
+                    const currentDataPoint = regionalSalesByDay.find(item => 
+                      item.VungTau === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    if (currentDataPoint.date === peakDays.VungTau.date && value === peakDays.VungTau.value) {
+                      if (value >= 1_000_000) {
+                        return (value / 1_000_000).toFixed(1) + "M";
+                      }
+                      return value.toString();
                     }
-                    return value.toString();
+                    return "";
+                  } else {
+                    // On desktop: show label for highest bar of each day
+                    const currentDataPoint = regionalSalesByDay.find(item => 
+                      item.VungTau === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                    if (typeof value === "number" && value === maxValue && value > 0) {
+                      if (value >= 1_000_000) {
+                        return (value / 1_000_000).toFixed(1) + "M";
+                      }
+                      return value.toString();
+                    }
+                    return "";
                   }
-                  return "";
                 }}
               />
             </Bar>

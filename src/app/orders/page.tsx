@@ -1513,6 +1513,7 @@ export default function CustomerReportPage() {
             weekSalesChange={revenueSummaryRaw?.revenueGrowth ?? 0}
             totalRevenueThisWeek={revenueSummaryRaw?.actualRevenue ?? 0}
             weekRevenueChange={revenueSummaryRaw?.actualGrowth ?? 0}
+            foxieDebtChange={0}
           />
         </Suspense>
         {/* Thực thu tại các khu vực trong tuần */}

@@ -58,16 +58,19 @@ interface ServiceSummaryData {
   totalCT: number;
   totalGift: number;
   totalAll: number;
+  totalPending: number;
   prevCombo: number;
   prevLe: number;
   prevCT: number;
   prevGift: number;
   prevAll: number;
+  prevPending: number;
   comboGrowth: number;
   leGrowth: number;
   ctGrowth: number;
   giftGrowth: number;
   allGrowth: number;
+  pendingGrowth: number;
 }
 
 interface RegionData {
@@ -1370,7 +1373,7 @@ export default function CustomerReportPage() {
     y?: number;
     index?: number;
   }) => {
-    if (isMobile && percent !== undefined && percent < 0.15) return null;
+    if (isMobile && percent !== undefined && percent < 0.00) return null;
     if (percent !== undefined && percent < 0.05) return null;
     return (
       <text

@@ -37,6 +37,38 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
     return maxMap;
   }, [storeTypeSalesByDay]);
 
+  // Find the peak day for each store type (for mobile display)
+  const peakDays = React.useMemo(() => {
+    const peaks: Record<string, { date: string; value: number }> = {
+      Mall: { date: '', value: 0 },
+      Shophouse: { date: '', value: 0 },
+      NhaPho: { date: '', value: 0 },
+      DaDongCua: { date: '', value: 0 },
+      Khac: { date: '', value: 0 }
+    };
+    
+    storeTypeSalesByDay.forEach(item => {
+      // Check each store type
+      if ((item.Mall || 0) > peaks.Mall.value) {
+        peaks.Mall = { date: item.date, value: item.Mall || 0 };
+      }
+      if ((item.Shophouse || 0) > peaks.Shophouse.value) {
+        peaks.Shophouse = { date: item.date, value: item.Shophouse || 0 };
+      }
+      if ((item.NhaPho || 0) > peaks.NhaPho.value) {
+        peaks.NhaPho = { date: item.date, value: item.NhaPho || 0 };
+      }
+      if ((item.DaDongCua || 0) > peaks.DaDongCua.value) {
+        peaks.DaDongCua = { date: item.date, value: item.DaDongCua || 0 };
+      }
+      if ((item.Khac || 0) > peaks.Khac.value) {
+        peaks.Khac = { date: item.date, value: item.Khac || 0 };
+      }
+    });
+    
+    return peaks;
+  }, [storeTypeSalesByDay]);
+
   React.useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -48,62 +80,61 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
   }, []);
 
   return (
-    <div className="w-full bg-white rounded-xl shadow-lg mt-5">
-      <div className="text-sm sm:text-base md:text-xl font-medium text-gray-700 text-center mt-5">
+    <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+      <div className="text-sm sm:text-base md:text-xl font-medium text-gray-700 text-center mb-4">
         Tổng doanh số loại cửa hàng
       </div>
-      <div className="w-full bg-white rounded-xl shadow-lg">
-        <div className="w-full overflow-x-auto">
-          <ResponsiveContainer 
-            width="100%" 
-            height={isMobile ? 300 : 400} 
-            minWidth={isMobile ? 280 : 320}
+      <div className="w-full overflow-x-auto">
+        <ResponsiveContainer width="100%" height={isMobile ? 300 : 400} minWidth={280}>
+          <BarChart
+            data={storeTypeSalesByDay}
+            margin={{ 
+              top: isMobile ? 30 : 50, 
+              right: isMobile ? 10 : 30, 
+              left: isMobile ? 10 : 20, 
+              bottom: isMobile ? 20 : 5 
+            }}
           >
-            <BarChart
-              width={1000}
-              height={isMobile ? 300 : 400}
-              data={storeTypeSalesByDay}
-              margin={{ 
-                top: isMobile ? 30 : 50, 
-                right: isMobile ? 10 : 30, 
-                left: isMobile ? 10 : 20, 
-                bottom: isMobile ? 20 : 5 
-              }}
-            >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
               dataKey="date" 
               tickFormatter={formatAxisDate}
-              tick={{ fontSize: isMobile ? 10 : 14 }}
+              fontSize={isMobile ? 10 : 12}
+              angle={isMobile ? -45 : 0}
+              textAnchor={isMobile ? "end" : "middle"}
+              height={isMobile ? 60 : 30}
             />
             <YAxis
               tickFormatter={(v) => {
-                if (typeof v === "number") {
-                  // Luôn hiển thị đơn vị M (triệu) cho chart này
+                if (typeof v === "number" && v >= 1_000_000)
                   return (v / 1_000_000).toFixed(1) + "M";
-                }
+                if (typeof v === "number") return v.toLocaleString();
                 return v;
               }}
-              tick={{ fontSize: isMobile ? 10 : 14 }}
+              fontSize={isMobile ? 10 : 12}
+              width={isMobile ? 60 : 80}
             />
             <Tooltip
               formatter={(value) => {
                 if (typeof value === "number") {
-                  // Luôn hiển thị đơn vị M (triệu) cho chart này
-                  return `${(value / 1_000_000).toFixed(1)}M`;
+                  if (value >= 1_000_000)
+                    return `${(value / 1_000_000).toFixed(1)}M`;
+                  return value.toLocaleString();
                 }
                 return value;
               }}
+              contentStyle={{
+                fontSize: isMobile ? 12 : 14,
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                padding: '8px'
+              }}
             />
-            <Legend
+            <Legend 
               wrapperStyle={{
-                paddingTop: isMobile ? 3 : 5,
-                paddingBottom: isMobile ? 5 : 10,
-                display: "flex",
-                justifyContent: "center",
-                flexWrap: "wrap",
-                width: "100%",
-                fontSize: isMobile ? 10 : 14,
+                fontSize: isMobile ? 10 : 12,
+                paddingTop: isMobile ? 10 : 20
               }}
             />
             <Bar dataKey="Mall" name="Mall" fill="#ff7f7f">
@@ -116,17 +147,30 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
                   if (typeof value === "number" && value === 0) {
                     return "";
                   }
-                  // Find the current data point to get the date
-                  const currentDataPoint = storeTypeSalesByDay.find(item => 
-                    item.Mall === value
-                  );
-                  if (!currentDataPoint) return "";
-                  
-                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
-                  if (typeof value === "number" && value === maxValue && value > 0) {
-                    return (value / 1_000_000).toFixed(1) + "M";
+                  if (isMobile) {
+                    // On mobile: only show label for the peak day
+                    const currentDataPoint = storeTypeSalesByDay.find(item => 
+                      item.Mall === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    if (currentDataPoint.date === peakDays.Mall.date && value === peakDays.Mall.value) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
+                  } else {
+                    // On desktop: show label for highest bar of each day
+                    const currentDataPoint = storeTypeSalesByDay.find(item => 
+                      item.Mall === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                    if (typeof value === "number" && value === maxValue && value > 0) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
                   }
-                  return "";
                 }}
               />
             </Bar>
@@ -140,16 +184,30 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
                   if (typeof value === "number" && value === 0) {
                     return "";
                   }
-                  const currentDataPoint = storeTypeSalesByDay.find(item => 
-                    item.Shophouse === value
-                  );
-                  if (!currentDataPoint) return "";
-                  
-                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
-                  if (typeof value === "number" && value === maxValue && value > 0) {
-                    return (value / 1_000_000).toFixed(1) + "M";
+                  if (isMobile) {
+                    // On mobile: only show label for the peak day
+                    const currentDataPoint = storeTypeSalesByDay.find(item => 
+                      item.Shophouse === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    if (currentDataPoint.date === peakDays.Shophouse.date && value === peakDays.Shophouse.value) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
+                  } else {
+                    // On desktop: show label for highest bar of each day
+                    const currentDataPoint = storeTypeSalesByDay.find(item => 
+                      item.Shophouse === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                    if (typeof value === "number" && value === maxValue && value > 0) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
                   }
-                  return "";
                 }}
               />
             </Bar>
@@ -163,16 +221,30 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
                   if (typeof value === "number" && value === 0) {
                     return "";
                   }
-                  const currentDataPoint = storeTypeSalesByDay.find(item => 
-                    item.NhaPho === value
-                  );
-                  if (!currentDataPoint) return "";
-                  
-                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
-                  if (typeof value === "number" && value === maxValue && value > 0) {
-                    return (value / 1_000_000).toFixed(1) + "M";
+                  if (isMobile) {
+                    // On mobile: only show label for the peak day
+                    const currentDataPoint = storeTypeSalesByDay.find(item => 
+                      item.NhaPho === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    if (currentDataPoint.date === peakDays.NhaPho.date && value === peakDays.NhaPho.value) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
+                  } else {
+                    // On desktop: show label for highest bar of each day
+                    const currentDataPoint = storeTypeSalesByDay.find(item => 
+                      item.NhaPho === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                    if (typeof value === "number" && value === maxValue && value > 0) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
                   }
-                  return "";
                 }}
               />
             </Bar>
@@ -186,19 +258,36 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
                   if (typeof value === "number" && value === 0) {
                     return "";
                   }
-                  const currentDataPoint = storeTypeSalesByDay.find(item => 
-                    item.DaDongCua === value
-                  );
-                  if (!currentDataPoint) return "";
-                  
-                  const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
-                  if (typeof value === "number" && value === maxValue && value > 0) {
-                    if (value >= 1_000_000) {
-                      return (value / 1_000_000).toFixed(1) + "M";
+                  if (isMobile) {
+                    // On mobile: only show label for the peak day
+                    const currentDataPoint = storeTypeSalesByDay.find(item => 
+                      item.DaDongCua === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    if (currentDataPoint.date === peakDays.DaDongCua.date && value === peakDays.DaDongCua.value) {
+                      if (value >= 1_000_000) {
+                        return (value / 1_000_000).toFixed(1) + "M";
+                      }
+                      return value.toString();
                     }
-                    return value.toString();
+                    return "";
+                  } else {
+                    // On desktop: show label for highest bar of each day
+                    const currentDataPoint = storeTypeSalesByDay.find(item => 
+                      item.DaDongCua === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                    if (typeof value === "number" && value === maxValue && value > 0) {
+                      if (value >= 1_000_000) {
+                        return (value / 1_000_000).toFixed(1) + "M";
+                      }
+                      return value.toString();
+                    }
+                    return "";
                   }
-                  return "";
                 }}
               />
             </Bar>
@@ -212,24 +301,37 @@ const StoreTypeSalesByDay: React.FC<StoreTypeSalesByDayProps> = ({
                   if (typeof value === "number" && value === 0) {
                     return "";
                   }
-                  const currentDataPoint = storeTypeSalesByDay.find(item => 
-                    item.Khac === value
-                  );
-                  if (!currentDataPoint) return "";
-                  
-                                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
-                  if (typeof value === "number" && value === maxValue && value > 0) {
-                    return (value / 1_000_000).toFixed(1) + "M";
+                  if (isMobile) {
+                    // On mobile: only show label for the peak day
+                    const currentDataPoint = storeTypeSalesByDay.find(item => 
+                      item.Khac === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    if (currentDataPoint.date === peakDays.Khac.date && value === peakDays.Khac.value) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
+                  } else {
+                    // On desktop: show label for highest bar of each day
+                    const currentDataPoint = storeTypeSalesByDay.find(item => 
+                      item.Khac === value
+                    );
+                    if (!currentDataPoint) return "";
+                    
+                    const maxValue = maxValuesByDate.get(currentDataPoint.date) || 0;
+                    if (typeof value === "number" && value === maxValue && value > 0) {
+                      return (value / 1_000_000).toFixed(1) + "M";
+                    }
+                    return "";
                   }
-                  return "";
                 }}
               />
             </Bar>
-            </BarChart>
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </div>
-  </div>
   );
 };
 

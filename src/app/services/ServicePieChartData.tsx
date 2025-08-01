@@ -53,7 +53,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
     
     // Calculate total from all payload items (this should be the total for the specific chart)
     const total = payload.reduce((sum: number, item: TooltipPayload) => sum + item.value, 0);
-    const percentage = total > 0 ? ((data.value / total) * 100).toFixed(1) : '0.0';
+    const percentage = total > 0 ? ((data.value / total) * 100).toFixed(1) : '0';
     
     // Determine if this is revenue data based on the chart title
     const isRevenueChart = label?.includes('giá buổi') || label?.includes('doanh thu') || label?.includes('Top 10 dịch vụ theo giá buổi');
@@ -99,7 +99,7 @@ export default function PieChartData({
         <div className="text-xl font-medium text-gray-700 text-center mb-4">
           Tỉ lệ dịch vụ/combo/cộng thêm
         </div>
-        <ResponsiveContainer width="100%" height={isMobile ? 180 : 320}>
+        <ResponsiveContainer width="100%" height={isMobile ? 220 : 320}>
           <PieChart>
             <Pie
               data={pieChartData}
@@ -107,7 +107,7 @@ export default function PieChartData({
               nameKey="label"
               cx="50%"
               cy="50%"
-              outerRadius={isMobile ? 60 : 120}
+              outerRadius={isMobile ? 80 : 120}
               label={renderPieLabel}
             >
               {pieChartData.map((entry) => (
@@ -147,7 +147,7 @@ export default function PieChartData({
             ❌ Lỗi API top 10 dịch vụ: {top10ServicesError}
           </div>
         )}
-        <ResponsiveContainer width="100%" height={isMobile ? 180 : 320}>
+        <ResponsiveContainer width="100%" height={isMobile ? 220 : 320}>
           <PieChart>
             <Pie
               data={pieTop10Data}
@@ -155,7 +155,7 @@ export default function PieChartData({
               nameKey="name"
               cx="50%"
               cy="50%"
-              outerRadius={isMobile ? 60 : 120}
+              outerRadius={isMobile ? 80 : 120}
               label={renderPieLabel}
             >
               {pieTop10Data.map((entry) => (
@@ -166,7 +166,7 @@ export default function PieChartData({
           </PieChart>
         </ResponsiveContainer>
         <div className="overflow-hidden">
-          <ul className="flex flex-wrap gap-2 mt-2 text-xs">
+          <ul className="flex flex-wrap  gap-2 mt-2 text-xs">
             {pieTop10Data.map((item) => (
               <li key={item.name} className="flex items-start gap-1">
                 <span
@@ -196,7 +196,7 @@ export default function PieChartData({
             {top10ServicesUsageError}
           </div>
         )}
-        <ResponsiveContainer width="100%" height={isMobile ? 180 : 320}>
+        <ResponsiveContainer width="100%" height={isMobile ? 220 : 320}>
           <PieChart>
             <Pie
               data={pieTop10AvgData}
@@ -204,7 +204,7 @@ export default function PieChartData({
               nameKey="name"
               cx="50%"
               cy="50%"
-              outerRadius={isMobile ? 60 : 120}
+              outerRadius={isMobile ? 80 : 120}
               label={renderPieLabel}
             >
               {pieTop10AvgData.map((entry) => (
@@ -215,7 +215,7 @@ export default function PieChartData({
           </PieChart>
         </ResponsiveContainer>
         <div className="overflow-hidden">
-          <ul className="flex flex-wrap gap-2 mt-2 text-xs">
+          <ul className="flex flex-wrap  gap-2 mt-2 text-xs">
             {pieTop10AvgData.map((item) => (
               <li key={item.name} className="flex items-start gap-1">
                 <span
@@ -227,7 +227,7 @@ export default function PieChartData({
             ))}
           </ul>
         </div>
-      </div>
+      </div>        
     </div>
   );
 }

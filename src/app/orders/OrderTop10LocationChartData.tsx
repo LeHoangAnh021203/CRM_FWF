@@ -133,140 +133,254 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
   percentFoxie,
   avgRevenueThisWeek,
   percentAvg,
-}) => (
-  <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-    <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
-      Top 10 cửa hàng trong tuần theo thực thu
-    </div>
-    <div className="flex flex-col lg:flex-row w-full gap-4">
-      <div className="flex-1 bg-white rounded-xl shadow-lg p-2 sm:p-4">
-        <div className="w-full overflow-x-auto">
-          <ResponsiveContainer
-            width="100%"
-            height={isMobile ? 400 : 700}
-            minWidth={500}
+}) => {
+  const [showTop10, setShowTop10] = React.useState(true);
+
+  // Tạo dữ liệu bottom 5 từ top 10
+  const bottom5LocationChartData = React.useMemo(() => {
+    const sortedData = [...top10LocationChartData].sort(
+      (a, b) => a.revenue - b.revenue
+    );
+    return sortedData.slice(0, 5).map((item, index) => ({
+      ...item,
+      rank: index + 1,
+    }));
+  }, [top10LocationChartData]);
+
+  // Dữ liệu hiện tại dựa trên state
+  const currentChartData = showTop10
+    ? top10LocationChartData
+    : bottom5LocationChartData;
+  const currentTitle = showTop10
+    ? "Top 10 cửa hàng trong tuần theo thực thu"
+    : "Bottom 5 cửa hàng trong tuần theo thực thu";
+
+  return (
+    <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+      <div className="flex flex-col items-center mb-4">
+        <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-3">
+          {currentTitle}
+        </div>
+
+        {/* Nút chuyển đổi */}
+        <div className="flex bg-gray-100 rounded-lg p-1">
+          <button
+            onClick={() => setShowTop10(true)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+              showTop10
+                ? "bg-white text-orange-600 shadow-sm"
+                : "text-gray-600 hover:text-gray-800"
+            }`}
           >
-            <BarChart
-              layout="vertical"
-              data={top10LocationChartData}
-              margin={{
-                top: 20,
-                right: isMobile ? 80 : 120,
-                left: isMobile ? 40 : 60,
-                bottom: 20,
-              }}
-              barCategoryGap={isMobile ? 30 : 50}
-              barGap={isMobile ? 8 : 12}
-            >
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis
-                type="number"
-                tickFormatter={formatMoneyShort}
-                domain={[0, "auto"]}
-                tick={{ fontSize: isMobile ? 10 : 14 }}
-                allowDataOverflow={false}
-              />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={isMobile ? 120 : 220}
-                tick={{ fontWeight: 400, fontSize: isMobile ? 10 : 14 }}
-              />
-              <Tooltip formatter={formatMoneyShort} />
-              <Legend
-                verticalAlign="top"
-                align="left"
-                iconType="rect"
-                className={isMobile ? "pb-5" : "pb-10"}
-                wrapperStyle={{ fontSize: isMobile ? 10 : 14 }}
-                formatter={(value: string) => <span>{value}</span>}
-              />
-              <Bar
-                dataKey="revenue"
-                name="Thực thu"
-                fill="#8d6e63"
-                radius={[0, 8, 8, 0]}
-                maxBarSize={50}
-              >
-                <LabelList
-                  dataKey="revenue"
-                  position="right"
-                  fontSize={isMobile ? 10 : 12}
-                  fill="#8d6e63"
-                  formatter={(value: React.ReactNode) => {
-                    if (typeof value === "number" && value > 0) {
-                      return (value / 1_000_000).toFixed(1) + "M";
-                    }
-                    return "";
-                  }}
-                />
-              </Bar>
-              <Bar
-                dataKey="foxie"
-                name="Trả bằng thẻ Foxie"
-                fill="#b6d47a"
-                radius={[0, 8, 8, 0]}
-                maxBarSize={50}
-              >
-                <LabelList
-                  dataKey="foxie"
-                  position="right"
-                  fontSize={isMobile ? 10 : 12}
-                  fill="#b6d47a"
-                  formatter={(value: React.ReactNode) => {
-                    if (typeof value === "number" && value > 0) {
-                      return (value / 1_000_000).toFixed(1) + "M";
-                    }
-                    return "";
-                  }}
-                />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+            Top 10
+          </button>
+          <button
+            onClick={() => setShowTop10(false)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+              !showTop10
+                ? "bg-white text-orange-600 shadow-sm"
+                : "text-gray-600 hover:text-gray-800"
+            }`}
+          >
+            Bottom 5
+          </button>
         </div>
       </div>
-      <div className="w-full lg:w-80 bg-white rounded-xl shadow-lg p-2 sm:p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
-          <StatCard
-            title="Thực thu"
-            value={totalRevenueThisWeek}
-            delta={percentRevenue}
-            valueColor="text-[#a9b8c3]"
-          />
-          <StatCard
-            title="Thực thu của dịch vụ lẻ"
-            value={retailThisWeek}
-            delta={percentRetail}
-            valueColor="text-[#fcb900]"
-          />
-          <StatCard
-            title="Thực thu mua sản phẩm"
-            value={productThisWeek}
-            delta={percentProduct}
-            valueColor="text-[#b6d47a]"
-          />
-          <StatCard
-            title="Thực thu của mua thẻ"
-            value={cardThisWeek}
-            delta={percentCard}
-            valueColor="text-[#8ed1fc]"
-          />
-          <StatCard
-            title="Tổng trả bằng thẻ Foxie"
-            value={foxieThisWeek}
-            delta={percentFoxie}
-            valueColor="text-[#a9b8c3]"
-          />
-          <StatCard
-            title="Trung bình thực thu mỗi ngày"
-            value={avgRevenueThisWeek}
-            delta={percentAvg}
-            valueColor="text-[#b39ddb]"
-          />
+      <div className="flex flex-col lg:flex-row w-full gap-4">
+        <div className="flex-1 bg-white rounded-xl shadow-lg p-2 sm:p-4">
+          <div className="w-full overflow-x-auto">
+            <ResponsiveContainer
+              width="100%"
+              height={isMobile ? 500 : 700}
+              minWidth={500}
+            >
+              <BarChart
+                layout="vertical"
+                data={currentChartData}
+                margin={{
+                  top: 20,
+                  right: isMobile ? 80 : 120,
+                  left: isMobile ? 40 : 60,
+                  bottom: 20,
+                }}
+                barCategoryGap={isMobile ? 30 : 50}
+                barGap={isMobile ? 8 : 12}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis
+                  type="number"
+                  tickFormatter={formatMoneyShort}
+                  domain={[0, "auto"]}
+                  tick={{ fontSize: isMobile ? 10 : 14 }}
+                  allowDataOverflow={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={isMobile ? 120 : 220}
+                  tick={{ fontWeight: 400, fontSize: isMobile ? 10 : 14 }}
+                />
+                <Tooltip formatter={formatMoneyShort} />
+                <Legend
+                  verticalAlign="top"
+                  align="left"
+                  iconType="rect"
+                  className={isMobile ? "pb-5" : "pb-10"}
+                  wrapperStyle={{ fontSize: isMobile ? 10 : 14 }}
+                  formatter={(value: string) => <span>{value}</span>}
+                />
+                <Bar
+                  dataKey="revenue"
+                  name="Thực thu"
+                  fill="#8d6e63"
+                  radius={[0, 8, 8, 0]}
+                  maxBarSize={50}
+                >
+                  <LabelList
+                    dataKey="revenue"
+                    position="right"
+                    fontSize={isMobile ? 10 : 12}
+                    fill="#8d6e63"
+                    formatter={(value: React.ReactNode) => {
+                      if (typeof value === "number" && value > 0) {
+                        return (value / 1_000_000).toFixed(1) + "M";
+                      }
+                      return "";
+                    }}
+                  />
+                </Bar>
+                <Bar
+                  dataKey="foxie"
+                  name="Trả bằng thẻ Foxie"
+                  fill="#b6d47a"
+                  radius={[0, 8, 8, 0]}
+                  maxBarSize={50}
+                >
+                  <LabelList
+                    dataKey="foxie"
+                    position="right"
+                    fontSize={isMobile ? 10 : 12}
+                    fill="#b6d47a"
+                    formatter={(value: React.ReactNode) => {
+                      if (typeof value === "number" && value > 0) {
+                        return (value / 1_000_000).toFixed(1) + "M";
+                      }
+                      return "";
+                    }}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div className="w-full lg:w-80 bg-white rounded-xl shadow-lg p-2 sm:p-4">
+          {/* Mobile: Vertical scrollable layout */}
+          <div
+            className="lg:hidden max-h-56 overflow-y-auto"
+            style={{
+              scrollbarWidth: "thin",
+              scrollbarColor: "#fbbf24 #f3f4f6",
+            }}
+          >
+            <style jsx>{`
+              div::-webkit-scrollbar {
+                width: 6px;
+              }
+              div::-webkit-scrollbar-track {
+                background: #f3f4f6;
+                border-radius: 3px;
+              }
+              div::-webkit-scrollbar-thumb {
+                background: #fbbf24;
+                border-radius: 3px;
+              }
+              div::-webkit-scrollbar-thumb:hover {
+                background: #f59e0b;
+              }
+            `}</style>
+            <div className="flex flex-col gap-3">
+              <StatCard
+                title="Thực thu"
+                value={totalRevenueThisWeek}
+                delta={percentRevenue}
+                valueColor="text-[#a9b8c3]"
+              />
+              <StatCard
+                title="Thực thu của dịch vụ lẻ"
+                value={retailThisWeek}
+                delta={percentRetail}
+                valueColor="text-[#fcb900]"
+              />
+              <StatCard
+                title="Thực thu mua sản phẩm"
+                value={productThisWeek}
+                delta={percentProduct}
+                valueColor="text-[#b6d47a]"
+              />
+              <StatCard
+                title="Thực thu của mua thẻ"
+                value={cardThisWeek}
+                delta={percentCard}
+                valueColor="text-[#8ed1fc]"
+              />
+              <StatCard
+                title="Tổng trả bằng thẻ Foxie"
+                value={foxieThisWeek}
+                delta={percentFoxie}
+                valueColor="text-[#a9b8c3]"
+              />
+              <StatCard
+                title="Trung bình thực thu mỗi ngày"
+                value={avgRevenueThisWeek}
+                delta={percentAvg}
+                valueColor="text-[#b39ddb]"
+              />
+            </div>
+          </div>
+
+          {/* Desktop: Grid layout */}
+          <div className="hidden lg:grid lg:grid-cols-1 gap-3">
+            <StatCard
+              title="Thực thu"
+              value={totalRevenueThisWeek}
+              delta={percentRevenue}
+              valueColor="text-[#a9b8c3]"
+            />
+            <StatCard
+              title="Thực thu của dịch vụ lẻ"
+              value={retailThisWeek}
+              delta={percentRetail}
+              valueColor="text-[#fcb900]"
+            />
+            <StatCard
+              title="Thực thu mua sản phẩm"
+              value={productThisWeek}
+              delta={percentProduct}
+              valueColor="text-[#b6d47a]"
+            />
+            <StatCard
+              title="Thực thu của mua thẻ"
+              value={cardThisWeek}
+              delta={percentCard}
+              valueColor="text-[#8ed1fc]"
+            />
+            <StatCard
+              title="Tổng trả bằng thẻ Foxie"
+              value={foxieThisWeek}
+              delta={percentFoxie}
+              valueColor="text-[#a9b8c3]"
+            />
+            <StatCard
+              title="Trung bình thực thu mỗi ngày"
+              value={avgRevenueThisWeek}
+              delta={percentAvg}
+              valueColor="text-[#b39ddb]"
+            />
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default OrderTop10LocationChartData;
