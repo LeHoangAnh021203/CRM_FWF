@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Bell, User, Settings, LogOut, HelpCircle } from "lucide-react";
+import Image from "next/image";
+import { Search, User, Settings, LogOut, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +13,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SmartNotifications } from "@/components/smart-notifications";
+
+
 
 export function Header() {
   const [showMobileSearch, setShowMobileSearch] = useState(false);
@@ -67,12 +71,7 @@ export function Header() {
         </div>
 
         <div className="flex items-center space-x-2 sm:space-x-4 justify-end w-full sm:w-auto">
-          <Button variant="ghost" size="icon" className="relative p-2 sm:p-0">
-            <Bell className="h-5 w-5 sm:h-5 sm:w-5 text-[#d04d65]" />
-            <span className="absolute -top-1 -right-1 bg-[#d04d65] text-white text-[10px] sm:text-xs rounded-full h-4 w-4 flex items-center justify-center">
-              3
-            </span>
-          </Button>
+          <SmartNotifications />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -81,7 +80,7 @@ export function Header() {
                 className="flex items-center space-x-2 p-1 sm:p-2"
               >
                 <div className="w-8 h-8 bg-[#61c9d7] rounded-full flex items-center justify-center">
-                  <img src="/logo.png" className="w-full h-full" />
+                  <Image src="/logo.png" alt="FB Network Logo" width={32} height={32} className="w-full h-full" />
                 </div>
                 <span className="text-sm font-medium hidden sm:inline">
                   FB Network

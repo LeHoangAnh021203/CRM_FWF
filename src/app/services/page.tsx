@@ -21,6 +21,7 @@ import {
   useLocalStorageState,
   clearLocalStorageKeys,
 } from "@/hooks/useLocalStorageState";
+import { usePageStatus } from "@/hooks/usePageStatus";
 
 interface DataPoint {
   date: string;
@@ -171,6 +172,13 @@ export default function CustomerReportPage() {
     useNotification();
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
+  const { 
+    reportPageError, 
+    reportDataLoadSuccess, 
+    reportFilterChange, 
+    reportResetFilters,
+    reportPagePerformance
+  } = usePageStatus('services');
 
   // Function để reset tất cả filter về mặc định
   const resetFilters = () => {
@@ -194,6 +202,7 @@ export default function CustomerReportPage() {
     ]);
     setSelectedGenders(["Nam", "Nữ", "#N/A"]);
     showSuccess("Đã reset tất cả filter về mặc định!");
+    reportResetFilters();
   };
 
   const [startDate, setStartDate] = useLocalStorageState<CalendarDate>(
@@ -261,6 +270,50 @@ export default function CustomerReportPage() {
     fromDate,
     toDate
   );
+
+  // Report page load success when data loads
+  useEffect(() => {
+    if (serviceSummary && !serviceSummaryLoading && !serviceSummaryError) {
+      const startTime = Date.now();
+      
+      // Calculate total services from the data
+      const totalServices = serviceSummary.totalAll || 0;
+      const loadTime = Date.now() - startTime;
+      
+      reportPagePerformance({
+        loadTime,
+        dataSize: totalServices
+      });
+      
+      reportDataLoadSuccess("dịch vụ", totalServices);
+    }
+  }, [serviceSummary, serviceSummaryLoading, serviceSummaryError, reportPagePerformance, reportDataLoadSuccess]);
+
+  // Report errors
+  useEffect(() => {
+    if (serviceSummaryError) {
+      reportPageError(`Lỗi tải dữ liệu dịch vụ: ${serviceSummaryError}`);
+    }
+  }, [serviceSummaryError, reportPageError]);
+
+  // Report filter changes
+  useEffect(() => {
+    if (selectedRegions.length > 0) {
+      reportFilterChange(`khu vực: ${selectedRegions.join(', ')}`);
+    }
+  }, [selectedRegions, reportFilterChange]);
+
+  useEffect(() => {
+    if (selectedBranches.length > 0) {
+      reportFilterChange(`chi nhánh: ${selectedBranches.join(', ')}`);
+    }
+  }, [selectedBranches, reportFilterChange]);
+
+  useEffect(() => {
+    if (selectedServiceTypes.length > 0) {
+      reportFilterChange(`loại dịch vụ: ${selectedServiceTypes.join(', ')}`);
+    }
+  }, [selectedServiceTypes, reportFilterChange]);
 
   const {
     data: shopData,
@@ -1488,6 +1541,8 @@ export default function CustomerReportPage() {
             endDate={endDate}
             setStartDate={setStartDate}
             setEndDate={setEndDate}
+            today={today}
+            getLocalTimeZone={getLocalTimeZone}
             selectedRegions={selectedRegions}
             setSelectedRegions={setSelectedRegions}
             selectedBranches={selectedBranches}

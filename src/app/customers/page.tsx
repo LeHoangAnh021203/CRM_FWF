@@ -1,26 +1,25 @@
 "use client";
-import React, { useState, useEffect, Suspense, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   CalendarDate,
   today,
   getLocalTimeZone,
   parseDate,
 } from "@internationalized/date";
-import {
-  LazyCustomerFacilityHourTable,
-  LazyCustomerFilters,
-  LazyCustomerSummaryCard,
-  LazyCustomerStatsCards,
-  LazyCustomerGenderPie,
-  LazyCustomerNewChart,
-  LazyCustomerTypeTrendChart,
-  LazyCustomerSourceBarChart,
-  LazyCustomerAppDownloadBarChart,
-  LazyCustomerAppDownloadPieChart,
-  LazyCustomerPaymentPieChart,
-} from "./lazy-charts";
+import CustomerFacilityHourTable from "./CustomerFacilityHourTable";
+import CustomerFilters from "./CustomerFilters";
+import CustomerSummaryCard from "./CustomerSummaryCard";
+import CustomerStatsCards from "./CustomerStatsCards";
+import CustomerGenderPie from "./CustomerGenderPie";
+import CustomerNewChart from "./CustomerNewChart";
+import CustomerTypeTrendChart from "./CustomerTypeTrendChart";
+import CustomerSourceBarChart from "./CustomerSourceBarChart";
+import CustomerAppDownloadBarChart from "./CustomerAppDownloadBarChart";
+import CustomerAppDownloadPieChart from "./CustomerAppDownloadPieChart";
+import CustomerPaymentPieChart from "./CustomerPaymentPieChart";
 import { Notification, useNotification } from "@/components/notification";
 import { useLocalStorageState, clearLocalStorageKeys } from "@/hooks/useLocalStorageState";
+import { usePageStatus } from "@/hooks/usePageStatus";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -84,6 +83,13 @@ export default function CustomerReportPage() {
   const { notification, showSuccess, showError, hideNotification } = useNotification();
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
+  const { 
+    reportPageError, 
+    reportDataLoadSuccess, 
+    reportFilterChange, 
+    reportResetFilters,
+    reportPagePerformance
+  } = usePageStatus('customers');
   
   // Function để reset tất cả filter về mặc định
   const resetFilters = () => {
@@ -95,6 +101,7 @@ export default function CustomerReportPage() {
     setSelectedRegions([]);
     setSelectedBranches([]);
     showSuccess("Đã reset tất cả filter về mặc định!");
+    reportResetFilters();
   };
   
   const [customerSaleData] = useState([]);
@@ -164,6 +171,56 @@ export default function CustomerReportPage() {
     fromDate,
     toDate
   );
+
+  // Report page load success when data loads
+  useEffect(() => {
+    if (newCustomerRaw && !loadingNewCustomer && !errorNewCustomer) {
+      const startTime = Date.now();
+      
+      // Calculate total new customers from the data
+      const totalNewCustomers = newCustomerRaw.currentRange?.reduce((sum, item) => sum + (item.count || 0), 0) || 0;
+      const loadTime = Date.now() - startTime;
+      
+      reportPagePerformance({
+        loadTime,
+        dataSize: totalNewCustomers
+      });
+      
+      reportDataLoadSuccess("khách hàng mới", totalNewCustomers);
+    }
+  }, [newCustomerRaw, loadingNewCustomer, errorNewCustomer, reportPagePerformance, reportDataLoadSuccess]);
+
+  // Report errors
+  useEffect(() => {
+    if (errorNewCustomer) {
+      reportPageError(`Lỗi tải dữ liệu khách hàng mới: ${errorNewCustomer}`);
+    }
+  }, [errorNewCustomer, reportPageError]);
+
+  // Report filter changes
+  useEffect(() => {
+    if (selectedType.length > 0) {
+      reportFilterChange(`loại khách hàng: ${selectedType.join(', ')}`);
+    }
+  }, [selectedType, reportFilterChange]);
+
+  useEffect(() => {
+    if (selectedStatus) {
+      reportFilterChange(`trạng thái: ${selectedStatus}`);
+    }
+  }, [selectedStatus, reportFilterChange]);
+
+  useEffect(() => {
+    if (selectedRegions.length > 0) {
+      reportFilterChange(`khu vực: ${selectedRegions.join(', ')}`);
+    }
+  }, [selectedRegions, reportFilterChange]);
+
+  useEffect(() => {
+    if (selectedBranches.length > 0) {
+      reportFilterChange(`chi nhánh: ${selectedBranches.join(', ')}`);
+    }
+  }, [selectedBranches, reportFilterChange]);
   const {
     data: genderRatioRaw,
     loading: loadingGenderRatio,
@@ -202,15 +259,6 @@ export default function CustomerReportPage() {
     toDate
   );
 
-  const {
-    data: customerOldNewOrderRaw,
-    loading: loadingCustomerOldNewOrder,
-    error: errorCustomerOldNewOrder,
-  } = useApiData<{ totalNew: number; totalOld: number }>(
-    `${API_BASE_URL}/api/customer-sale/customer-old-new-order-pieChart`,
-    fromDate,
-    toDate
-  );
 
   const {
     data: customerSummaryRaw,
@@ -284,7 +332,7 @@ export default function CustomerReportPage() {
     loadingGenderRatio,
     loading,
     loadingAppDownload,
-    loadingCustomerOldNewOrder,
+    
     loadingCustomerSummary,
     loadingGenderRevenue,
     loadingFacilityHour,
@@ -295,7 +343,7 @@ export default function CustomerReportPage() {
     errorGenderRatio,
     error,
     errorAppDownload,
-    errorCustomerOldNewOrder,
+    
     errorCustomerSummary,
     errorGenderRevenue,
     errorFacilityHour,
@@ -411,14 +459,7 @@ export default function CustomerReportPage() {
     ];
   }, [appDownloadRaw]);
 
-  // 7. Tỷ lệ mới/cũ
-  const customerOldNewOrderPieData = React.useMemo(() => {
-    if (!customerOldNewOrderRaw) return [];
-    return [
-      { name: "Khách mới", value: customerOldNewOrderRaw.totalNew || 0 },
-      { name: "Khách cũ", value: customerOldNewOrderRaw.totalOld || 0 },
-    ];
-  }, [customerOldNewOrderRaw]);
+
 
   // Tỉ lệ các hình thức thanh toán (khách mới)
   const paymentPercentNewPieData = React.useMemo(() => {
@@ -503,10 +544,6 @@ export default function CustomerReportPage() {
       }
     });
   }
-
-  const APP_CUSTOMER_PIE_COLORS = ["#9ee347", "#f0bf4c"];
-
-  const NEW_OLD_COLORS = ["#5bd1d7", "#eb94cf"];
 
   const startDateForNewOldRatio = startDate;
 
@@ -724,8 +761,7 @@ export default function CustomerReportPage() {
           </div>
 
           {/* Filter */}
-          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-10 bg-gray-200 rounded"></div></div>}>
-            <LazyCustomerFilters
+          <CustomerFilters
               startDate={startDate}
               endDate={endDate}
               setStartDate={setStartDate}
@@ -754,27 +790,16 @@ export default function CustomerReportPage() {
               setShowBranchDropdown={setShowBranchDropdown}
               allBranches={allBranches}
             />
-          </Suspense>
 
           {/* Card tổng số khách trong khoảng ngày đã chọn */}
-          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-6 mb-4 animate-pulse"><div className="h-8 bg-gray-200 rounded w-1/2"></div></div>}>
-            <LazyCustomerSummaryCard
-              value={uniqueCustomersComparisonRaw?.current?.toLocaleString() ?? 0}
-              label="Tổng số khách trong khoảng ngày đã chọn"
-              percentChange={uniqueCustomersComparisonRaw?.changePercent}
-            />
-          </Suspense>
+          <CustomerSummaryCard
+            value={uniqueCustomersComparisonRaw?.current?.toLocaleString() ?? 0}
+            label="Tổng số khách trong khoảng ngày đã chọn"
+            percentChange={uniqueCustomersComparisonRaw?.changePercent}
+          />
 
           {/* 4 bảng thống kê */}
-          <Suspense fallback={<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-white rounded-xl shadow-lg p-4 animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            ))}
-          </div>}>
-            <LazyCustomerStatsCards
+          <CustomerStatsCards
               loading={loadingGenderRevenue}
               error={errorGenderRevenue}
               avgRevenueMale={
@@ -790,11 +815,9 @@ export default function CustomerReportPage() {
                 genderRevenueRaw?.avgServiceFemale?.toLocaleString() ?? 0
               }
             />
-          </Suspense>
 
           {/* Số khách tạo mới và tỷ lệ nam nữ/khách mới tạo */}
-          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
-            <LazyCustomerGenderPie
+          <CustomerGenderPie
               isMobile={isMobile}
               loadingNewCustomer={loadingNewCustomer}
               errorNewCustomer={errorNewCustomer}
@@ -804,80 +827,54 @@ export default function CustomerReportPage() {
               genderRatioData={genderRatioData}
               COLORS={COLORS}
             />
-          </Suspense>
 
           {/* Tổng số khách mới */}
-          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-32 bg-gray-200 rounded"></div></div>}>
-            <LazyCustomerNewChart
+          <CustomerNewChart
               loadingCustomerSummary={loadingCustomerSummary}
               errorCustomerSummary={errorCustomerSummary}
               customerSummaryRaw={customerSummaryRaw}
             />
-          </Suspense>
 
           {/* Số khách tới chia theo phân loại */}
-          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
-            <LazyCustomerTypeTrendChart
+          <CustomerTypeTrendChart
               isMobile={isMobile}
               customerTypeTrendData={customerTypeTrendData}
               customerTypeKeys={customerTypeKeys}
               COLORS={COLORS}
             />
-          </Suspense>
 
           {/* Nguồn của đơn hàng */}
-          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
-            <LazyCustomerSourceBarChart
+          <CustomerSourceBarChart
               isMobile={isMobile}
               customerSourceTrendData={customerSourceTrendData}
               customerSourceKeys={customerSourceKeys}
               COLORS={COLORS}
             />
-          </Suspense>
 
           {/* Khách hàng tải app */}
-          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
-            <LazyCustomerAppDownloadBarChart
+          <CustomerAppDownloadBarChart
               isMobile={isMobile}
               loading={loading}
               error={error}
               sortedAppDownloadStatusData={sortedAppDownloadStatusData}
             />
-          </Suspense>
 
           {/* Tỉ lệ khách hàng tải app và tỉ lệ khách mới/cũ*/}
-          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
-            <LazyCustomerAppDownloadPieChart
+          <CustomerAppDownloadPieChart
               loadingAppDownload={loadingAppDownload}
               errorAppDownload={errorAppDownload}
               appDownloadPieData={appDownloadPieData}
-              APP_CUSTOMER_PIE_COLORS={APP_CUSTOMER_PIE_COLORS}
-              loadingCustomerOldNewOrder={loadingCustomerOldNewOrder}
-              errorCustomerOldNewOrder={errorCustomerOldNewOrder}
-              customerOldNewOrderPieData={customerOldNewOrderPieData}
-              NEW_OLD_COLORS={NEW_OLD_COLORS}
             />
-          </Suspense>
 
           {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới) và (khách cũ) */}
-          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse"><div className="h-64 bg-gray-200 rounded"></div></div>}>
-            <LazyCustomerPaymentPieChart
+          <CustomerPaymentPieChart
               isMobile={isMobile}
               paymentPercentNewPieData={paymentPercentNewPieData}
               paymentPercentOldPieData={paymentPercentOldPieData}
             />
-          </Suspense>
 
           {/* Thời gian đơn hàng được tạo */}
-          <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-4 animate-pulse">
-            <div className="h-5 bg-gray-200 rounded w-1/4 mb-4"></div>
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-8 bg-gray-200 rounded"></div>
-              ))}
-            </div>
-          </div>}>
-            <LazyCustomerFacilityHourTable
+          <CustomerFacilityHourTable
               allHourRanges={allHourRanges}
               facilityHourTableData={facilityHourTableData}
               getCellBg={getCellBg}
@@ -885,7 +882,6 @@ export default function CustomerReportPage() {
               loadingFacilityHour={loadingFacilityHour}
               errorFacilityHour={errorFacilityHour}
             />
-          </Suspense>
         </div>
       </div>
     </div>

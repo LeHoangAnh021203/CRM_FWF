@@ -1,9 +1,11 @@
 "use client";
 
-import { Users, ShoppingCart, BarChart3, Menu, X } from "lucide-react";
+import { Users, ShoppingCart, BarChart3, Menu, X, Sparkles} from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 
 const menuItems = [
   {
@@ -21,10 +23,16 @@ const menuItems = [
     label: "Services",
     href: "/services",
   },
+  {
+    icon: Sparkles,
+    label: "Generate",
+    href: "/generateAI",
+  },
 ];
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
     <>
@@ -64,40 +72,45 @@ export function Sidebar() {
         <nav className="flex-1 p-2 lg:p-4">
           <ul className="flex space-y-2 justify-center ">
             <div>
-              {menuItems.map((item) => (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "w-full flex items-center j lg:justify-start px-2 lg:px-3 py-2 rounded-lg text-left transition-colors",
-                      "text-white hover:bg-slate-700 hover:text-white"
-                    )}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <item.icon className="h-5 w-5" />
-                      <span
-                        className={cn(
-                          "transition-opacity duration-300",
-                          isOpen ? "block" : "hidden"
-                        )}
-                      >
-                        {item.label}
-                      </span>
-                    </div>
-                  </Link>
-                </li>
-              ))}
+              {menuItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <li key={item.label}>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "w-full flex items-center j lg:justify-start px-2 lg:px-3 py-2 rounded-lg text-left transition-colors",
+                        isActive 
+                          ? "bg-white text-[#f66035] shadow-md" 
+                          : "text-white hover:bg-slate-700 hover:text-white"
+                      )}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <item.icon className="h-5 w-5" />
+                        <span
+                          className={cn(
+                            "transition-opacity duration-300",
+                            isOpen ? "block" : "hidden"
+                          )}
+                        >
+                          {item.label}
+                        </span>
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
             </div>
           </ul>
         </nav>
 
         {/* User section */}
-        <div className="p-2 border-t border-[#fdec40]">
+        <div className="p-2  border-[#fdec40] rounded-full">
           <Link href={"/"}>
             <div className="flex items-center justify-center space-x-3">
               <div className="w-8 h-8 bg-[#61c9d7] rounded-full flex items-center justify-center">
                 <span className="text-sm font-medium">
-                  <img src="/logo.png" className="w-full h-full " />
+                  <Image src="/logo.png" alt="FB Network Logo" width={32} height={32} className="w-full h-full" />
                 </span>
               </div>
               <div

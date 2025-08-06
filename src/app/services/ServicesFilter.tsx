@@ -2,8 +2,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   CalendarDate,
-  today,
-  getLocalTimeZone,
   parseDate,
 } from "@internationalized/date";
 
@@ -12,6 +10,8 @@ interface ServicesFilterProps {
   endDate: CalendarDate;
   setStartDate: (date: CalendarDate) => void;
   setEndDate: (date: CalendarDate) => void;
+  today: (tz: string) => CalendarDate;
+  getLocalTimeZone: () => string;
   selectedRegions: string[];
   setSelectedRegions: (regions: string[] | ((prev: string[]) => string[])) => void;
   selectedBranches: string[];
@@ -36,6 +36,8 @@ export default function ServicesFilter({
   endDate,
   setStartDate,
   setEndDate,
+  today,
+  getLocalTimeZone,
   selectedRegions,
   setSelectedRegions,
   selectedBranches,
@@ -54,6 +56,18 @@ export default function ServicesFilter({
   genderActualPrice,
   formatMoneyShort,
 }: ServicesFilterProps) {
+  // Use state to prevent hydration mismatch
+  const [todayString, setTodayString] = React.useState<string>("");
+  const [minEndDate, setMinEndDate] = React.useState<string>("");
+
+  // Set dates after hydration to prevent mismatch
+  React.useEffect(() => {
+    const tz = getLocalTimeZone();
+    const current = today(tz);
+    setTodayString(current.toString());
+    setMinEndDate(startDate ? startDate.toString() : "");
+  }, [startDate, getLocalTimeZone, today]);
+  
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
@@ -130,8 +144,8 @@ export default function ServicesFilter({
               const date = parseDate(e.target.value);
               setEndDate(date);
             }}
-            min={startDate.toString()}
-            max={today(getLocalTimeZone()).toString()}
+            min={minEndDate}
+            max={todayString}
           />
         </div>
       </div>

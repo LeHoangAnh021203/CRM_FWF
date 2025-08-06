@@ -30,6 +30,7 @@ import {
 } from "./lazy-charts";
 import { Notification, useNotification } from "@/components/notification";
 import { useLocalStorageState, clearLocalStorageKeys } from "@/hooks/useLocalStorageState";
+import { usePageStatus } from "@/hooks/usePageStatus";
 
 interface DataPoint {
   date: string;
@@ -205,6 +206,13 @@ export default function CustomerReportPage() {
   const { notification, showSuccess, showError, hideNotification } = useNotification();
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
+  const { 
+    reportPageError, 
+    reportDataLoadSuccess, 
+    reportFilterChange, 
+    reportResetFilters,
+    reportPagePerformance
+  } = usePageStatus('orders');
   
   // Function để reset tất cả filter về mặc định
   const resetFilters = () => {
@@ -219,6 +227,7 @@ export default function CustomerReportPage() {
     setSelectedBranches([]);
     setSelectedRegions([]);
     showSuccess("Đã reset tất cả filter về mặc định!");
+    reportResetFilters();
   };
   
   const [startDate, setStartDate] = useLocalStorageState<CalendarDate>(
@@ -309,10 +318,45 @@ export default function CustomerReportPage() {
   }>(`${API_BASE_URL}/api/sales/revenue-summary`, fromDate, toDate);
 
   const { data: regionStatRaw, loading: regionStatLoading, error: regionStatError } = useApiData<RegionStatData[]>(
-    `${API_BASE_URL}/api/sales/region-stat`,
-    fromDate,
-    toDate
-  );
+    `${API_BASE_URL}/api/sales/region-stats`, fromDate, toDate);
+
+  // Report page load success when data loads
+  useEffect(() => {
+    if (regionRevenueRaw && !regionRevenueLoading && !regionRevenueError) {
+      const startTime = Date.now();
+      
+      // Calculate total revenue from the data
+      const totalRevenue = regionRevenueRaw.currentRange?.reduce((sum, item) => sum + (item.totalRevenue || 0), 0) || 0;
+      const loadTime = Date.now() - startTime;
+      
+      reportPagePerformance({
+        loadTime,
+        dataSize: Math.round(totalRevenue / 1000000) // Convert to millions
+      });
+      
+      reportDataLoadSuccess("doanh thu", Math.round(totalRevenue / 1000000)); // Convert to millions
+    }
+  }, [regionRevenueRaw, regionRevenueLoading, regionRevenueError, reportPagePerformance, reportDataLoadSuccess]);
+
+  // Report errors
+  useEffect(() => {
+    if (regionRevenueError) {
+      reportPageError(`Lỗi tải dữ liệu doanh thu khu vực: ${regionRevenueError}`);
+    }
+  }, [regionRevenueError, reportPageError]);
+
+  // Report filter changes
+  useEffect(() => {
+    if (selectedRegions.length > 0) {
+      reportFilterChange(`khu vực: ${selectedRegions.join(', ')}`);
+    }
+  }, [selectedRegions, reportFilterChange]);
+
+  useEffect(() => {
+    if (selectedBranches.length > 0) {
+      reportFilterChange(`chi nhánh: ${selectedBranches.join(', ')}`);
+    }
+  }, [selectedBranches, reportFilterChange]);
 
   const { data: regionActualPie, loading: regionActualLoading, error: regionActualError } = useApiData<{
     currentRange: { shopType: string; date: string; totalRevenue: number }[];
