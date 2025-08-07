@@ -1,48 +1,88 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { TrendingUp, Users, Star, MapPin } from "lucide-react"
-
-const insights = [
-  {
-    title: "Customer Satisfaction",
-    value: 94,
-    icon: Star,
-    color: "text-yellow-500",
-    description: "Based on recent reviews",
-  },
-  {
-    title: "Customer Retention",
-    value: 87,
-    icon: Users,
-    color: "text-green-500",
-    description: "Returning customers",
-  },
-  {
-    title: "Market Reach",
-    value: 76,
-    icon: MapPin,
-    color: "text-blue-500",
-    description: "Geographic coverage",
-  },
-  {
-    title: "Growth Rate",
-    value: 68,
-    icon: TrendingUp,
-    color: "text-purple-500",
-    description: "Monthly growth",
-  },
-]
-
-const topCustomers = [
-  { name: "Acme Corp", revenue: "12,450 M", orders: 24 },
-  { name: "TechStart Inc", revenue: "8,920 M", orders: 18 },
-  { name: "Global Solutions", revenue: "7,650 M", orders: 15 },
-  { name: "Innovation Labs", revenue: "6,340 M", orders: 12 },
-]
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { TrendingUp, Users, Star, MapPin } from "lucide-react";
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 export function CustomerInsights() {
+  const { customerInsights, loading, error } = useDashboardData();
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card className="bg-white">
+          <CardHeader>
+            <div className="h-6 bg-gray-200 rounded animate-pulse mb-2 w-36"></div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div className="h-4 w-4 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+                  </div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-8"></div>
+                </div>
+                <div className="h-2 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-3 bg-gray-200 rounded animate-pulse w-32"></div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error || !customerInsights || customerInsights.length === 0) {
+    return (
+      <div className="space-y-6">
+        <Card className="bg-white">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Customer Insights</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center text-gray-500 py-8">
+              <p>No customer insights available</p>
+              {error && <p className="text-sm mt-2">{error}</p>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const getIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case "satisfaction":
+        return Star;
+      case "retention":
+        return Users;
+      case "reach":
+        return MapPin;
+      case "growth":
+        return TrendingUp;
+      default:
+        return TrendingUp;
+    }
+  };
+
+  const getColor = (type: string) => {
+    switch (type.toLowerCase()) {
+      case "satisfaction":
+        return "text-yellow-500";
+      case "retention":
+        return "text-green-500";
+      case "reach":
+        return "text-blue-500";
+      case "growth":
+        return "text-purple-500";
+      default:
+        return "text-gray-500";
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card className="bg-white">
@@ -50,45 +90,28 @@ export function CustomerInsights() {
           <CardTitle className="text-lg font-semibold">Customer Insights</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {insights.map((insight) => (
-            <div key={insight.title} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <insight.icon className={`h-4 w-4 ${insight.color}`} />
-                  <span className="text-sm font-medium text-gray-700">{insight.title}</span>
-                </div>
-                <span className="text-sm font-bold text-gray-900">{insight.value}%</span>
-              </div>
-              <Progress value={insight.value} className="h-2" />
-              <p className="text-xs text-gray-500">{insight.description}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card className="bg-white">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Top Customers</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {topCustomers.map((customer, index) => (
-              <div key={customer.name} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-bold text-blue-600">#{index + 1}</span>
+          {customerInsights.map((insight) => {
+            const IconComponent = getIcon(insight.type);
+            const colorClass = getColor(insight.type);
+            
+            return (
+              <div key={insight.name} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <IconComponent className={`h-4 w-4 ${colorClass}`} />
+                    <span className="text-sm font-medium text-gray-700">{insight.name}</span>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900">{customer.name}</p>
-                    <p className="text-sm text-gray-500">{customer.orders} orders</p>
-                  </div>
+                  <span className="text-sm font-bold text-gray-900">{insight.value}%</span>
                 </div>
-                <span className="font-bold text-green-600">{customer.revenue}</span>
+                <Progress value={insight.value} className="h-2" />
+                <p className="text-xs text-gray-500">
+                  {insight.change > 0 ? '+' : ''}{insight.change.toFixed(1)}% vs last month
+                </p>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

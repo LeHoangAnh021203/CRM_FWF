@@ -115,14 +115,24 @@ export function SmartNotifications() {
     const fetchNotifications = async () => {
       try {
         setLoading(true);
-        const response = await fetch("/api/notifications");
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        const response = await fetch("/api/notifications", {
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+
         if (response.ok) {
           const data = await response.json();
           setNotifications(data.notifications || []);
           setPageStatuses(data.pageStatuses || {});
+        } else {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
       } catch (error) {
-        console.error("Failed to fetch notifications:", error);
+        console.warn("Failed to fetch notifications:", error);
         setNotificationCount(0);
       } finally {
         setLoading(false);
@@ -132,8 +142,8 @@ export function SmartNotifications() {
     // Initial fetch
     fetchNotifications();
 
-    // Refresh notifications every 5 seconds for faster updates
-    const interval = setInterval(fetchNotifications, 5000);
+    // Refresh notifications every 30 seconds instead of 5 seconds
+    const interval = setInterval(fetchNotifications, 30000);
 
     return () => clearInterval(interval);
   }, []);
@@ -143,15 +153,25 @@ export function SmartNotifications() {
     if (showNotifications) {
       const fetchNotifications = async () => {
         try {
-          const response = await fetch("/api/notifications");
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+          const response = await fetch("/api/notifications", {
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
+
           if (response.ok) {
             const data = await response.json();
             setNotifications(data.notifications || []);
             setNotificationCount(data.count || 0);
             setPageStatuses(data.pageStatuses || {});
+          } else {
+            throw new Error(`HTTP error! status: ${response.status}`);
           }
         } catch (error) {
-          console.error("Failed to fetch notifications:", error);
+          console.warn("Failed to fetch notifications:", error);
         }
       };
 

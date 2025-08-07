@@ -1,46 +1,90 @@
+"use client";
+
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card"
 import { TrendingUp, TrendingDown, Users, ShoppingCart, Landmark, Package } from "lucide-react"
-
-const stats = [
-  {
-    title: "Total Revenue",
-    value: "12,426 M",
-    change: "+12.5%",
-    trend: "up",
-    icon: Landmark,
-    color: "text-green-600",
-  },
-  {
-    title: "Total Orders",
-    value: "1,245",
-    change: "+8.2%",
-    trend: "up",
-    icon: ShoppingCart,
-    color: "text-blue-600",
-  },
-  {
-    title: "Total Customers",
-    value: "3,891",
-    change: "+15.3%",
-    trend: "up",
-    icon: Users,
-    color: "text-purple-600",
-  },
-  {
-    title: "Total Products",
-    value: "892",
-    change: "-2.1%",
-    trend: "down",
-    icon: Package,
-    color: "text-orange-600",
-  },
-]
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 export const StatsCards = React.memo(function StatsCards() {
+  const { stats, loading, error } = useDashboardData();
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i} className="bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+                  <div className="h-8 bg-gray-200 rounded animate-pulse w-20"></div>
+                  <div className="flex items-center space-x-2">
+                    <div className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
+                    <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
+                  </div>
+                </div>
+                <div className="h-12 w-12 bg-gray-200 rounded-full animate-pulse"></div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="bg-white">
+          <CardContent className="p-6">
+            <div className="text-center text-gray-500">
+              <p>Failed to load dashboard data</p>
+              <p className="text-sm">{error}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const statsData = [
+    {
+      title: "Total Revenue",
+      value: `${(stats.totalRevenue / 1000000).toFixed(1)} M`,
+      change: `${stats.revenueChange > 0 ? '+' : ''}${stats.revenueChange.toFixed(1)}%`,
+      trend: stats.revenueChange >= 0 ? "up" : "down",
+      icon: Landmark,
+      color: "text-green-600",
+    },
+    {
+      title: "Total Orders",
+      value: stats.totalOrders.toLocaleString(),
+      change: `${stats.ordersChange > 0 ? '+' : ''}${stats.ordersChange.toFixed(1)}%`,
+      trend: stats.ordersChange >= 0 ? "up" : "down",
+      icon: ShoppingCart,
+      color: "text-blue-600",
+    },
+    {
+      title: "Total Customers",
+      value: stats.totalCustomers.toLocaleString(),
+      change: `${stats.customersChange > 0 ? '+' : ''}${stats.customersChange.toFixed(1)}%`,
+      trend: stats.customersChange >= 0 ? "up" : "down",
+      icon: Users,
+      color: "text-purple-600",
+    },
+    {
+      title: "Total Products",
+      value: stats.totalProducts.toLocaleString(),
+      change: `${stats.productsChange > 0 ? '+' : ''}${stats.productsChange.toFixed(1)}%`,
+      trend: stats.productsChange >= 0 ? "up" : "down",
+      icon: Package,
+      color: "text-orange-600",
+    },
+  ];
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {stats.map((stat) => (
+      {statsData.map((stat) => (
         <Card key={stat.title} className="bg-white">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -67,5 +111,5 @@ export const StatsCards = React.memo(function StatsCards() {
         </Card>
       ))}
     </div>
-  )
+  );
 });

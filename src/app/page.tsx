@@ -1,4 +1,6 @@
-import { Suspense } from "react";
+"use client";
+
+import { Suspense, useEffect, useRef } from "react";
 import {
   StatsCards,
   RevenueChart,
@@ -7,10 +9,80 @@ import {
   CustomerInsights,
   QuickActions,
 } from "./lazy-components";
+import { Notification, useNotification } from "@/components/notification";
+import { usePageStatus } from "@/hooks/usePageStatus";
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 export default function Dashboard() {
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
+  const hasShownSuccess = useRef(false);
+  const hasShownError = useRef(false);
+  const { 
+    reportPageError, 
+    reportDataLoadSuccess, 
+    reportPagePerformance,
+    reportDataLoadError
+  } = usePageStatus('dashboard');
+
+  const { 
+    loading, 
+    error, 
+    apiErrors, 
+    apiSuccesses 
+  } = useDashboardData();
+
+  // Monitor API success notifications
+  useEffect(() => {
+    if (apiSuccesses.length > 0 && !hasShownSuccess.current) {
+      const successMessage = apiSuccesses.length === 1 
+        ? apiSuccesses[0] 
+        : `${apiSuccesses.length} data sources loaded successfully`;
+      
+      showSuccess(successMessage);
+      hasShownSuccess.current = true;
+      reportDataLoadSuccess("dashboard", apiSuccesses.length);
+    }
+  }, [apiSuccesses, showSuccess, reportDataLoadSuccess]);
+
+  // Monitor API error notifications
+  useEffect(() => {
+    if (apiErrors.length > 0 && !hasShownError.current) {
+      const errorMessage = apiErrors.length === 1 
+        ? apiErrors[0] 
+        : `${apiErrors.length} data sources failed to load`;
+      
+      showError(errorMessage);
+      hasShownError.current = true;
+      reportDataLoadError("dashboard", errorMessage);
+    }
+  }, [apiErrors, showError, reportDataLoadError]);
+
+  // Monitor general error
+  useEffect(() => {
+    if (error && !hasShownError.current) {
+      showError(error);
+      hasShownError.current = true;
+      reportPageError(error);
+    }
+  }, [error, showError, reportPageError]);
+
+  // Report page performance
+  useEffect(() => {
+    if (!loading) {
+      reportPagePerformance({ loadTime: 2000 });
+    }
+  }, [loading, reportPagePerformance]);
+
   return (
     <div className="p-3 sm:p-6">
+      {/* Notification Component */}
+      <Notification
+        type={notification.type}
+        message={notification.message}
+        isVisible={notification.isVisible}
+        onClose={hideNotification}
+      />
+
       <div className="mb-3 sm:mb-6">
         <h1 className="text-lg sm:text-2xl font-semibold text-gray-900 mb-2">
           Dashboard
