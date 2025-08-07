@@ -1,0 +1,10 @@
+{
+  "/api/notifications/route": "/api/notifications",
+  "/favicon.ico/route": "/favicon.ico",
+  "/customers/page": "/customers",
+  "/_not-found/page": "/_not-found",
+  "/generateAI/page": "/generateAI",
+  "/services/page": "/services",
+  "/orders/page": "/orders",
+  "/page": "/"
+}

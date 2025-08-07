@@ -82,7 +82,7 @@ export default function PromptSection({
           <div>
             <Label htmlFor="style-select">Style Preset</Label>
             <Select value={style} onValueChange={setStyle}>
-              <SelectTrigger className="mt-1" id="style-select">
+              <SelectTrigger className="mt-1">
                 <SelectValue>{style}</SelectValue>
               </SelectTrigger>
               <SelectContent>

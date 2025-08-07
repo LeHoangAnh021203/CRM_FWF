@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { today, getLocalTimeZone } from "@internationalized/date";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
 interface DashboardStats {
   totalRevenue: number;
