@@ -141,10 +141,13 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
     const sortedData = [...top10LocationChartData].sort(
       (a, b) => a.revenue - b.revenue
     );
-    return sortedData.slice(0, 5).map((item, index) => ({
-      ...item,
-      rank: index + 1,
-    }));
+    // Lấy 5 giá trị nhỏ nhất và sắp xếp theo thứ tự giảm dần để bar lớn hơn
+    return sortedData.slice(0, 5)
+      .sort((a, b) => b.revenue - a.revenue) // Sắp xếp giảm dần
+      .map((item, index) => ({
+        ...item,
+        rank: index + 1,
+      }));
   }, [top10LocationChartData]);
 
   // Dữ liệu hiện tại dựa trên state
@@ -204,7 +207,7 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
                   bottom: 20,
                 }}
                 barCategoryGap={isMobile ? 30 : 50}
-                barGap={isMobile ? 8 : 12}
+                barGap={isMobile ? 8 : 50}
               >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis

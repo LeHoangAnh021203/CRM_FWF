@@ -1268,32 +1268,30 @@ export default function CustomerReportPage() {
       ];
     }
 
-    // Fallback data nếu API chưa load
+    // Fallback data nếu API chưa load - sử dụng dữ liệu cố định để tránh hydration mismatch
     const pieData = [
       {
         key: "combo",
         label: "Combo",
-        value: filteredPieData.filter((d) => d.type === "Khách hàng Thành viên")
-          .length,
+        value: 0,
         color: "#795548",
       },
       {
         key: "service",
         label: "Dịch vụ",
-        value: filteredPieData.filter((d) => d.type === "KH trải nghiệm")
-          .length,
+        value: 0,
         color: "#c5e1a5",
       },
       {
         key: "addedon",
         label: "Added on",
-        value: filteredPieData.filter((d) => d.type === "Added on").length,
+        value: 0,
         color: "#f16a3f",
       },
       {
         key: "gifts",
         label: "Gifts",
-        value: filteredPieData.filter((d) => d.type === "Quà tặng").length,
+        value: 0,
         color: "#8fd1fc",
       },
     ];
@@ -1308,7 +1306,7 @@ export default function CustomerReportPage() {
         color: "#b26e7a",
       },
     ];
-  }, [serviceSummary, filteredPieData]);
+  }, [serviceSummary]);
 
   // PieChart top 10 dịch vụ theo số lượng (có filter)
   const pieTop10Data = React.useMemo(() => {
@@ -1321,52 +1319,9 @@ export default function CustomerReportPage() {
       }));
     }
 
-    // Fallback data nếu API chưa load
-    const filteredServiceData = data.filter(
-      (d) =>
-        isInWeek(d, weekStart, weekEnd) &&
-        (selectedRegions.length === 0 ||
-          !d.region ||
-          selectedRegions.includes(d.region)) &&
-        (selectedBranches.length === 0 ||
-          !d.branch ||
-          selectedBranches.includes(d.branch)) &&
-        selectedServiceTypes.includes(d.type) &&
-        selectedGenders.includes(d.gender)
-    );
-    // Lấy tên dịch vụ (ưu tiên d.serviceName, fallback d.type)
-    const serviceCountMap = new Map();
-    filteredServiceData.forEach((d) => {
-      const name = d.serviceName || d.type;
-      serviceCountMap.set(name, (serviceCountMap.get(name) || 0) + 1);
-    });
-    const sortedServices = Array.from(serviceCountMap.entries()).sort(
-      (a, b) => b[1] - a[1]
-    );
-    const top10Services = sortedServices.slice(0, 10);
-    const otherCount = sortedServices
-      .slice(10)
-      .reduce((sum, [, count]) => sum + count, 0);
-    const result = top10Services.map(([name, value], idx) => ({
-      name,
-      value,
-      color: `hsl(0,0%,${40 + idx * 5}%)`, // gradient xám
-    }));
-    if (otherCount > 0) {
-      result.push({ name: "Khác", value: otherCount, color: "#ededed" });
-    }
-    return result;
-  }, [
-    top10ServicesUsageData,
-    data,
-    weekStart,
-    weekEnd,
-    isInWeek,
-    selectedRegions,
-    selectedBranches,
-    selectedServiceTypes,
-    selectedGenders,
-  ]);
+    // Fallback data nếu API chưa load - sử dụng dữ liệu cố định để tránh hydration mismatch
+    return [];
+  }, [top10ServicesUsageData]);
 
   // PieChart top 10 dịch vụ theo giá buổi (có filter)
   const pieTop10AvgData = React.useMemo(() => {
@@ -1379,41 +1334,9 @@ export default function CustomerReportPage() {
       }));
     }
 
-    // Fallback data nếu API chưa load
-    const serviceValueMap = new Map();
-    filteredPieData.forEach((d) => {
-      const name = d.serviceName || d.type;
-      if (!serviceValueMap.has(name)) {
-        serviceValueMap.set(name, { totalValue: 0, count: 0 });
-      }
-      const obj = serviceValueMap.get(name);
-      obj.totalValue += d.value;
-      obj.count += 1;
-    });
-    const serviceAvgArr = Array.from(serviceValueMap.entries()).map(
-      ([name, { totalValue, count }]) => ({
-        name,
-        avg: count > 0 ? totalValue / count : 0,
-        count,
-      })
-    );
-    const sortedAvg = serviceAvgArr.sort((a, b) => b.avg - a.avg);
-    const top10Avg = sortedAvg.slice(0, 10);
-    const otherAvgSum = sortedAvg.slice(10).reduce((sum, s) => sum + s.avg, 0);
-    const result = top10Avg.map((s, idx) => ({
-      name: s.name,
-      value: s.avg,
-      color: `hsl(30, 100%, ${45 + idx * 5}%)`, // gradient cam
-    }));
-    if (sortedAvg.length > 10) {
-      result.push({
-        name: "Khác",
-        value: otherAvgSum,
-        color: "#ffe0b2",
-      });
-    }
-    return result;
-  }, [top10ServicesRevenueData, filteredPieData]);
+    // Fallback data nếu API chưa load - sử dụng dữ liệu cố định để tránh hydration mismatch
+    return [];
+  }, [top10ServicesRevenueData]);
 
   const renderPieLabel = ({
     percent,
@@ -1454,23 +1377,9 @@ export default function CustomerReportPage() {
       }));
     }
 
-    // Fallback data nếu API chưa load
-    const serviceCountMap = new Map();
-    filteredPieData.forEach((d) => {
-      const name = d.serviceName || d.type;
-      serviceCountMap.set(name, (serviceCountMap.get(name) || 0) + 1);
-    });
-    const sorted = Array.from(serviceCountMap.entries()).sort(
-      (a, b) => a[1] - b[1]
-    );
-    const bottom3 = sorted.slice(0, 3);
-    const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
-    return bottom3.map(([name, value], idx) => ({
-      name,
-      value,
-      color: grayShades[idx % grayShades.length],
-    }));
-  }, [bottom3ServicesUsageData, filteredPieData]);
+    // Fallback data nếu API chưa load - sử dụng dữ liệu cố định để tránh hydration mismatch
+    return [];
+  }, [bottom3ServicesUsageData]);
 
   // Data cho bottom 3 dịch vụ theo giá buổi
   const bottom3RevenueData = React.useMemo(() => {
@@ -1484,36 +1393,9 @@ export default function CustomerReportPage() {
       }));
     }
 
-    // Fallback data nếu API chưa load
-    const serviceValueMap = new Map();
-    filteredPieData.forEach((d) => {
-      const name = d.serviceName || d.type;
-      if (!serviceValueMap.has(name)) {
-        serviceValueMap.set(name, {
-          totalValue: 0,
-          count: 0,
-        });
-      }
-      const obj = serviceValueMap.get(name);
-      obj.totalValue += d.value;
-      obj.count += 1;
-    });
-    const serviceAvgArr = Array.from(serviceValueMap.entries()).map(
-      ([name, { totalValue, count }]) => ({
-        name,
-        avg: count > 0 ? totalValue / count : 0,
-        count,
-      })
-    );
-    const sortedAvg = serviceAvgArr.sort((a, b) => a.avg - b.avg);
-    const bottom3 = sortedAvg.slice(0, 3);
-    const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
-    return bottom3.map((s, idx) => ({
-      name: s.name,
-      value: s.avg,
-      color: grayShades[idx % grayShades.length],
-    }));
-  }, [bottom3ServicesRevenueData, filteredPieData]);
+    // Fallback data nếu API chưa load - sử dụng dữ liệu cố định để tránh hydration mismatch
+    return [];
+  }, [bottom3ServicesRevenueData]);
 
   return (
     <div className="p-2 sm:p-4 md:p-6 max-w-full">

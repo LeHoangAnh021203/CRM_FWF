@@ -17,6 +17,7 @@ interface PieRegionRevenueData {
 interface OrderActualCollectionProps {
   regionStats: RegionStat[];
   totalRevenueThisWeek: number;
+  totalPercentChange: number;
   pieRegionRevenueData: PieRegionRevenueData[];
   isMobile: boolean;
 }
@@ -33,6 +34,7 @@ const COLORS = [
 const OrderActualCollection: React.FC<OrderActualCollectionProps> = ({
   regionStats,
   totalRevenueThisWeek,
+  totalPercentChange,
   pieRegionRevenueData,
   isMobile,
 }) => (
@@ -107,7 +109,20 @@ const OrderActualCollection: React.FC<OrderActualCollectionProps> = ({
               <td className="px-4 py-2 border-t text-right">
                 {totalRevenueThisWeek.toLocaleString()}
               </td>
-              <td className="px-4 py-2 border-t text-right"></td>
+              <td className={`px-4 py-2 border-t text-right ${
+                totalPercentChange > 0
+                  ? "text-green-600"
+                  : totalPercentChange < 0
+                  ? "text-red-500"
+                  : ""
+              }`}>
+                {`${totalPercentChange.toFixed(1)}%`}
+                {totalPercentChange > 0
+                  ? "↑"
+                  : totalPercentChange < 0
+                  ? "↓"
+                  : ""}
+              </td>
               <td className="px-4 py-2 border-t text-right">100%</td>
             </tr>
           </tbody>

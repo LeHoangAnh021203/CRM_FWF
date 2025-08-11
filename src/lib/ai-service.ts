@@ -1,6 +1,6 @@
-// AI Service - Automatic Configuration
+// AI Service - Automatic Configuration with Fallback
 export interface AIServiceConfig {
-  service: 'stability' | 'replicate' | 'openai' | 'demo';
+  service: 'stability' | 'replicate' | 'openai' | 'openrouter' | 'demo';
   apiKey: string;
   endpoint: string;
   isConfigured: boolean;
@@ -8,6 +8,7 @@ export interface AIServiceConfig {
 
 class AIService {
   private config: AIServiceConfig;
+  private fallbackServices: Array<'stability' | 'replicate' | 'openai' | 'openrouter'> = ['stability', 'replicate', 'openai', 'openrouter'];
 
   constructor() {
     this.config = this.loadConfig();
@@ -52,31 +53,122 @@ class AIService {
     };
   }
 
+  private getServiceConfig(service: 'stability' | 'replicate' | 'openai' | 'openrouter'): AIServiceConfig | null {
+    switch (service) {
+      case 'stability':
+        const stabilityKey = process.env.NEXT_PUBLIC_STABILITY_API_KEY;
+        if (stabilityKey) {
+          return {
+            service: 'stability',
+            apiKey: stabilityKey,
+            endpoint: 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image',
+            isConfigured: true
+          };
+        }
+        break;
+      case 'replicate':
+        const replicateKey = process.env.NEXT_PUBLIC_REPLICATE_API_KEY;
+        if (replicateKey) {
+          return {
+            service: 'replicate',
+            apiKey: replicateKey,
+            endpoint: 'https://api.replicate.com/v1/predictions',
+            isConfigured: true
+          };
+        }
+        break;
+      case 'openai':
+        const openaiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+        if (openaiKey) {
+          return {
+            service: 'openai',
+            apiKey: openaiKey,
+            endpoint: 'https://api.openai.com/v1/images/generations',
+            isConfigured: true
+          };
+        }
+        break;
+      case 'openrouter':
+        const openrouterKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+        if (openrouterKey) {
+          return {
+            service: 'openrouter',
+            apiKey: openrouterKey,
+            endpoint: 'https://openrouter.ai/api/v1/images/generations',
+            isConfigured: true
+          };
+        }
+        break;
+    }
+    return null;
+  }
+
   public async generateFoxPerson(imageBlob: Blob, prompt: string, strength: number): Promise<string> {
-    try {
-      if (!this.config.isConfigured) {
-        throw new Error('No AI service configured');
+    const errors: string[] = [];
+    
+    // Try the current configured service first
+    if (this.config.isConfigured) {
+      try {
+        console.log(`Trying ${this.config.service} service`);
+        return await this.generateWithService(this.config, imageBlob, prompt, strength);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        errors.push(`${this.config.service}: ${errorMessage}`);
+        console.warn(`${this.config.service} failed:`, errorMessage);
       }
+    }
 
-      console.log(`Using ${this.config.service} service`);
+    // Try fallback services
+    for (const service of this.fallbackServices) {
+      if (service === this.config.service) continue; // Skip already tried service
+      
+      const serviceConfig = this.getServiceConfig(service);
+      if (!serviceConfig) continue;
 
-      switch (this.config.service) {
-        case 'stability':
-          return await this.generateWithStability(imageBlob, prompt, strength);
-        case 'replicate':
-          return await this.generateWithReplicate(imageBlob, prompt, strength);
-        case 'openai':
-          return await this.generateWithOpenAI(imageBlob, prompt, strength);
-        default:
-          throw new Error('Unsupported service');
+      try {
+        console.log(`Trying fallback ${service} service`);
+        return await this.generateWithService(serviceConfig, imageBlob, prompt, strength);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        errors.push(`${service}: ${errorMessage}`);
+        console.warn(`${service} failed:`, errorMessage);
       }
-    } catch (error) {
-      console.error('AI generation error:', error);
-      throw error;
+    }
+
+    // All services failed - return demo image
+    console.warn('All AI services failed, returning demo image');
+    return this.getDemoImage();
+  }
+
+  private getDemoImage(): string {
+    // Return a demo fox person image from public assets
+    const demoImages = [
+      '/fox.png',
+      '/fox2.jpg', 
+      '/fox3.jpg',
+      '/fox4.jpg',
+      '/fox5.jpg'
+    ];
+    
+    // Return a random demo image
+    const randomImage = demoImages[Math.floor(Math.random() * demoImages.length)];
+    return randomImage;
+  }
+
+  private async generateWithService(config: AIServiceConfig, imageBlob: Blob, prompt: string, strength: number): Promise<string> {
+    switch (config.service) {
+      case 'stability':
+        return await this.generateWithStability(config, imageBlob, prompt, strength);
+      case 'replicate':
+        return await this.generateWithReplicate(config, imageBlob, prompt, strength);
+      case 'openai':
+        return await this.generateWithOpenAI(config, imageBlob, prompt, strength);
+      default:
+        throw new Error('Unsupported service');
     }
   }
 
-  private async generateWithStability(imageBlob: Blob, prompt: string, strength: number): Promise<string> {
+  private async generateWithStability(config: AIServiceConfig, imageBlob: Blob, prompt: string, strength: number): Promise<string> {
     const formData = new FormData();
     formData.append('init_image', imageBlob, 'input.jpg');
     
@@ -92,10 +184,10 @@ class AIService {
     formData.append('samples', '1');
     formData.append('style_preset', 'photographic');
 
-    const response = await fetch(this.config.endpoint, {
+    const response = await fetch(config.endpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.config.apiKey}`,
+        'Authorization': `Bearer ${config.apiKey}`,
         'Accept': 'application/json',
       },
       body: formData,
@@ -115,14 +207,14 @@ class AIService {
     }
   }
 
-  private async generateWithReplicate(imageBlob: Blob, prompt: string, strength: number): Promise<string> {
+  private async generateWithReplicate(config: AIServiceConfig, imageBlob: Blob, prompt: string, strength: number): Promise<string> {
     // Convert blob to base64
     const base64 = await this.blobToBase64(imageBlob);
     
-    const response = await fetch(this.config.endpoint, {
+    const response = await fetch(config.endpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${this.config.apiKey}`,
+        'Authorization': `Token ${config.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -143,11 +235,11 @@ class AIService {
     return result.output[0]; // Replicate returns image URLs
   }
 
-  private async generateWithOpenAI(imageBlob: Blob, prompt: string, strength: number): Promise<string> {
-    const response = await fetch(this.config.endpoint, {
+  private async generateWithOpenAI(config: AIServiceConfig, imageBlob: Blob, prompt: string, strength: number): Promise<string> {
+    const response = await fetch(config.endpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.config.apiKey}`,
+        'Authorization': `Bearer ${config.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

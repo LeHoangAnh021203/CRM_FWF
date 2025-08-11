@@ -6,17 +6,17 @@ import {
   getLocalTimeZone,
   parseDate,
 } from "@internationalized/date";
-import CustomerFacilityHourTable from "./CustomerFacilityHourTable";
-import CustomerFilters from "./CustomerFilters";
-import CustomerSummaryCard from "./CustomerSummaryCard";
-import CustomerStatsCards from "./CustomerStatsCards";
-import CustomerGenderPie from "./CustomerGenderPie";
-import CustomerNewChart from "./CustomerNewChart";
-import CustomerTypeTrendChart from "./CustomerTypeTrendChart";
-import CustomerSourceBarChart from "./CustomerSourceBarChart";
-import CustomerAppDownloadBarChart from "./CustomerAppDownloadBarChart";
-import CustomerAppDownloadPieChart from "./CustomerAppDownloadPieChart";
-import CustomerPaymentPieChart from "./CustomerPaymentPieChart";
+import CustomerFacilityHourTable from "../customers/CustomerFacilityHourTable";
+import CustomerFilters from "../customers/CustomerFilters";
+import CustomerSummaryCard from "../customers/CustomerSummaryCard";
+import CustomerStatsCards from "../customers/CustomerStatsCards";
+import CustomerGenderPie from "../customers/CustomerGenderPie";
+import CustomerNewChart from "../customers/CustomerNewChart";
+import CustomerTypeTrendChart from "../customers/CustomerTypeTrendChart";
+import CustomerSourceBarChart from "../customers/CustomerSourceBarChart";
+import CustomerAppDownloadBarChart from "../customers/CustomerAppDownloadBarChart";
+import CustomerAppDownloadPieChart from "../customers/CustomerAppDownloadPieChart";
+import CustomerPaymentPieChart from "../customers/CustomerPaymentPieChart";
 import { Notification, useNotification } from "@/components/notification";
 import { useLocalStorageState, clearLocalStorageKeys } from "@/hooks/useLocalStorageState";
 import { usePageStatus } from "@/hooks/usePageStatus";

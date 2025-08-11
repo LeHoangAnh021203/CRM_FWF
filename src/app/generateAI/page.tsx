@@ -33,6 +33,7 @@ export default function ImageGenerator() {
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [strength, setStrength] = useState([0.8]);
+  const [error, setError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -137,6 +138,7 @@ export default function ImageGenerator() {
     if (!selectedImage || !prompt) return;
 
     setIsGenerating(true);
+    setError(null); // Clear previous errors
 
     try {
       const base64Response = await fetch(selectedImage);
@@ -153,9 +155,28 @@ export default function ImageGenerator() {
         strength[0]
       );
       setGeneratedImage(generatedImageData);
-      console.log("AI generation successful!");
+      
+      // Check if demo image was returned
+      if (generatedImageData.startsWith('/fox')) {
+        setError('Đang sử dụng chế độ demo do các dịch vụ AI không khả dụng. Vui lòng cấu hình API key để sử dụng tính năng đầy đủ.');
+      } else {
+        console.log("AI generation successful!");
+      }
     } catch (error) {
       console.error("AI generation error:", error);
+      
+      // Provide user-friendly error messages
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessage.includes('insufficient_balance')) {
+        setError('Tài khoản AI không đủ số dư. Đang thử dịch vụ khác...');
+      } else if (errorMessage.includes('429')) {
+        setError('Dịch vụ AI đang quá tải. Đang thử dịch vụ khác...');
+      } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+        setError('Lỗi xác thực API. Vui lòng kiểm tra API key.');
+      } else {
+        setError(`Lỗi tạo ảnh: ${errorMessage}`);
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -310,6 +331,12 @@ export default function ImageGenerator() {
                     </div>
                   </div>
                 </div>
+
+                {error && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-700 text-sm">{error}</p>
+                  </div>
+                )}
 
                 <Button
                   onClick={handleGenerate}

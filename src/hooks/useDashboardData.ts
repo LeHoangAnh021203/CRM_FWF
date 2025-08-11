@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { today, getLocalTimeZone } from "@internationalized/date";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+  ? "http://localhost:3000" 
+  : "https://fb-network-demo.vercel.app";
 
 interface DashboardStats {
   totalRevenue: number;
