@@ -1,6 +1,14 @@
 "use client";
 
-import { Users, ShoppingCart, BarChart3, Menu, X, Sparkles} from "lucide-react";
+import {
+  Users,
+  ShoppingCart,
+  BarChart3,
+  Menu,
+  X,
+  Sparkles,
+  Radical,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
@@ -22,6 +30,11 @@ const menuItems = [
     icon: BarChart3,
     label: "Services",
     href: "/services",
+  },
+  {
+    icon: Radical,
+    label: "Accounts",
+    href: "/accounting",
   },
   {
     icon: Sparkles,
@@ -80,8 +93,8 @@ export function Sidebar() {
                       href={item.href}
                       className={cn(
                         "w-full flex items-center j lg:justify-start px-2 lg:px-3 py-2 rounded-lg text-left transition-colors",
-                        isActive 
-                          ? "bg-white text-[#f66035] shadow-md" 
+                        isActive
+                          ? "bg-white text-[#f66035] shadow-md"
                           : "text-white hover:bg-slate-700 hover:text-white"
                       )}
                     >
@@ -110,7 +123,13 @@ export function Sidebar() {
             <div className="flex items-center justify-center space-x-3">
               <div className="w-8 h-8 bg-[#61c9d7] rounded-full flex items-center justify-center">
                 <span className="text-sm font-medium">
-                  <Image src="/logo.png" alt="FB Network Logo" width={32} height={32} className="w-full h-full" />
+                  <Image
+                    src="/logo.png"
+                    alt="FB Network Logo"
+                    width={32}
+                    height={32}
+                    className="w-full h-full"
+                  />
                 </span>
               </div>
               <div

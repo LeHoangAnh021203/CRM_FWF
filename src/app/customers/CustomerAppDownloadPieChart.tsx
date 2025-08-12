@@ -45,7 +45,7 @@ const CustomerAppDownloadPieChart: React.FC<CustomerAppDownloadPieChartProps> = 
       <div className="text-sm sm:text-base md:text-xl font-medium text-gray-700 text-center mb-4">
         Tỷ lệ tải app
       </div>
-      <div className="w-full overflow-x-auto">
+      <div className="w-full flex justify-center ">
         {loadingAppDownload ? (
           <div className="flex justify-center items-center h-64">
             <div className="text-gray-500">Đang tải dữ liệu...</div>
@@ -55,7 +55,7 @@ const CustomerAppDownloadPieChart: React.FC<CustomerAppDownloadPieChartProps> = 
             <div className="text-red-500">{errorAppDownload}</div>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={isMobile ? 300 : 400} minWidth={280}>
+          <ResponsiveContainer width="100%" height={isMobile ? 250 : 400} minWidth={280}>
             <PieChart>
               <Pie
                 data={appDownloadPieData}

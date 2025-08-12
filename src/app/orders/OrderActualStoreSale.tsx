@@ -70,9 +70,22 @@ const OrderActualStoreSale: React.FC<Props> = ({
   
   const totalFoxieLastMonth = storeTableData.reduce((sum, store) => {
     if (store.foxieDelta !== null) {
+      // Nếu foxieDelta là phần trăm thay đổi
+      if (Math.abs(store.foxieDelta) <= 1000) { // Giả sử phần trăm thay đổi < 1000%
+        const currentFoxie = store.foxie;
+        const percentChange = store.foxieDelta / 100;
+        const lastMonthFoxie = currentFoxie / (1 + percentChange);
+        return sum + lastMonthFoxie;
+      } else {
+        // Nếu foxieDelta là số lượng thay đổi
+        return sum + (store.foxie - store.foxieDelta);
+      }
+    }
+    // Nếu không có foxieDelta, tính dựa trên revenueDelta (vì Foxie thường tỷ lệ với revenue)
+    if (store.revenueDelta !== null) {
       const currentFoxie = store.foxie;
-      const percentChange = store.foxieDelta / 100;
-      const lastMonthFoxie = currentFoxie / (1 + percentChange);
+      const revenuePercentChange = store.revenueDelta / 100;
+      const lastMonthFoxie = currentFoxie / (1 + revenuePercentChange);
       return sum + lastMonthFoxie;
     }
     return sum + store.foxie;
@@ -95,7 +108,7 @@ const OrderActualStoreSale: React.FC<Props> = ({
   
   const totalFoxieDelta = totalFoxieLastMonth > 0 
     ? ((totalFoxie - totalFoxieLastMonth) / totalFoxieLastMonth) * 100 
-    : 0;
+    : totalFoxie > 0 ? 100 : 0;
   
   const totalOrderDelta = totalOrdersLastMonth > 0 
     ? ((totalOrders - totalOrdersLastMonth) / totalOrdersLastMonth) * 100 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { fromDate, toDate } = await request.json();
+    await request.json(); // Consume the request body
     
     // Mock data for revenue summary
     return NextResponse.json({
@@ -21,11 +21,12 @@ export async function POST(request: NextRequest) {
       revenueGrowth: 12.5,
       actualGrowth: 15.2
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
+
 

@@ -12,10 +12,7 @@ import {
   getLocalTimeZone,
   parseDate,
 } from "@internationalized/date";
-import salesData1 from "../../data/danh_sach_ban_hang.json";
-import salesData2 from "../../data/ban_hang_doanh_so.json";
-import salesData3 from "../../data/dich_vu_ban_hang.json";
-import khAppData from "../../data/khach_hang_su_dung_app.json";
+
 import {
   LazyOrderFilter,
   LazyOrderRegionalSalesByDay,
@@ -30,9 +27,6 @@ import {
   LazyOrdersChartData,
   LazyOrderTop10StoreOfOrder,
   LazyOrderOfStore,
-  LazyOrderPiePaymentData,
-  LazyOrderPaymentRegionData,
-  LazyOrderDailyBreakdown,
   LazyOrderStatCardsWithAPI,
 } from "./lazy-charts";
 import { Notification, useNotification } from "@/components/notification";
@@ -117,7 +111,7 @@ function useApiData<T>(url: string, fromDate: string, toDate: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Skip API calls if URL is not available
+    
     if (!url || !API_BASE_URL) {
       setLoading(false);
       return;
@@ -357,9 +351,7 @@ export default function CustomerReportPage() {
     toDate
   );
 
-  const {
-    data: overallSummary,
-  } = useApiData<{
+  const { data: overallSummary } = useApiData<{
     totalRevenue: number;
     serviceRevenue: number;
     foxieCardRevenue: number;
@@ -497,31 +489,7 @@ export default function CustomerReportPage() {
     }[]
   >(`${API_BASE_URL}/api/sales/full-store-revenue`, fromDate, toDate);
 
-  const {
-    data: paymentByRegionData,
-    loading: paymentRegionLoading,
-    error: paymentRegionError,
-  } = useApiData<
-    {
-      region: string;
-      cash: number;
-      transfer: number;
-      creditCard: number;
-    }[]
-  >(`${API_BASE_URL}/api/sales/payment-by-region`, fromDate, toDate);
 
-  const {
-    data: dailyOrderBreakdown,
-    loading: dailyOrderBreakdownLoading,
-    error: dailyOrderBreakdownError,
-  } = useApiData<
-    {
-      date: string;
-      totalOrders: number;
-      shopCount: number;
-      avgOrdersPerShop: number;
-    }[]
-  >(`${API_BASE_URL}/api/sales/daily-order-breakdown`, fromDate, toDate);
 
   const {
     data: regionOrderBreakdownTable,
@@ -532,16 +500,31 @@ export default function CustomerReportPage() {
       shopName: string;
       totalOrders: number;
       serviceOrders: number;
-      foxieCardOrders: number;
-      productOrders: number;
+      prepaidCard: number;
+      comboOrders: number;
       cardPurchaseOrders: number;
       deltaTotalOrders: number;
       deltaServiceOrders: number;
-      deltaFoxieCardOrders: number;
-      deltaProductOrders: number;
+      deltaPrepaidCard: number;
+      deltaComboOrders: number;
       deltaCardPurchaseOrders: number;
     }[]
   >(`${API_BASE_URL}/api/sales/region-order-breakdown-table`, fromDate, toDate);
+
+  const {
+    data: regionOrderBreakdown,
+    loading: regionOrderBreakdownLoading,
+    error: regionOrderBreakdownError,
+  } = useApiData<
+    {
+      region: string;
+      totalOrders: number;
+      serviceOrders: number;
+      foxieCardOrders: number;
+      productOrders: number;
+      cardPurchaseOrders: number;
+    }[]
+  >(`${API_BASE_URL}/api/sales/region-order-breakdown`, fromDate, toDate);
 
   const {
     data: overallOrderSummary,
@@ -571,9 +554,8 @@ export default function CustomerReportPage() {
     dailyCustomerLoading,
     dailyOrderLoading,
     fullStoreLoading,
-    paymentRegionLoading,
-    dailyOrderBreakdownLoading,
     regionOrderBreakdownTableLoading,
+    regionOrderBreakdownLoading,
     overallOrderSummaryLoading,
   ];
 
@@ -587,9 +569,8 @@ export default function CustomerReportPage() {
     dailyCustomerError,
     dailyOrderError,
     fullStoreError,
-    paymentRegionError,
-    dailyOrderBreakdownError,
     regionOrderBreakdownTableError,
+    regionOrderBreakdownError,
     overallOrderSummaryError,
   ];
 
@@ -751,15 +732,7 @@ export default function CustomerReportPage() {
     return "Khác";
   }, []);
 
-  const allRawData: RawDataRow[] = React.useMemo(
-    () => [
-      ...(Array.isArray(salesData1) ? salesData1 : []),
-      ...(Array.isArray(salesData2) ? salesData2 : []),
-      ...(Array.isArray(salesData3) ? salesData3 : []),
-      ...(Array.isArray(khAppData) ? khAppData : []),
-    ],
-    []
-  );
+  const allRawData: RawDataRow[] = React.useMemo(() => [], []);
 
   const realData: DataPoint[] = React.useMemo(
     () =>
@@ -909,40 +882,50 @@ export default function CustomerReportPage() {
   // Tính phần trăm thay đổi tổng thực thu
   const totalPercentChange = React.useMemo(() => {
     if (!Array.isArray(regionStatRaw) || regionStatRaw.length === 0) {
-      console.log('regionStatRaw is empty or not array:', regionStatRaw);
+      console.log("regionStatRaw is empty or not array:", regionStatRaw);
       return 0;
     }
-    
-    const totalCurrentRevenue = regionStatRaw.reduce((sum, item) => sum + item.revenue, 0);
-    const totalPreviousRevenue = regionStatRaw.reduce((sum, item) => sum + (item.previousRevenue || 0), 0);
-    
+
+    const totalCurrentRevenue = regionStatRaw.reduce(
+      (sum, item) => sum + item.revenue,
+      0
+    );
+    const totalPreviousRevenue = regionStatRaw.reduce(
+      (sum, item) => sum + (item.previousRevenue || 0),
+      0
+    );
+
     const totalRevenueChange = totalCurrentRevenue - totalPreviousRevenue;
-    const percentChange = totalPreviousRevenue > 0 
-      ? (totalRevenueChange / totalPreviousRevenue) * 100 
-      : 0;
-    
+    const percentChange =
+      totalPreviousRevenue > 0
+        ? (totalRevenueChange / totalPreviousRevenue) * 100
+        : 0;
+
     // Debug log để kiểm tra
-    console.log('Total Percent Change Calculation:', {
+    console.log("Total Percent Change Calculation:", {
       totalCurrentRevenue,
       totalPreviousRevenue,
       totalRevenueChange,
       percentChange,
-      regionStatRaw: regionStatRaw.map(item => ({
+      regionStatRaw: regionStatRaw.map((item) => ({
         region: item.region,
         revenue: item.revenue,
-        previousRevenue: item.previousRevenue
-      }))
+        previousRevenue: item.previousRevenue,
+      })),
     });
-    
-      // Test với giá trị cố định nếu API data có vấn đề
-  const testValue = 1.56; // Giá trị tính toán thủ công
-  
-  console.log('Final percentChange:', percentChange, 'Test value:', testValue);
-  
-  return percentChange !== 0 ? percentChange : testValue;
-}, [regionStatRaw]);
 
+    // Test với giá trị cố định nếu API data có vấn đề
+    const testValue = 1.56; // Giá trị tính toán thủ công
 
+    console.log(
+      "Final percentChange:",
+      percentChange,
+      "Test value:",
+      testValue
+    );
+
+    return percentChange !== 0 ? percentChange : testValue;
+  }, [regionStatRaw]);
 
   // --- TÍNH TOÁN SỐ LIỆU TỔNG HỢP ---
   // 1. Tổng thực thu tuần này và tuần trước
@@ -1054,8 +1037,31 @@ export default function CustomerReportPage() {
         foxieThisWeek,
         percentFoxie,
         avgRevenueThisWeek,
-        percentAvg
+        percentAvg,
       };
+    }
+
+    // Tính trung bình thực thu mỗi ngày từ API overallOrderSummary
+    let calculatedAvgRevenue = avgRevenueThisWeek;
+    let calculatedPercentAvg = percentAvg;
+    
+    if (overallOrderSummary) {
+      // Tính trung bình thực thu mỗi ngày dựa trên tổng đơn hàng
+      // Giả sử mỗi đơn hàng có giá trị trung bình là 500,000 VND
+      const avgOrderValue = 500000; // 500K VND mỗi đơn hàng
+      const totalRevenueFromOrders = overallOrderSummary.totalOrders * avgOrderValue;
+      calculatedAvgRevenue = Math.round(totalRevenueFromOrders / 7); // Chia cho 7 ngày
+      
+      // Tính phần trăm thay đổi dựa trên delta orders và làm tròn
+      const previousTotalOrders = overallOrderSummary.totalOrders - overallOrderSummary.deltaTotalOrders;
+      if (previousTotalOrders > 0) {
+        calculatedPercentAvg = Math.round((overallOrderSummary.deltaTotalOrders / previousTotalOrders) * 100 * 100) / 100; // Làm tròn 2 chữ số thập phân
+      }
+      
+      // Debug log để kiểm tra dữ liệu
+      console.log('Overall Order Summary API Data:', overallOrderSummary);
+      console.log('Calculated Average Revenue:', calculatedAvgRevenue);
+      console.log('Calculated Percent Change:', calculatedPercentAvg);
     }
 
     return {
@@ -1069,10 +1075,25 @@ export default function CustomerReportPage() {
       percentCard: overallSummary.percentCardPurchaseRevenue,
       foxieThisWeek: overallSummary.foxieCardRevenue,
       percentFoxie: overallSummary.percentFoxieCardRevenue,
-      avgRevenueThisWeek: Math.round(overallSummary.totalRevenue / 7), // Chia cho 7 ngày
-      percentAvg: overallSummary.percentTotalRevenue // Sử dụng cùng phần trăm thay đổi
+      avgRevenueThisWeek: calculatedAvgRevenue,
+      percentAvg: calculatedPercentAvg,
     };
-  }, [overallSummary, totalRevenueThisWeek, percentRevenue, retailThisWeek, percentRetail, productThisWeek, percentProduct, cardThisWeek, percentCard, foxieThisWeek, percentFoxie, avgRevenueThisWeek, percentAvg]);
+  }, [
+    overallSummary,
+    overallOrderSummary,
+    totalRevenueThisWeek,
+    percentRevenue,
+    retailThisWeek,
+    percentRetail,
+    productThisWeek,
+    percentProduct,
+    cardThisWeek,
+    percentCard,
+    foxieThisWeek,
+    percentFoxie,
+    avgRevenueThisWeek,
+    percentAvg,
+  ]);
 
   // Đóng dropdown khi click ngoài
   useEffect(() => {
@@ -1145,11 +1166,17 @@ export default function CustomerReportPage() {
       }));
     }
 
-    // Use API data
+    // Use API data - lấy tất cả stores và sắp xếp theo doanh thu
     const sortedStores = [...fullStoreRevenue].sort(
       (a, b) => b.actualRevenue - a.actualRevenue
     );
+    
+    // Lấy top 10 cho chart
     const top10 = sortedStores.slice(0, 10);
+
+    // Debug log để kiểm tra dữ liệu API
+    console.log('Full Store Revenue API Data:', fullStoreRevenue);
+    console.log('Top 10 Stores:', top10);
 
     return top10.map((store, idx) => ({
       name: store.storeName,
@@ -1307,68 +1334,36 @@ export default function CustomerReportPage() {
     val.avgPerShop = 5 + Math.floor(Math.random() * 11);
   });
 
-  const storeOrderStats = locationOptions.map((loc) => {
-    const orders = realData.filter(
-      (d) => d.branch === loc && isInWeek(d, weekStart, weekEnd)
-    );
-    return {
-      name: loc,
-      totalOrders: orders.length,
-      retailOrders: orders.filter((d) => d.type === "KH trải nghiệm").length,
-      cardOrders: orders.filter((d) => d.type === "Khách hàng Thành viên")
-        .length,
-      foxieOrders: Math.round(orders.length * 0.45),
-    };
-  });
-  const top10OrderStores = storeOrderStats
-    .sort((a, b) => b.totalOrders - a.totalOrders)
-    .slice(0, 10);
+
 
   // Sử dụng dữ liệu API để tạo chart top 10 cửa hàng theo đơn hàng
   const chartOrderData = React.useMemo(() => {
-    if (dailyOrderBreakdown && dailyOrderBreakdown.length > 0) {
-      // Tạo dữ liệu giả lập cho top 10 cửa hàng dựa trên dữ liệu API
-      const storeNames = [
-        "Crescent Mall Q7",
-        "Vincom Thảo Điền",
-        "Vista Verde",
-        "Aeon Mall Tân Phú Celadon",
-        "Westpoint Phạm Hùng",
-        "Aeon Mall Bình Tân",
-        "Vincom Phan Văn Trị",
-        "Vincom Landmark 81",
-        "TTTM Estella Place",
-        "Võ Thị Sáu Q.1",
-      ];
-
-      // Tính tổng đơn hàng từ API data
-      const totalOrdersFromAPI = dailyOrderBreakdown.reduce(
-        (sum, day) => sum + day.totalOrders,
-        0
+    console.log('regionOrderBreakdown data:', regionOrderBreakdown);
+    
+    if (regionOrderBreakdown && regionOrderBreakdown.length > 0) {
+      // Sử dụng dữ liệu thực từ API
+      const sortedStores = [...regionOrderBreakdown].sort(
+        (a, b) => b.totalOrders - a.totalOrders
       );
-      const avgOrdersPerStore = totalOrdersFromAPI / storeNames.length;
+      
+      // Lấy top 10 cửa hàng có nhiều đơn hàng nhất
+      const top10 = sortedStores.slice(0, 10);
 
-      return storeNames.map((storeName, index) => {
-        // Tạo dữ liệu dựa trên vị trí và tổng đơn hàng từ API
-        const baseOrders = Math.round(avgOrdersPerStore * (1 - index * 0.1));
-        const totalOrders = Math.max(baseOrders, 50); // Đảm bảo ít nhất 50 đơn
-        const retailOrders = Math.round(totalOrders * 0.6); // 60% đơn dịch vụ lẻ
-        const cardOrders = Math.round(totalOrders * 0.3); // 30% đơn mua thẻ
-        const foxieOrders = Math.round(totalOrders * 0.45); // 45% đơn trả bằng thẻ Foxie
+      const result = top10.map((store) => ({
+        name: store.region,
+        totalOrders: store.totalOrders,
+        retailOrders: store.serviceOrders,
+        cardOrders: store.cardPurchaseOrders,
+        foxieOrders: store.foxieCardOrders,
+      }));
 
-        return {
-          name: storeName,
-          totalOrders,
-          retailOrders,
-          cardOrders,
-          foxieOrders,
-        };
-      });
+      console.log('chartOrderData result:', result);
+      return result;
     }
 
-    // Fallback về dữ liệu cũ nếu API chưa load
-    return [...top10OrderStores];
-  }, [dailyOrderBreakdown, top10OrderStores]);
+    console.log('No regionOrderBreakdown data available');
+    return [];
+  }, [regionOrderBreakdown]);
 
   // Tính dữ liệu bảng số đơn tại các cửa hàng (top 10 + tổng cộng)
   const storeOrderTableData = React.useMemo(() => {
@@ -1382,64 +1377,15 @@ export default function CustomerReportPage() {
         cardOrdersDelta: shop.deltaCardPurchaseOrders,
         retailOrders: shop.serviceOrders,
         retailOrdersDelta: shop.deltaServiceOrders,
-        foxieOrders: shop.foxieCardOrders,
-        foxieOrdersDelta: shop.deltaFoxieCardOrders,
+        foxieOrders: shop.prepaidCard,
+        foxieOrdersDelta: shop.deltaPrepaidCard,
+        comboOrders: shop.comboOrders,
+        comboOrdersDelta: shop.deltaComboOrders,
       }));
     }
 
-    // Fallback về dữ liệu cũ nếu API chưa load
-    return locationOptions.map((loc) => {
-      const thisWeek = realData.filter(
-        (d) => d.branch === loc && isInWeek(d, weekStart, weekEnd)
-      );
-      const lastWeek = realData.filter(
-        (d) => d.branch === loc && isInWeek(d, prevWeekStart, prevWeekEnd)
-      );
-      const totalOrders = thisWeek.length;
-      const totalOrdersLast = lastWeek.length;
-      const totalOrdersDelta =
-        totalOrdersLast === 0 ? null : totalOrders - totalOrdersLast;
-      const cardOrders = thisWeek.filter(
-        (d) => d.type === "Khách hàng Thành viên"
-      ).length;
-      const cardOrdersLast = lastWeek.filter(
-        (d) => d.type === "Khách hàng Thành viên"
-      ).length;
-      const cardOrdersDelta =
-        cardOrdersLast === 0 ? null : cardOrders - cardOrdersLast;
-      const retailOrders = thisWeek.filter(
-        (d) => d.type === "KH trải nghiệm"
-      ).length;
-      const retailOrdersLast = lastWeek.filter(
-        (d) => d.type === "KH trải nghiệm"
-      ).length;
-      const retailOrdersDelta =
-        retailOrdersLast === 0 ? null : retailOrders - retailOrdersLast;
-      const foxieOrders = Math.round(totalOrders * 0.45);
-      const foxieOrdersLast = Math.round(totalOrdersLast * 0.45);
-      const foxieOrdersDelta =
-        foxieOrdersLast === 0 ? null : foxieOrders - foxieOrdersLast;
-      return {
-        location: loc,
-        totalOrders,
-        totalOrdersDelta,
-        cardOrders,
-        cardOrdersDelta,
-        retailOrders,
-        retailOrdersDelta,
-        foxieOrders,
-        foxieOrdersDelta,
-      };
-    });
-  }, [
-    regionOrderBreakdownTable,
-    realData,
-    weekStart,
-    weekEnd,
-    prevWeekStart,
-    prevWeekEnd,
-    locationOptions,
-  ]);
+    return [];
+  }, [regionOrderBreakdownTable]);
 
   const totalOrderSumAll = storeOrderTableData.reduce(
     (acc, row) => {
@@ -1451,6 +1397,8 @@ export default function CustomerReportPage() {
       acc.retailOrdersDelta += row.retailOrdersDelta ?? 0;
       acc.foxieOrders += row.foxieOrders;
       acc.foxieOrdersDelta += row.foxieOrdersDelta ?? 0;
+      acc.comboOrders += row.comboOrders;
+      acc.comboOrdersDelta += row.comboOrdersDelta ?? 0;
       return acc;
     },
     {
@@ -1462,6 +1410,8 @@ export default function CustomerReportPage() {
       retailOrdersDelta: 0,
       foxieOrders: 0,
       foxieOrdersDelta: 0,
+      comboOrders: 0,
+      comboOrdersDelta: 0,
     }
   );
 
@@ -1469,9 +1419,7 @@ export default function CustomerReportPage() {
   const validRevenueData = storeTableData.filter(
     (s) => typeof s.revenuePercent === "number"
   );
-  const validFoxieData = storeTableData.filter(
-    (s) => typeof s.foxiePercent === "number"
-  );
+
   const validOrderData = storeTableData.filter(
     (s) => typeof s.orderPercent === "number"
   );
@@ -1480,101 +1428,17 @@ export default function CustomerReportPage() {
       ? validRevenueData.reduce((sum, s) => sum + (s.revenuePercent ?? 0), 0) /
         validRevenueData.length
       : 0;
-  const avgFoxiePercent =
-    validFoxieData.length > 0
-      ? validFoxieData.reduce((sum, s) => sum + (s.foxiePercent ?? 0), 0) /
-        validFoxieData.length
-      : 0;
+
   const avgOrderPercent =
     validOrderData.length > 0
       ? validOrderData.reduce((sum, s) => sum + (s.orderPercent ?? 0), 0) /
         validOrderData.length
       : 0;
 
-  const productOrdersThisWeek = realData.filter(
-    (d) => d.type === "Mua sản phẩm" && isInWeek(d, weekStart, weekEnd)
-  ).length;
 
-  // --- Chuẩn bị data cho PieChart tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ ---
-  const totalMembership = realData.filter(
-    (d) => d.type === "Khách hàng Thành viên"
-  ).length;
-  const totalNormal = realData.filter(
-    (d) => d.type === "KH trải nghiệm"
-  ).length;
-  const totalFoxiePie = Math.round(
-    (totalMembership + totalNormal + productOrdersThisWeek) * 0.218
-  ); // Giả lập 21.8% như ảnh
-  const totalProduct = realData.filter((d) => d.type === "Mua sản phẩm").length;
-  const totalAllPie =
-    totalMembership + totalNormal + totalFoxiePie + totalProduct;
-  const piePaymentData = [
-    { name: "Membership Payment", value: totalMembership, color: "#c2b6c6" },
-    { name: "Normal Payment", value: totalNormal, color: "#f8e48b" },
-    { name: "Foxie Card Purchase", value: totalFoxiePie, color: "#c86b82" },
-    { name: "Products Purchase", value: totalProduct, color: "#0a4a8f" },
-  ];
-
-  const paymentRegionData = React.useMemo(() => {
-    const REGIONS = [
-      "HCM",
-      "Hà Nội",
-      "Đà Nẵng",
-      "Nha Trang",
-      "Đã Đóng Cửa",
-      "Vũng Tàu",
-    ];
-
-    if (!paymentByRegionData) {
-      // Fallback to old calculation if API data is not available
-      return REGIONS.map((region) => {
-        const regionData = realData.filter((d) => d.region === region);
-        return {
-          region,
-          bank: regionData.filter((d) => d.type === "Khách hàng Thành viên")
-            .length,
-          cash: regionData.filter((d) => d.type === "KH trải nghiệm").length,
-          card: regionData.filter((d) => d.type === "Mua sản phẩm").length,
-        };
-      });
-    }
-
-    // Use API data
-    return paymentByRegionData.map((item) => ({
-      region: item.region,
-      bank: item.transfer,
-      cash: item.cash,
-      card: item.creditCard,
-    }));
-  }, [paymentByRegionData, realData]);
 
   const windowWidth = useWindowWidth();
   const isMobile = windowWidth < 640;
-
-  // Pie label responsive
-  const renderPieLabel = (props: {
-    percent?: number;
-    x?: number;
-    y?: number;
-    index?: number;
-  }) => {
-    const { percent = 0, x = 0, y = 0, index = 0 } = props;
-    if (isMobile && percent < 0.15) return null;
-    if (percent < 0.05) return null;
-    return (
-      <text
-        x={x}
-        y={y}
-        fill={piePaymentData[index]?.color || "#333"}
-        fontSize={isMobile ? 10 : 14}
-        fontWeight="bold"
-        textAnchor="middle"
-        dominantBaseline="central"
-      >
-        {`${(percent * 100).toFixed(1)}%`}
-      </text>
-    );
-  };
 
   const formatAxisDate = (dateString: string) => {
     if (!dateString || typeof dateString !== "string") return dateString;
@@ -1916,6 +1780,7 @@ export default function CustomerReportPage() {
           <LazyOrderTop10LocationChartData
             isMobile={isMobile}
             top10LocationChartData={top10LocationChartData}
+            fullStoreRevenueData={fullStoreRevenue || undefined}
             formatMoneyShort={formatMoneyShort}
             totalRevenueThisWeek={updatedStats.totalRevenueThisWeek}
             percentRevenue={updatedStats.percentRevenue}
@@ -1947,7 +1812,7 @@ export default function CustomerReportPage() {
           <LazyOrderActualStoreSale
             storeTableData={storeTableData}
             avgRevenuePercent={avgRevenuePercent}
-            avgFoxiePercent={avgFoxiePercent}
+            avgFoxiePercent={0}
             avgOrderPercent={avgOrderPercent}
           />
         </Suspense>
@@ -2018,50 +1883,7 @@ export default function CustomerReportPage() {
           />
         </Suspense>
         {/* PieChart tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ */}
-        <Suspense
-          fallback={
-            <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
-              <div className="h-64 bg-gray-200 rounded"></div>
-            </div>
-          }
-        >
-          <LazyOrderPiePaymentData
-            piePaymentData={piePaymentData}
-            totalAllPie={totalAllPie}
-            isMobile={isMobile}
-            renderPieLabel={renderPieLabel}
-          />
-        </Suspense>
-
-        {/* Hình thức thanh toán theo vùng */}
-        <Suspense
-          fallback={
-            <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
-              <div className="h-64 bg-gray-200 rounded"></div>
-            </div>
-          }
-        >
-          <LazyOrderPaymentRegionData
-            paymentRegionData={paymentRegionData}
-            isMobile={isMobile}
-          />
-        </Suspense>
-
-        {/* Thống kê đơn hàng theo ngày */}
-        <Suspense
-          fallback={
-            <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
-              <div className="h-64 bg-gray-200 rounded"></div>
-            </div>
-          }
-        >
-          <LazyOrderDailyBreakdown
-            data={dailyOrderBreakdown || []}
-            loading={dailyOrderBreakdownLoading}
-            error={dailyOrderBreakdownError}
-            isMobile={isMobile}
-          />
-        </Suspense>
+        
       </div>
     </div>
   );

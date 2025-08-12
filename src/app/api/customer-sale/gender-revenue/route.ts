@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { fromDate, toDate } = await request.json();
+    await request.json(); // Consume the request body
     
     // Mock data for gender revenue
     return NextResponse.json({
@@ -11,11 +11,12 @@ export async function POST(request: NextRequest) {
       avgServiceMale: 3.2,
       avgServiceFemale: 3.8
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
+
 

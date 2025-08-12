@@ -57,6 +57,46 @@ const CustomerTypeTrendChart: React.FC<CustomerTypeTrendChartProps> = ({
               }
               return String(date);
             }}
+            tick={(props) => {
+              const { x, y, payload } = props;
+              const date = payload.value;
+              
+                                // Kiểm tra xem có phải cuối tuần không
+                  const isWeekend = (() => {
+                    if (!date) return false;
+                    const match = String(date).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                    if (match) {
+                      const [, year, month, day] = match;
+                      const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                      const dayOfWeek = dateObj.getDay();
+                      return dayOfWeek === 0 || dayOfWeek === 6; // 0 = Chủ nhật, 6 = Thứ 7
+                    }
+                    return false;
+                  })();
+
+              return (
+                <g transform={`translate(${x},${y})`}>
+                  <text
+                    x={0}
+                    y={0}
+                    dy={16}
+                    textAnchor="middle"
+                    fill={isWeekend ? "#dc2626" : "#6b7280"}
+                    fontSize={isMobile ? 10 : 12}
+                    fontWeight={isWeekend ? "bold" : "normal"}
+                  >
+                    {payload.value ? (() => {
+                      const match = String(payload.value).match(/^\d{4}-(\d{2})-(\d{2})$/);
+                      if (match) {
+                        const [, month, day] = match;
+                        return `${day}/${month}`;
+                      }
+                      return String(payload.value);
+                    })() : ""}
+                  </text>
+                </g>
+              );
+            }}
           />
           <YAxis
             stroke="#6b7280"

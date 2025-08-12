@@ -18,9 +18,22 @@ interface Top10LocationData {
   rank?: number | null;
 }
 
+interface StoreRevenueData {
+  storeName: string;
+  currentOrders: number;
+  deltaOrders: number;
+  actualRevenue: number;
+  foxieRevenue: number;
+  revenueGrowth: number;
+  revenuePercent: number;
+  foxiePercent: number;
+  orderPercent: number;
+}
+
 interface Props {
   isMobile: boolean;
   top10LocationChartData: Top10LocationData[];
+  fullStoreRevenueData?: StoreRevenueData[]; // Thêm dữ liệu API cho bottom 5
   formatMoneyShort: (val: number) => string;
   totalRevenueThisWeek: number;
   percentRevenue: number | null;
@@ -120,6 +133,7 @@ const StatCard = ({
 const OrderTop10LocationChartData: React.FC<Props> = ({
   isMobile,
   top10LocationChartData,
+  fullStoreRevenueData,
   formatMoneyShort,
   totalRevenueThisWeek,
   percentRevenue,
@@ -136,27 +150,49 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
 }) => {
   const [showTop10, setShowTop10] = React.useState(true);
 
-  // Tạo dữ liệu bottom 5 từ top 10
+  // Tạo dữ liệu bottom 5 trực tiếp từ API fullStoreRevenue
+  // Lấy 5 stores có doanh thu thấp nhất từ tất cả stores
   const bottom5LocationChartData = React.useMemo(() => {
-    const sortedData = [...top10LocationChartData].sort(
-      (a, b) => a.revenue - b.revenue
+    if (!fullStoreRevenueData || fullStoreRevenueData.length === 0) {
+      // Fallback data khi API chưa load
+      return [
+        { name: "Đang tải...", revenue: 0, foxie: 0, rank: 1 },
+        { name: "Đang tải...", revenue: 0, foxie: 0, rank: 2 },
+        { name: "Đang tải...", revenue: 0, foxie: 0, rank: 3 },
+        { name: "Đang tải...", revenue: 0, foxie: 0, rank: 4 },
+        { name: "Đang tải...", revenue: 0, foxie: 0, rank: 5 },
+      ];
+    }
+
+    // Sắp xếp tất cả stores theo doanh thu tăng dần (thấp nhất lên đầu)
+    const sortedStores = [...fullStoreRevenueData].sort(
+      (a, b) => a.actualRevenue - b.actualRevenue
     );
-    // Lấy 5 giá trị nhỏ nhất và sắp xếp theo thứ tự giảm dần để bar lớn hơn
-    return sortedData.slice(0, 5)
-      .sort((a, b) => b.revenue - a.revenue) // Sắp xếp giảm dần
-      .map((item, index) => ({
-        ...item,
+    
+    // Lấy 5 stores có doanh thu thấp nhất và giữ nguyên thứ tự tăng dần
+    const bottom5 = sortedStores
+      .slice(0, 5)
+      .map((store, index) => ({
+        name: store.storeName,
+        revenue: store.actualRevenue,
+        foxie: store.foxieRevenue,
         rank: index + 1,
       }));
-  }, [top10LocationChartData]);
+
+    // Debug log để kiểm tra dữ liệu
+    console.log('Full Store Revenue API Data:', fullStoreRevenueData);
+    console.log('Bottom 5 Location Data (from API):', bottom5);
+    
+    return bottom5;
+  }, [fullStoreRevenueData]);
 
   // Dữ liệu hiện tại dựa trên state
   const currentChartData = showTop10
     ? top10LocationChartData
     : bottom5LocationChartData;
   const currentTitle = showTop10
-    ? "Top 10 cửa hàng trong tuần theo thực thu"
-    : "Bottom 5 cửa hàng trong tuần theo thực thu";
+    ? "Top 10 cửa hàng trong tuần theo thực thu - API Data"
+    : "Bottom 5 cửa hàng trong tuần theo thực thu - API Data";
 
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
@@ -232,46 +268,95 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
                   wrapperStyle={{ fontSize: isMobile ? 10 : 14 }}
                   formatter={(value: string) => <span>{value}</span>}
                 />
-                <Bar
-                  dataKey="revenue"
-                  name="Thực thu"
-                  fill="#8d6e63"
-                  radius={[0, 8, 8, 0]}
-                  maxBarSize={50}
-                >
-                  <LabelList
-                    dataKey="revenue"
-                    position="right"
-                    fontSize={isMobile ? 10 : 12}
-                    fill="#8d6e63"
-                    formatter={(value: React.ReactNode) => {
-                      if (typeof value === "number" && value > 0) {
-                        return (value / 1_000_000).toFixed(1) + "M";
-                      }
-                      return "";
-                    }}
-                  />
-                </Bar>
-                <Bar
-                  dataKey="foxie"
-                  name="Trả bằng thẻ Foxie"
-                  fill="#b6d47a"
-                  radius={[0, 8, 8, 0]}
-                  maxBarSize={50}
-                >
-                  <LabelList
-                    dataKey="foxie"
-                    position="right"
-                    fontSize={isMobile ? 10 : 12}
-                    fill="#b6d47a"
-                    formatter={(value: React.ReactNode) => {
-                      if (typeof value === "number" && value > 0) {
-                        return (value / 1_000_000).toFixed(1) + "M";
-                      }
-                      return "";
-                    }}
-                  />
-                </Bar>
+                {showTop10 ? (
+                  // Top 10: Thực thu ở dưới, Foxie ở trên
+                  <>
+                    <Bar
+                      dataKey="revenue"
+                      name="Thực thu"
+                      fill="#8d6e63"
+                      radius={[0, 8, 8, 0]}
+                      maxBarSize={50}
+                    >
+                      <LabelList
+                        dataKey="revenue"
+                        position="right"
+                        fontSize={isMobile ? 10 : 12}
+                        fill="#8d6e63"
+                        formatter={(value: React.ReactNode) => {
+                          if (typeof value === "number" && value > 0) {
+                            return (value / 1_000_000).toFixed(1) + "M";
+                          }
+                          return "";
+                        }}
+                      />
+                    </Bar>
+                    <Bar
+                      dataKey="foxie"
+                      name="Trả bằng thẻ Foxie"
+                      fill="#b6d47a"
+                      radius={[0, 8, 8, 0]}
+                      maxBarSize={50}
+                    >
+                      <LabelList
+                        dataKey="foxie"
+                        position="right"
+                        fontSize={isMobile ? 10 : 12}
+                        fill="#b6d47a"
+                        formatter={(value: React.ReactNode) => {
+                          if (typeof value === "number" && value > 0) {
+                            return (value / 1_000_000).toFixed(1) + "M";
+                          }
+                          return "";
+                        }}
+                      />
+                    </Bar>
+                  </>
+                ) : (
+                  // Bottom 5: Foxie ở trên, Thực thu ở dưới - bars to hơn
+                  <>
+                    <Bar
+                      dataKey="foxie"
+                      name="Trả bằng thẻ Foxie"
+                      fill="#b6d47a"
+                      radius={[0, 8, 8, 0]}
+                      maxBarSize={80}
+                    >
+                      <LabelList
+                        dataKey="foxie"
+                        position="right"
+                        fontSize={isMobile ? 10 : 12}
+                        fill="#b6d47a"
+                        formatter={(value: React.ReactNode) => {
+                          if (typeof value === "number" && value > 0) {
+                            return (value / 1_000_000).toFixed(1) + "M";
+                          }
+                          return "";
+                        }}
+                      />
+                    </Bar>
+                    <Bar
+                      dataKey="revenue"
+                      name="Thực thu"
+                      fill="#8d6e63"
+                      radius={[0, 8, 8, 0]}
+                      maxBarSize={50}
+                    >
+                      <LabelList
+                        dataKey="revenue"
+                        position="right"
+                        fontSize={isMobile ? 10 : 12}
+                        fill="#8d6e63"
+                        formatter={(value: React.ReactNode) => {
+                          if (typeof value === "number" && value > 0) {
+                            return (value / 1_000_000).toFixed(1) + "M";
+                          }
+                          return "";
+                        }}
+                      />
+                    </Bar>
+                  </>
+                )}
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -303,25 +388,25 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
             `}</style>
             <div className="flex flex-col gap-3">
               <StatCard
-                title="Thực thu"
+                title="Tổng doanh thu"
                 value={totalRevenueThisWeek}
                 delta={percentRevenue}
                 valueColor="text-[#a9b8c3]"
               />
               <StatCard
-                title="Thực thu của dịch vụ lẻ"
+                title="Thực thu dịch vụ lẻ"
                 value={retailThisWeek}
                 delta={percentRetail}
                 valueColor="text-[#fcb900]"
               />
               <StatCard
-                title="Thực thu mua sản phẩm"
+                title="Thực thu foxie card"
                 value={productThisWeek}
                 delta={percentProduct}
                 valueColor="text-[#b6d47a]"
               />
               <StatCard
-                title="Thực thu của mua thẻ"
+                title="Thực thu mua sản phẩm"
                 value={cardThisWeek}
                 delta={percentCard}
                 valueColor="text-[#8ed1fc]"
@@ -344,25 +429,25 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
           {/* Desktop: Grid layout */}
           <div className="hidden lg:grid lg:grid-cols-1 gap-3">
             <StatCard
-              title="Thực thu"
+              title="Tổng doanh thu"
               value={totalRevenueThisWeek}
               delta={percentRevenue}
               valueColor="text-[#a9b8c3]"
             />
             <StatCard
-              title="Thực thu của dịch vụ lẻ"
+              title="Thực thu dịch vụ lẻ"
               value={retailThisWeek}
               delta={percentRetail}
               valueColor="text-[#fcb900]"
             />
             <StatCard
-              title="Thực thu mua sản phẩm"
+              title="Thực thu foxie card"
               value={productThisWeek}
               delta={percentProduct}
               valueColor="text-[#b6d47a]"
             />
             <StatCard
-              title="Thực thu của mua thẻ"
+              title="Thực thu sản phẩm"
               value={cardThisWeek}
               delta={percentCard}
               valueColor="text-[#8ed1fc]"

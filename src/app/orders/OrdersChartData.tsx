@@ -50,37 +50,66 @@ const OrdersChartData: React.FC<Props> = ({ isMobile, ordersChartData }) => (
             dataKey="date"
             angle={isMobile ? -30 : -30}
             textAnchor="end"
-            height={isMobile ? 50 : 60}
-            tick={{ fontSize: isMobile ? 10 : 14 }}
-            tickFormatter={(dateString: string) => {
-              if (!dateString || typeof dateString !== "string")
-                return dateString;
-              if (dateString.includes("-")) {
-                const d = new Date(dateString);
-                if (!isNaN(d.getTime())) {
-                  return `${String(d.getDate()).padStart(
-                    2,
-                    "0"
-                  )}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+            height={isMobile ? 50 : 70}
+            tick={(props) => {
+              const { x, y, payload } = props;
+              const date = payload.value;
+              
+              // Kiểm tra xem có phải cuối tuần không
+              const isWeekend = (() => {
+                if (!date) return false;
+                                  const match = String(date).match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (match) {
+                  const [, year, month, day] = match;
+                  const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                  const dayOfWeek = dateObj.getDay();
+                  return dayOfWeek === 0 || dayOfWeek === 6; // 0 = Chủ nhật, 6 = Thứ 7
                 }
-              }
-              return dateString;
+                return false;
+              })();
+
+              return (
+                <g transform={`translate(${x},${y})`}>
+                  <text
+                    x={0}
+                    y={0}
+                    dy={16}
+                    textAnchor="end"
+                    fill={isWeekend ? "#dc2626" : "#6b7280"}
+                    fontSize={isMobile ? 10 : 14}
+                    fontWeight={isWeekend ? "bold" : "normal"}
+                  >
+                    {(() => {
+                      if (!date || typeof date !== "string") return date;
+                      if (date.includes("-")) {
+                        const d = new Date(date);
+                        if (!isNaN(d.getTime())) {
+                          return `${String(d.getDate()).padStart(
+                            2,
+                            "0"
+                          )}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+                        }
+                      }
+                      return date;
+                    })()}
+                  </text>
+                </g>
+              );
             }}
           />
           <YAxis
-            domain={[0, "dataMax + 200"]}
+            domain={[0, "dataMax + 300"]}
             yAxisId="left"
             orientation="left"
             tickCount={6}
-            tick={{ fontSize: isMobile ? 10 : 14 }}
+            fontSize={isMobile ? 10 : 14}
           />
           <YAxis
             yAxisId="right"
             orientation="right"
             tickCount={6}
-            tick={{ fontSize: isMobile ? 10 : 14 }}
-            domain={[0, (dataMax: number) => Math.ceil(dataMax)]}
-            className="pt-10"
+            fontSize={isMobile ? 10 : 14}
+            domain={[(dataMax: number) => -Math.ceil(dataMax*1.5), (dataMax: number) => Math.ceil(dataMax)]}
           />
           <Tooltip
             formatter={(value: string | number) => {
@@ -103,9 +132,12 @@ const OrdersChartData: React.FC<Props> = ({ isMobile, ordersChartData }) => (
             <LabelList
               dataKey="orders"
               position="top"
-              formatter={(value: React.ReactNode): React.ReactNode =>
-                typeof value === "number" ? Math.round(value) : ""
-              }
+              formatter={(value: React.ReactNode): React.ReactNode => {
+                if (typeof value === "number") {
+                  return Math.round(value);
+                }
+                return "";
+              }}
               style={{ fontSize: isMobile ? 10 : 14 }}
             />
           </Bar>
@@ -118,18 +150,23 @@ const OrdersChartData: React.FC<Props> = ({ isMobile, ordersChartData }) => (
             strokeWidth={3}
             dot={{ r: isMobile ? 3 : 5, fill: "#2563eb" }}
             activeDot={{ r: isMobile ? 5 : 7 }}
-            label={({ x, y, value }: { x: number; y: number; value: string | number }) => (
-              <text
-                x={x}
-                y={y - (isMobile ? 10 : 16)}
-                fill="#2563eb"
-                fontWeight={600}
-                fontSize={isMobile ? 10 : 14}
-                textAnchor="middle"
-              >
-                {typeof value === "number" ? Math.round(value) : ""}
-              </text>
-            )}
+            label={({ x, y, value }: { x: number; y: number; value: string | number }) => {
+              if (typeof value === "number") {
+                return (
+                  <text
+                    x={x}
+                    y={y - (isMobile ? 10 : 16)}
+                    fill="#2563eb"
+                    fontWeight={600}
+                    fontSize={isMobile ? 10 : 14}
+                    textAnchor="middle"
+                  >
+                    {Math.round(value)}
+                  </text>
+                );
+              }
+              return <></>;
+            }}
           />
         </BarChart>
       </ResponsiveContainer>

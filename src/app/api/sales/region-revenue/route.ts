@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { fromDate, toDate } = await request.json();
+    await request.json(); // Consume the request body
     
     // Mock data for region revenue
     const currentRange = [
@@ -57,11 +57,12 @@ export async function POST(request: NextRequest) {
       currentRange,
       previousRange
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
+
 

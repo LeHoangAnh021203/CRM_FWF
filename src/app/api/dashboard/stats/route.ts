@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Mock data for dashboard stats
     return NextResponse.json({
@@ -13,11 +13,12 @@ export async function GET(request: NextRequest) {
       customersGrowth: 8.8,
       servicesGrowth: 10.5
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
+
 

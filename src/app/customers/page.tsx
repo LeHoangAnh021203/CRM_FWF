@@ -8,17 +8,18 @@ import {
 } from "@internationalized/date";
 import CustomerFacilityHourTable from "../customers/CustomerFacilityHourTable";
 import CustomerFilters from "../customers/CustomerFilters";
-import CustomerSummaryCard from "../customers/CustomerSummaryCard";
-import CustomerStatsCards from "../customers/CustomerStatsCards";
+import CustomerAccordionCard from "../customers/CustomerAccordionCard";
 import CustomerGenderPie from "../customers/CustomerGenderPie";
 import CustomerNewChart from "../customers/CustomerNewChart";
 import CustomerTypeTrendChart from "../customers/CustomerTypeTrendChart";
 import CustomerSourceBarChart from "../customers/CustomerSourceBarChart";
 import CustomerAppDownloadBarChart from "../customers/CustomerAppDownloadBarChart";
 import CustomerAppDownloadPieChart from "../customers/CustomerAppDownloadPieChart";
-import CustomerPaymentPieChart from "../customers/CustomerPaymentPieChart";
 import { Notification, useNotification } from "@/components/notification";
-import { useLocalStorageState, clearLocalStorageKeys } from "@/hooks/useLocalStorageState";
+import {
+  useLocalStorageState,
+  clearLocalStorageKeys,
+} from "@/hooks/useLocalStorageState";
 import { usePageStatus } from "@/hooks/usePageStatus";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -26,12 +27,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 // Function để clear tất cả filter state
 function clearCustomerFilters() {
   clearLocalStorageKeys([
-    'customer-selectedType',
-    'customer-selectedStatus', 
-    'customer-startDate',
-    'customer-endDate',
-    'customer-selectedRegions',
-    'customer-selectedBranches'
+    "customer-selectedType",
+    "customer-selectedStatus",
+    "customer-startDate",
+    "customer-endDate",
+    "customer-selectedRegions",
+    "customer-selectedBranches",
   ]);
 }
 
@@ -80,18 +81,18 @@ function useWindowWidth() {
 }
 
 export default function CustomerReportPage() {
-  const { notification, showSuccess, showError, hideNotification } = useNotification();
+  const { notification, showSuccess, showError, hideNotification } =
+    useNotification();
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
-  const { 
-    reportPageError, 
-    reportDataLoadSuccess, 
-    reportFilterChange, 
+  const {
+    reportPageError,
+    reportDataLoadSuccess,
+    reportFilterChange,
     reportResetFilters,
-    reportPagePerformance
-  } = usePageStatus('customers');
-  
-  // Function để reset tất cả filter về mặc định
+    reportPagePerformance,
+  } = usePageStatus("customers");
+
   const resetFilters = () => {
     clearCustomerFilters();
     setSelectedType([]);
@@ -103,16 +104,18 @@ export default function CustomerReportPage() {
     showSuccess("Đã reset tất cả filter về mặc định!");
     reportResetFilters();
   };
-  
-  const [customerSaleData] = useState([]);
-  
+
   // Sử dụng localStorage để lưu trữ state
-  const [selectedType, setSelectedType] = useLocalStorageState<string[]>("customer-selectedType", []);
-  const [selectedStatus, setSelectedStatus] = useLocalStorageState<string | null>("customer-selectedStatus", null);
+  const [selectedType, setSelectedType] = useLocalStorageState<string[]>(
+    "customer-selectedType",
+    []
+  );
+  const [selectedStatus, setSelectedStatus] = useLocalStorageState<
+    string | null
+  >("customer-selectedStatus", null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  
-  // Lưu trữ ngày tháng vào localStorage
+
   const [startDate, setStartDate] = useLocalStorageState<CalendarDate>(
     "customer-startDate",
     today(getLocalTimeZone()).subtract({ days: 7 })
@@ -121,13 +124,16 @@ export default function CustomerReportPage() {
     "customer-endDate",
     today(getLocalTimeZone())
   );
-  
-  const [selectedRegions, setSelectedRegions] = useLocalStorageState<string[]>("customer-selectedRegions", []);
+
+  const [selectedRegions, setSelectedRegions] = useLocalStorageState<string[]>(
+    "customer-selectedRegions",
+    []
+  );
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
-  const [selectedBranches, setSelectedBranches] = useLocalStorageState<string[]>("customer-selectedBranches", []);
+  const [selectedBranches, setSelectedBranches] = useLocalStorageState<
+    string[]
+  >("customer-selectedBranches", []);
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
-
-
 
   const COLORS = [
     "#5bd1d7",
@@ -159,6 +165,7 @@ export default function CustomerReportPage() {
       ).padStart(2, "0")}T23:59:59`
     : "";
 
+  // API calls
   const {
     data: newCustomerRaw,
     loading: loadingNewCustomer,
@@ -172,55 +179,6 @@ export default function CustomerReportPage() {
     toDate
   );
 
-  // Report page load success when data loads
-  useEffect(() => {
-    if (newCustomerRaw && !loadingNewCustomer && !errorNewCustomer) {
-      const startTime = Date.now();
-      
-      // Calculate total new customers from the data
-      const totalNewCustomers = newCustomerRaw.currentRange?.reduce((sum, item) => sum + (item.count || 0), 0) || 0;
-      const loadTime = Date.now() - startTime;
-      
-      reportPagePerformance({
-        loadTime,
-        dataSize: totalNewCustomers
-      });
-      
-      reportDataLoadSuccess("khách hàng mới", totalNewCustomers);
-    }
-  }, [newCustomerRaw, loadingNewCustomer, errorNewCustomer, reportPagePerformance, reportDataLoadSuccess]);
-
-  // Report errors
-  useEffect(() => {
-    if (errorNewCustomer) {
-      reportPageError(`Lỗi tải dữ liệu khách hàng mới: ${errorNewCustomer}`);
-    }
-  }, [errorNewCustomer, reportPageError]);
-
-  // Report filter changes
-  useEffect(() => {
-    if (selectedType.length > 0) {
-      reportFilterChange(`loại khách hàng: ${selectedType.join(', ')}`);
-    }
-  }, [selectedType, reportFilterChange]);
-
-  useEffect(() => {
-    if (selectedStatus) {
-      reportFilterChange(`trạng thái: ${selectedStatus}`);
-    }
-  }, [selectedStatus, reportFilterChange]);
-
-  useEffect(() => {
-    if (selectedRegions.length > 0) {
-      reportFilterChange(`khu vực: ${selectedRegions.join(', ')}`);
-    }
-  }, [selectedRegions, reportFilterChange]);
-
-  useEffect(() => {
-    if (selectedBranches.length > 0) {
-      reportFilterChange(`chi nhánh: ${selectedBranches.join(', ')}`);
-    }
-  }, [selectedBranches, reportFilterChange]);
   const {
     data: genderRatioRaw,
     loading: loadingGenderRatio,
@@ -230,9 +188,11 @@ export default function CustomerReportPage() {
     fromDate,
     toDate
   );
+
   const { data: customerTypeRaw } = useApiData<
     Record<string, { date: string; count: number }[]>
   >(`${API_BASE_URL}/api/customer-sale/customer-type-trend`, fromDate, toDate);
+
   const { data: customerSourceRaw } = useApiData<
     Record<string, { date: string; count: number }[]>
   >(
@@ -240,6 +200,7 @@ export default function CustomerReportPage() {
     fromDate,
     toDate
   );
+
   const {
     data: appDownloadStatusRaw,
     loading,
@@ -249,6 +210,7 @@ export default function CustomerReportPage() {
     fromDate,
     toDate
   );
+
   const {
     data: appDownloadRaw,
     loading: loadingAppDownload,
@@ -258,7 +220,6 @@ export default function CustomerReportPage() {
     fromDate,
     toDate
   );
-
 
   const {
     data: customerSummaryRaw,
@@ -282,28 +243,16 @@ export default function CustomerReportPage() {
     avgServiceFemale: number;
   }>(`${API_BASE_URL}/api/customer-sale/gender-revenue`, fromDate, toDate);
 
-  const { data: paymentPercentNewRaw } = useApiData<{
-    totalCash: number;
-    totalTransfer: number;
-    totalPrepaidCard: number;
-    totalDebt: number;
-    percentCash: number;
-    percentTransfer: number;
-    percentPrepaidCard: number;
-    percentDebt: number;
-  }>(`${API_BASE_URL}/api/customer-sale/payment-percent-new`, fromDate, toDate);
-
-  const { data: paymentPercentOldRaw } = useApiData<{
-    totalCash: number;
-    totalTransfer: number;
-    totalPrepaidCard: number;
-    totalDebt: number;
-  }>(`${API_BASE_URL}/api/customer-sale/payment-percent-old`, fromDate, toDate);
-
   const { data: uniqueCustomersComparisonRaw } = useApiData<{
-    current: number;
-    previous: number;
-    changePercent: number;
+    currentTotal: number;
+    previousTotal: number;
+    changePercentTotal: number;
+    currentMale: number;
+    previousMale: number;
+    changePercentMale: number;
+    currentFemale: number;
+    previousFemale: number;
+    changePercentFemale: number;
   }>(
     `${API_BASE_URL}/api/customer-sale/unique-customers-comparison`,
     fromDate,
@@ -326,13 +275,72 @@ export default function CustomerReportPage() {
     toDate
   );
 
+  // Report page load success when data loads
+  useEffect(() => {
+    if (newCustomerRaw && !loadingNewCustomer && !errorNewCustomer) {
+      const startTime = Date.now();
+
+      // Calculate total new customers from the data
+      const totalNewCustomers =
+        newCustomerRaw.currentRange?.reduce(
+          (sum, item) => sum + (item.count || 0),
+          0
+        ) || 0;
+      const loadTime = Date.now() - startTime;
+
+      reportPagePerformance({
+        loadTime,
+        dataSize: totalNewCustomers,
+      });
+
+      reportDataLoadSuccess("khách hàng mới", totalNewCustomers);
+    }
+  }, [
+    newCustomerRaw,
+    loadingNewCustomer,
+    errorNewCustomer,
+    reportPagePerformance,
+    reportDataLoadSuccess,
+  ]);
+
+  // Report errors
+  useEffect(() => {
+    if (errorNewCustomer) {
+      reportPageError(`Lỗi tải dữ liệu khách hàng mới: ${errorNewCustomer}`);
+    }
+  }, [errorNewCustomer, reportPageError]);
+
+  // Report filter changes
+  useEffect(() => {
+    if (selectedType.length > 0) {
+      reportFilterChange(`loại khách hàng: ${selectedType.join(", ")}`);
+    }
+  }, [selectedType, reportFilterChange]);
+
+  useEffect(() => {
+    if (selectedStatus) {
+      reportFilterChange(`trạng thái: ${selectedStatus}`);
+    }
+  }, [selectedStatus, reportFilterChange]);
+
+  useEffect(() => {
+    if (selectedRegions.length > 0) {
+      reportFilterChange(`khu vực: ${selectedRegions.join(", ")}`);
+    }
+  }, [selectedRegions, reportFilterChange]);
+
+  useEffect(() => {
+    if (selectedBranches.length > 0) {
+      reportFilterChange(`chi nhánh: ${selectedBranches.join(", ")}`);
+    }
+  }, [selectedBranches, reportFilterChange]);
+
   // Track overall loading and error states for notifications
   const allLoadingStates = [
     loadingNewCustomer,
     loadingGenderRatio,
     loading,
     loadingAppDownload,
-    
     loadingCustomerSummary,
     loadingGenderRevenue,
     loadingFacilityHour,
@@ -343,18 +351,22 @@ export default function CustomerReportPage() {
     errorGenderRatio,
     error,
     errorAppDownload,
-    
     errorCustomerSummary,
     errorGenderRevenue,
     errorFacilityHour,
   ];
 
-  const isLoading = allLoadingStates.some(loading => loading);
-  const hasError = allErrorStates.some(error => error);
+  const isLoading = allLoadingStates.some((loading) => loading);
+  const hasError = allErrorStates.some((error) => error);
 
   // Show notifications based on loading and error states
   useEffect(() => {
-    if (!isLoading && !hasError && customerSummaryRaw && !hasShownSuccess.current) {
+    if (
+      !isLoading &&
+      !hasError &&
+      customerSummaryRaw &&
+      !hasShownSuccess.current
+    ) {
       showSuccess("Dữ liệu khách hàng đã được tải thành công!");
       hasShownSuccess.current = true;
     }
@@ -367,6 +379,7 @@ export default function CustomerReportPage() {
     }
   }, [hasError, showError]);
 
+  // Data processing from API
   // 1. Số khách tạo mới
   const newCustomerChartData = React.useMemo(() => {
     if (!newCustomerRaw) return [];
@@ -443,10 +456,8 @@ export default function CustomerReportPage() {
   }, [customerSourceRaw]);
 
   // 5. Khách tải app/không tải
-
   const appDownloadStatusData = React.useMemo(() => {
     if (!appDownloadStatusRaw) return [];
-    // Chuyển object thành mảng
     return Object.values(appDownloadStatusRaw).flat();
   }, [appDownloadStatusRaw]);
 
@@ -459,40 +470,6 @@ export default function CustomerReportPage() {
     ];
   }, [appDownloadRaw]);
 
-
-
-  // Tỉ lệ các hình thức thanh toán (khách mới)
-  const paymentPercentNewPieData = React.useMemo(() => {
-    if (!paymentPercentNewRaw) return [];
-    const tongThanhToan =
-      (paymentPercentNewRaw.totalCash || 0) +
-      (paymentPercentNewRaw.totalTransfer || 0) +
-      (paymentPercentNewRaw.totalPrepaidCard || 0);
-
-    return [
-      {
-        name: "TM+CK+QT",
-        value: tongThanhToan,
-        color: "#f66035",
-      },
-      {
-        name: "TIỀN MẶT",
-        value: paymentPercentNewRaw.totalCash || 0,
-        color: "#00d084",
-      },
-      {
-        name: "CHUYỂN KHOẢN",
-        value: paymentPercentNewRaw.totalTransfer || 0,
-        color: "#5bd1d7",
-      },
-      {
-        name: "CÒN NỢ",
-        value: paymentPercentNewRaw.totalDebt || 0,
-        color: "#eb94cf",
-      },
-    ];
-  }, [paymentPercentNewRaw]);
-
   const customerTypes = [
     "KH trải nghiệm",
     "Khách hàng Thành viên",
@@ -504,143 +481,8 @@ export default function CustomerReportPage() {
 
   const customerStatus = ["New", "Old"];
 
-  // 1. Keep your raw data as-is (no type annotation)
-  const allRawData = [
-    ...(Array.isArray(customerSaleData) ? customerSaleData : []),
-  ];
-
-  const INVALID_DATES = [
-    "NGÀY TẠO",
-    "MÃ ĐƠN HÀNG",
-    "TÊN KHÁCH HÀNG",
-    "SỐ ĐIỆN THOẠI",
-    "NHÓM KHÁCH HÀNG",
-  ];
-
-  const filteredRawDataByDate = allRawData.filter((d) => {
-    const dateStr = d["Unnamed: 1"] || d["Unnamed: 3"] || "";
-    if (INVALID_DATES.includes(String(dateStr).trim().toUpperCase()))
-      return false;
-    const dDate = parseVNDate(String(dateStr));
-    return dDate.compare(startDate) >= 0 && dDate.compare(endDate) <= 0;
-  });
-
-  const filteredCustomerPhones = new Set<string>();
-  filteredRawDataByDate.forEach((d) => {
-    const phone = (d["Unnamed: 4"] as string | number | undefined)
-      ?.toString()
-      .trim();
-    if (phone) filteredCustomerPhones.add(phone);
-  });
-
-  const filteredAppPhoneSet = new Set<string>();
-  if (Array.isArray(customerSaleData)) {
-    customerSaleData.forEach((d) => {
-      const phone = (d["Unnamed: 3"] as string | number | undefined)
-        ?.toString()
-        .trim();
-      if (phone && filteredCustomerPhones.has(phone)) {
-        filteredAppPhoneSet.add(phone);
-      }
-    });
-  }
-
-  const startDateForNewOldRatio = startDate;
-
-  const oldCustomerPhones = new Set<string>();
-  allRawData.forEach((d) => {
-    const dateStr = d["Unnamed: 1"] || d["Unnamed: 3"] || "";
-    if (INVALID_DATES.includes(String(dateStr).trim().toUpperCase())) return;
-    const dDate = parseVNDate(String(dateStr));
-    const phone = (d["Unnamed: 4"] as string | number | undefined)
-      ?.toString()
-      .trim();
-    if (phone && dDate.compare(startDateForNewOldRatio) < 0) {
-      oldCustomerPhones.add(phone);
-    }
-  });
-
-  const phoneFirstSeen = new Set<string>();
-  const newCustomerPhones = new Set<string>();
-  filteredRawDataByDate.forEach((d) => {
-    const phone = (d["Unnamed: 4"] as string | number | undefined)
-      ?.toString()
-      .trim();
-    if (!phone) return;
-    if (!oldCustomerPhones.has(phone) && !phoneFirstSeen.has(phone)) {
-      newCustomerPhones.add(phone);
-      phoneFirstSeen.add(phone);
-    }
-  });
-
-  function parseVNDate(str: string): CalendarDate {
-    if (!str || typeof str !== "string") return today(getLocalTimeZone());
-    // Format "hh:mm dd/mm/yyyy"
-    let match = str.match(/^\d{1,2}:\d{2} (\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (match) {
-      const [, day, month, year] = match;
-      return parseDate(
-        `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-      );
-    }
-
-    match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (match) {
-      const [, day, month, year] = match;
-      return parseDate(
-        `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-      );
-    }
-    return today(getLocalTimeZone());
-  }
-
-  const phoneFirstSeenInRange = new Set<string>();
-
-  filteredRawDataByDate.forEach((d) => {
-    const phone = (d["Unnamed: 4"] as string | number | undefined)
-      ?.toString()
-      .trim();
-    if (!phone) return;
-    if (oldCustomerPhones.has(phone)) {
-    } else if (!phoneFirstSeenInRange.has(phone)) {
-      phoneFirstSeenInRange.add(phone);
-    } else {
-    }
-  });
-
   const windowWidth = useWindowWidth();
   const isMobile = windowWidth < 640;
-
-  const paymentPercentOldPieData = React.useMemo(() => {
-    if (!paymentPercentOldRaw) return [];
-    const tongThanhToan =
-      (paymentPercentOldRaw.totalCash || 0) +
-      (paymentPercentOldRaw.totalTransfer || 0) +
-      (paymentPercentOldRaw.totalPrepaidCard || 0);
-
-    return [
-      {
-        name: "TM+CK+QT",
-        value: tongThanhToan,
-        color: "#f66035",
-      },
-      {
-        name: "TIỀN MẶT",
-        value: paymentPercentOldRaw.totalCash || 0,
-        color: "#00d084",
-      },
-      {
-        name: "CHUYỂN KHOẢN",
-        value: paymentPercentOldRaw.totalTransfer || 0,
-        color: "#5bd1d7",
-      },
-      {
-        name: "CÒN NỢ",
-        value: paymentPercentOldRaw.totalDebt || 0,
-        color: "#eb94cf",
-      },
-    ];
-  }, [paymentPercentOldRaw]);
 
   const allHourRanges = React.useMemo(() => {
     if (!facilityHourServiceRaw) return [];
@@ -648,9 +490,7 @@ export default function CustomerReportPage() {
     facilityHourServiceRaw.forEach((item) => {
       Object.keys(item.hourlyCounts).forEach((hour) => set.add(hour));
     });
-    // Sắp xếp theo thứ tự giờ tăng dần (nếu muốn)
     return Array.from(set).sort((a, b) => {
-      // Tách số đầu tiên để so sánh
       const getStart = (s: string) => parseInt(s.split("-")[0], 10);
       return getStart(a) - getStart(b);
     });
@@ -662,7 +502,7 @@ export default function CustomerReportPage() {
       (item) =>
         ({
           facility: item.facility,
-          ...item.hourlyCounts, // mỗi key là 1 khung giờ, value là số lượng
+          ...item.hourlyCounts,
           total: item.total,
         } as {
           facility: string;
@@ -670,8 +510,7 @@ export default function CustomerReportPage() {
           [key: string]: number | string;
         })
     );
-    
-    // Sắp xếp theo tổng số đơn hàng giảm dần từ trên xuống
+
     return data.sort((a, b) => (b.total as number) - (a.total as number));
   }, [facilityHourServiceRaw]);
 
@@ -680,7 +519,6 @@ export default function CustomerReportPage() {
       ? Object.keys(customerTypeTrendData[0]).filter((k) => k !== "date")
       : [];
 
-  // Before rendering the BarChart for 'Nguồn của đơn hàng', define the dynamic list of sources and assign colors by index
   const customerSourceKeys = React.useMemo(() => {
     if (customerSourceTrendData.length === 0) return [];
     return Object.keys(customerSourceTrendData[0]).filter(
@@ -688,47 +526,26 @@ export default function CustomerReportPage() {
     );
   }, [customerSourceTrendData]);
 
+  // Helper for cell color scale
+  function getCellBg(val: number) {
+    if (val === 0) return "";
 
+    if (val >= 50) return "bg-[#68B2A0]";
+    if (val >= 35) return "bg-[#CDE0C9]";
+    if (val >= 25) return "bg-[#E0ECDE]";
+    if (val <= 15) return "bg-[#F0F8F0]";
 
-
-  // Tính max cho từng cột (khung giờ)
-  const columnMaxMap = React.useMemo(() => {
-    const map: Record<string, number> = {};
-    allHourRanges.forEach((hour) => {
-      const max = Math.max(
-        ...facilityHourTableData.map((row) => Number(row[hour] ?? 0))
-      );
-      map[hour] = max;
-    });
-    return map;
-  }, [facilityHourTableData, allHourRanges]);
-
-  // Helper for cell color scale - so sánh theo khung giờ
-  function getCellBg(val: number, hour: string) {
-    const maxInColumn = columnMaxMap[hour] || 0;
-    if (!maxInColumn || maxInColumn === 0 || val === 0) return "";
-    const percent = val / maxInColumn;
-    
-    // Sử dụng bộ màu teal-green từ ảnh
-    if (percent >= 0.9) return "bg-[#68B2A0]"; // Đậm vừa - Cao điểm
-    if (percent >= 0.7) return "bg-[#CDE0C9]"; // Trung bình - Bận rộn
-    if (percent >= 0.5) return "bg-[#E0ECDE]"; // Nhạt vừa - Khá bận
-    if (percent >= 0.3) return "bg-[#F0F8F0]"; // Rất nhạt - Ít bận
-    if (percent >= 0.1) return "bg-[#F8FCF8]"; // Cực nhạt - Thưa thớt
-    return ""; // Không màu - Không có đơn hàng
+    return "";
   }
 
   const sortedAppDownloadStatusData = React.useMemo(() => {
     if (!appDownloadStatusData) return [];
-    // Giả sử trường date là ISO string hoặc có thể parse được
     return [...appDownloadStatusData].sort((a, b) => {
-      // Ưu tiên parse dạng YYYY-MM-DD hoặc YYYY-MM-DDTHH:mm:ss
       const getDate = (d: { date?: string }) => {
         if (!d.date) return 0;
         const match = String(d.date).match(/^(\d{4})-(\d{2})-(\d{2})/);
         if (match)
           return new Date(`${match[1]}-${match[2]}-${match[3]}`).getTime();
-        // Nếu là dạng DD/MM/YYYY
         const match2 = String(d.date).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
         if (match2)
           return new Date(`${match2[3]}-${match2[2]}-${match2[1]}`).getTime();
@@ -762,62 +579,57 @@ export default function CustomerReportPage() {
 
           {/* Filter */}
           <CustomerFilters
-              startDate={startDate}
-              endDate={endDate}
-              setStartDate={setStartDate}
-              setEndDate={setEndDate}
-              today={today}
-              getLocalTimeZone={getLocalTimeZone}
-              parseDate={parseDate}
-              selectedType={selectedType}
-              setSelectedType={setSelectedType}
-              showTypeDropdown={showTypeDropdown}
-              setShowTypeDropdown={setShowTypeDropdown}
-              customerTypes={customerTypes}
-              selectedStatus={selectedStatus}
-              setSelectedStatus={setSelectedStatus}
-              showStatusDropdown={showStatusDropdown}
-              setShowStatusDropdown={setShowStatusDropdown}
-              customerStatus={customerStatus}
-              selectedRegions={selectedRegions}
-              setSelectedRegions={setSelectedRegions}
-              showRegionDropdown={showRegionDropdown}
-              setShowRegionDropdown={setShowRegionDropdown}
-              allRegions={allRegions}
-              selectedBranches={selectedBranches}
-              setSelectedBranches={setSelectedBranches}
-              showBranchDropdown={showBranchDropdown}
-              setShowBranchDropdown={setShowBranchDropdown}
-              allBranches={allBranches}
-            />
-
-          {/* Card tổng số khách trong khoảng ngày đã chọn */}
-          <CustomerSummaryCard
-            value={uniqueCustomersComparisonRaw?.current?.toLocaleString() ?? 0}
-            label="Tổng số khách trong khoảng ngày đã chọn"
-            percentChange={uniqueCustomersComparisonRaw?.changePercent}
+            startDate={startDate}
+            endDate={endDate}
+            setStartDate={setStartDate}
+            setEndDate={setEndDate}
+            today={today}
+            getLocalTimeZone={getLocalTimeZone}
+            parseDate={parseDate}
+            selectedType={selectedType}
+            setSelectedType={setSelectedType}
+            showTypeDropdown={showTypeDropdown}
+            setShowTypeDropdown={setShowTypeDropdown}
+            customerTypes={customerTypes}
+            selectedStatus={selectedStatus}
+            setSelectedStatus={setSelectedStatus}
+            showStatusDropdown={showStatusDropdown}
+            setShowStatusDropdown={setShowStatusDropdown}
+            customerStatus={customerStatus}
+            selectedRegions={selectedRegions}
+            setSelectedRegions={setSelectedRegions}
+            showRegionDropdown={showRegionDropdown}
+            setShowRegionDropdown={setShowRegionDropdown}
+            allRegions={allRegions}
+            selectedBranches={selectedBranches}
+            setSelectedBranches={setSelectedBranches}
+            showBranchDropdown={showBranchDropdown}
+            setShowBranchDropdown={setShowBranchDropdown}
+            allBranches={allBranches}
           />
 
-          {/* 4 bảng thống kê */}
-          <CustomerStatsCards
-              loading={loadingGenderRevenue}
-              error={errorGenderRevenue}
-              avgRevenueMale={
-                genderRevenueRaw?.avgRevenueMale?.toLocaleString() ?? 0
-              }
-              avgRevenueFemale={
-                genderRevenueRaw?.avgRevenueFemale?.toLocaleString() ?? 0
-              }
-              avgServiceMale={
-                genderRevenueRaw?.avgServiceMale?.toLocaleString() ?? 0
-              }
-              avgServiceFemale={
-                genderRevenueRaw?.avgServiceFemale?.toLocaleString() ?? 0
-              }
-            />
+          {/* Accordion Card tổng số khách */}
+          <CustomerAccordionCard
+            mainValue={
+              uniqueCustomersComparisonRaw?.currentTotal?.toLocaleString() ?? 0
+            }
+            mainLabel="Tổng số lượt khách sử dụng dịch vụ trong khoảng ngày đã chọn"
+            mainPercentChange={uniqueCustomersComparisonRaw?.changePercentTotal}
+            maleValue={uniqueCustomersComparisonRaw?.currentMale}
+            malePercentChange={uniqueCustomersComparisonRaw?.changePercentMale}
+            femaleValue={uniqueCustomersComparisonRaw?.currentFemale}
+            femalePercentChange={
+              uniqueCustomersComparisonRaw?.changePercentFemale
+            }
+            avgRevenueMale={genderRevenueRaw?.avgRevenueMale}
+            avgServiceMale={genderRevenueRaw?.avgServiceMale}
+            avgRevenueFemale={genderRevenueRaw?.avgRevenueFemale}
+            avgServiceFemale={genderRevenueRaw?.avgServiceFemale}
+          />
 
           {/* Số khách tạo mới và tỷ lệ nam nữ/khách mới tạo */}
-          <CustomerGenderPie
+          <div className="mt-5 ">
+            <CustomerGenderPie
               isMobile={isMobile}
               loadingNewCustomer={loadingNewCustomer}
               errorNewCustomer={errorNewCustomer}
@@ -827,61 +639,55 @@ export default function CustomerReportPage() {
               genderRatioData={genderRatioData}
               COLORS={COLORS}
             />
+          </div>
 
           {/* Tổng số khách mới */}
           <CustomerNewChart
-              loadingCustomerSummary={loadingCustomerSummary}
-              errorCustomerSummary={errorCustomerSummary}
-              customerSummaryRaw={customerSummaryRaw}
-            />
+            loadingCustomerSummary={loadingCustomerSummary}
+            errorCustomerSummary={errorCustomerSummary}
+            customerSummaryRaw={customerSummaryRaw}
+          />
 
           {/* Số khách tới chia theo phân loại */}
           <CustomerTypeTrendChart
-              isMobile={isMobile}
-              customerTypeTrendData={customerTypeTrendData}
-              customerTypeKeys={customerTypeKeys}
-              COLORS={COLORS}
-            />
+            isMobile={isMobile}
+            customerTypeTrendData={customerTypeTrendData}
+            customerTypeKeys={customerTypeKeys}
+            COLORS={COLORS}
+          />
 
           {/* Nguồn của đơn hàng */}
           <CustomerSourceBarChart
-              isMobile={isMobile}
-              customerSourceTrendData={customerSourceTrendData}
-              customerSourceKeys={customerSourceKeys}
-              COLORS={COLORS}
-            />
-
-          {/* Khách hàng tải app */}
-          <CustomerAppDownloadBarChart
-              isMobile={isMobile}
-              loading={loading}
-              error={error}
-              sortedAppDownloadStatusData={sortedAppDownloadStatusData}
-            />
+            isMobile={isMobile}
+            customerSourceTrendData={customerSourceTrendData}
+            customerSourceKeys={customerSourceKeys}
+            COLORS={COLORS}
+          />
 
           {/* Tỉ lệ khách hàng tải app và tỉ lệ khách mới/cũ*/}
           <CustomerAppDownloadPieChart
-              loadingAppDownload={loadingAppDownload}
-              errorAppDownload={errorAppDownload}
-              appDownloadPieData={appDownloadPieData}
-            />
+            loadingAppDownload={loadingAppDownload}
+            errorAppDownload={errorAppDownload}
+            appDownloadPieData={appDownloadPieData}
+          />
 
-          {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới) và (khách cũ) */}
-          <CustomerPaymentPieChart
-              isMobile={isMobile}
-              paymentPercentNewPieData={paymentPercentNewPieData}
-              paymentPercentOldPieData={paymentPercentOldPieData}
-            />
+          {/* Khách hàng tải app */}
+          <CustomerAppDownloadBarChart
+            isMobile={isMobile}
+            loading={loading}
+            error={error}
+            sortedAppDownloadStatusData={sortedAppDownloadStatusData}
+          />
 
           {/* Thời gian đơn hàng được tạo */}
           <CustomerFacilityHourTable
-              allHourRanges={allHourRanges}
-              facilityHourTableData={facilityHourTableData}
-              getCellBg={getCellBg}
-              isMobile={isMobile}
-              loadingFacilityHour={loadingFacilityHour}
-              errorFacilityHour={errorFacilityHour}
-            />
+            allHourRanges={allHourRanges}
+            facilityHourTableData={facilityHourTableData}
+            getCellBg={getCellBg}
+            isMobile={isMobile}
+            loadingFacilityHour={loadingFacilityHour}
+            errorFacilityHour={errorFacilityHour}
+          />
         </div>
       </div>
     </div>

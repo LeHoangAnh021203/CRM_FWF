@@ -12,4 +12,4 @@ export const LazyCustomerTypeTrendChart = lazy(() => import('./CustomerTypeTrend
 export const LazyCustomerSourceBarChart = lazy(() => import('./CustomerSourceBarChart'));
 export const LazyCustomerAppDownloadBarChart = lazy(() => import('./CustomerAppDownloadBarChart'));
 export const LazyCustomerAppDownloadPieChart = lazy(() => import('./CustomerAppDownloadPieChart'));
-export const LazyCustomerPaymentPieChart = lazy(() => import('./CustomerPaymentPieChart')); 
+export const LazyCustomerPaymentPieChart = lazy(() => import('../accounting/CustomerPaymentPieChart')); 

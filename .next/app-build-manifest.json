@@ -21,45 +21,60 @@
       "static/chunks/main-app.js",
       "static/chunks/app/page.js"
     ],
+    "/customers/loading": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/customers/loading.js"
+    ],
+    "/customers/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/customers/page.js"
+    ],
     "/api/notifications/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/notifications/route.js"
     ],
-    "/api/dashboard/stats/route": [
+    "/api/sales/revenue-summary/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/dashboard/stats/route.js"
+      "static/chunks/app/api/sales/revenue-summary/route.js"
     ],
-    "/api/dashboard/activity/route": [
+    "/api/sales/overall-order-summary/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/dashboard/activity/route.js"
+      "static/chunks/app/api/sales/overall-order-summary/route.js"
     ],
-    "/api/dashboard/insights/route": [
+    "/api/customer-sale/customer-summary/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/dashboard/insights/route.js"
+      "static/chunks/app/api/customer-sale/customer-summary/route.js"
     ],
-    "/api/dashboard/revenue/route": [
+    "/api/service-record/service-summary/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/dashboard/revenue/route.js"
+      "static/chunks/app/api/service-record/service-summary/route.js"
+    ],
+    "/api/sales/daily-region-revenue/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/sales/daily-region-revenue/route.js"
+    ],
+    "/api/sales/region-revenue/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/sales/region-revenue/route.js"
+    ],
+    "/api/sales/shop-type-revenue/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/sales/shop-type-revenue/route.js"
     ],
     "/_not-found/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/_not-found/page.js"
-    ],
-    "/generateAI/loading": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/generateAI/loading.js"
-    ],
-    "/generateAI/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/generateAI/page.js"
     ],
     "/orders/loading": [
       "static/chunks/webpack.js",
@@ -71,15 +86,35 @@
       "static/chunks/main-app.js",
       "static/chunks/app/orders/page.js"
     ],
-    "/customers/loading": [
+    "/accounting/loading": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/customers/loading.js"
+      "static/chunks/app/accounting/loading.js"
     ],
-    "/customers/page": [
+    "/accounting/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/customers/page.js"
+      "static/chunks/app/accounting/page.js"
+    ],
+    "/generateAI/loading": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/generateAI/loading.js"
+    ],
+    "/generateAI/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/generateAI/page.js"
+    ],
+    "/services/loading": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/services/loading.js"
+    ],
+    "/services/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/services/page.js"
     ]
   }
 }

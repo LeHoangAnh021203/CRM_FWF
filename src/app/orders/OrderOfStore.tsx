@@ -11,6 +11,8 @@ interface StoreOrderTableData {
   retailOrdersDelta: number | null;
   foxieOrders: number;
   foxieOrdersDelta: number | null;
+  comboOrders: number;
+  comboOrdersDelta: number | null;
 }
 
 interface TotalOrderSumAll {
@@ -22,6 +24,8 @@ interface TotalOrderSumAll {
   retailOrdersDelta: number;
   foxieOrders: number;
   foxieOrdersDelta: number;
+  comboOrders: number;
+  comboOrdersDelta: number;
 }
 
 interface OrderOfStoreProps {
@@ -61,6 +65,8 @@ export default function OrderOfStore({
                 <th className="px-3 py-3 text-right ">
                   Đơn trả bằng thẻ Foxie
                 </th>
+                <th className="px-3 py-3 text-right">Δ</th>
+                <th className="px-3 py-3 text-right ">Đơn combo</th>
                 <th className="px-3 py-3 text-right rounded-tr-xl">Δ</th>
               </tr>
             </thead>
@@ -76,6 +82,8 @@ export default function OrderOfStore({
                   <td className="px-3 py-2 text-right bg-[#fcb900]">-</td>
                   <td className="px-3 py-2 text-right">-</td>
                   <td className="px-3 py-2 text-right bg-[#a9b8c3]">-</td>
+                  <td className="px-3 py-2 text-right">-</td>
+                  <td className="px-3 py-2 text-right bg-[#98d8c8]">-</td>
                   <td className="px-3 py-2 text-right">-</td>
                 </tr>
               ))}
@@ -120,6 +128,10 @@ export default function OrderOfStore({
               <th className="px-3 py-3 text-right">Δ</th>
               <th className="px-3 py-3 text-right ">
                 Đơn trả bằng thẻ Foxie
+              </th>
+              <th className="px-3 py-3 text-right">Δ</th>
+              <th className="px-3 py-3 text-right ">
+                Đơn Combo
               </th>
               <th className="px-3 py-3 text-right rounded-tr-xl">Δ</th>
             </tr>
@@ -209,6 +221,26 @@ export default function OrderOfStore({
                         row.foxieOrdersDelta
                       }`}
                 </td>
+                <td className="px-3 py-2 text-right bg-[#98d8c8]">
+                  {row.comboOrders}
+                </td>
+                <td
+                  className={`px-3 py-2 text-right ${
+                    row.comboOrdersDelta !== null
+                      ? row.comboOrdersDelta > 0
+                        ? "text-green-600"
+                        : row.comboOrdersDelta < 0
+                        ? "text-red-500"
+                        : ""
+                      : ""
+                  }`}
+                >
+                  {row.comboOrdersDelta === null
+                    ? "N/A"
+                    : `${row.comboOrdersDelta > 0 ? "+" : ""}${
+                        row.comboOrdersDelta
+                      }`}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -238,8 +270,14 @@ export default function OrderOfStore({
               <td className="px-3 py-2 text-right bg-[#a9b8c3]">
                 {totalOrderSumAll.foxieOrders}
               </td>
-              <td className="px-3 py-2 text-right rounded-br-xl">
+              <td className="px-3 py-2 text-right">
                 {totalOrderSumAll.foxieOrdersDelta}
+              </td>
+              <td className="px-3 py-2 text-right bg-[#98d8c8]">
+                {totalOrderSumAll.comboOrders}
+              </td>
+              <td className="px-3 py-2 text-right rounded-br-xl">
+                {totalOrderSumAll.comboOrdersDelta}
               </td>
             </tr>
           </tfoot>

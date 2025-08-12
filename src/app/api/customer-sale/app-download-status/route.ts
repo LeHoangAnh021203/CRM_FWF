@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { fromDate, toDate } = await request.json();
+    await request.json(); // Consume the request body
     
     // Mock data for app download status
     const data = {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

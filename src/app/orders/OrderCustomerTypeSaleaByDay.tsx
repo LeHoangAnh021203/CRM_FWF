@@ -124,6 +124,50 @@ const OrderCustomerTypeSaleaByDay: React.FC<Props> = ({
                 }
                 return dateString;
               }}
+              tick={(props) => {
+                const { x, y, payload } = props;
+                const date = payload.value;
+                
+                // Kiểm tra xem có phải cuối tuần không
+                const isWeekend = (() => {
+                  if (!date) return false;
+                  const match = String(date).match(/^(\d{4})-(\d{2})-(\d{2})/);
+                  if (match) {
+                    const [, year, month, day] = match;
+                    const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                    const dayOfWeek = dateObj.getDay();
+                    return dayOfWeek === 0 || dayOfWeek === 6; // 0 = Chủ nhật, 6 = Thứ 7
+                  }
+                  return false;
+                })();
+
+                return (
+                  <g transform={`translate(${x},${y})`}>
+                    <text
+                      x={0}
+                      y={0}
+                      dy={16}
+                      textAnchor={isMobile ? "end" : "middle"}
+                      fill={isWeekend ? "#dc2626" : "#6b7280"}
+                      fontSize={isMobile ? 10 : 12}
+                      fontWeight={isWeekend ? "bold" : "normal"}
+                    >
+                      {(() => {
+                        if (!date || typeof date !== "string") return date;
+                        if (date.includes("-")) {
+                          const d = new Date(date);
+                          if (!isNaN(d.getTime())) {
+                            return `${String(d.getDate()).padStart(2, "0")}/${String(
+                              d.getMonth() + 1
+                            ).padStart(2, "0")}`;
+                          }
+                        }
+                        return date;
+                      })()}
+                    </text>
+                  </g>
+                );
+              }}
             />
             <YAxis
               tickFormatter={(v) => {

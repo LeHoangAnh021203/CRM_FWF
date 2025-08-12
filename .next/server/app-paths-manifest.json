@@ -1,5 +1,5 @@
 {
   "/api/notifications/route": "app/api/notifications/route.js",
   "/page": "app/page.js",
-  "/generateAI/page": "app/generateAI/page.js"
+  "/customers/page": "app/customers/page.js"
 }

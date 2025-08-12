@@ -163,6 +163,8 @@ class AIService {
         return await this.generateWithReplicate(config, imageBlob, prompt, strength);
       case 'openai':
         return await this.generateWithOpenAI(config, imageBlob, prompt, strength);
+      case 'openrouter':
+        return await this.generateWithOpenRouter(config, imageBlob, prompt, strength);
       default:
         throw new Error('Unsupported service');
     }
@@ -256,6 +258,31 @@ class AIService {
 
     const result = await response.json();
     return result.data[0].url; // OpenAI returns image URLs
+  }
+
+  private async generateWithOpenRouter(config: AIServiceConfig, imageBlob: Blob, prompt: string, strength: number): Promise<string> {
+    // OpenRouter only supports text-to-image, not image-to-image
+    // So we'll use a text prompt that describes the transformation
+    const response = await fetch(config.endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: "openai/dall-e-3",
+        prompt: `A beautiful fox person with anthropomorphic features (transformation strength: ${strength}): ${prompt}, detailed orange fur, pointy fox ears, bushy fox tail, human-like body, high quality, detailed, professional photography`,
+        n: 1,
+        size: "1024x1024"
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenRouter failed: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.data[0].url; // OpenRouter returns image URLs
   }
 
   private blobToBase64(blob: Blob): Promise<string> {
