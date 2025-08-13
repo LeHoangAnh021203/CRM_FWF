@@ -43,6 +43,29 @@ export function RevenueChart() {
     return dateString; // fallback
   };
 
+  // Check if a date is weekend
+  const isWeekend = (dateString: string) => {
+    try {
+      let date: Date;
+      
+      if (dateString.includes("T")) {
+        date = new Date(dateString);
+      } else {
+        date = new Date(dateString);
+      }
+      
+      if (isNaN(date.getTime())) return false;
+      
+      const dayOfWeek = date.getDay();
+      // 0 = Sunday, 6 = Saturday
+      return dayOfWeek === 0 || dayOfWeek === 6;
+    } catch {
+      return false;
+    }
+  };
+
+
+
   // Format revenue for display
   const formatRevenue = (value: number) => {
     if (value >= 1000000000) {
@@ -93,34 +116,54 @@ export function RevenueChart() {
 
   const maxRevenue = Math.max(...revenueData.map((d) => d.revenue));
 
-  // Filter data for mobile to show fewer bars
-  const displayData = isMobile && revenueData.length > 15 
-    ? revenueData.filter((_, index) => index % 2 === 0) // Show every other day on mobile
+  // Filter data for mobile to show fewer bars when there are many days
+  const displayData = isMobile && revenueData.length > 20 
+    ? revenueData.filter((_, index) => index % 3 === 0) // Show every 3rd day on mobile for better readability
     : revenueData;
 
   return (
     <Card className="bg-white">
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Tổng Quan Doanh Thu</CardTitle>
-        <p className="text-sm text-gray-600">Doanh thu theo ngày trong tháng</p>
+        <p className="text-sm text-gray-600">Tổng hợp doanh thu tất cả regions theo ngày</p>
+        <div className="flex items-center justify-center space-x-4 text-xs text-gray-500 mt-2">
+          <span className="inline-flex items-center">
+            <span className="w-3 h-3 bg-blue-500 rounded mr-1"></span>
+            Ngày thường
+          </span>
+          <span className="inline-flex items-center">
+            <span className="w-3 h-3 bg-red-500 rounded mr-1"></span>
+            Cuối tuần
+          </span>
+        </div>
       </CardHeader>
       <CardContent>
         <div className={`${isMobile ? 'h-48' : 'h-64'} overflow-x-auto`}>
-          <div className="flex items-end justify-between space-x-1 sm:space-x-2 min-w-max">
-            {displayData.map((item) => (
-              <div key={item.date} className="flex flex-col items-center flex-1 min-w-[20px] sm:min-w-[30px]">
-                <div
-                  className="w-full bg-blue-500 rounded-t-sm transition-all duration-300 hover:bg-blue-600"
-                  style={{
-                    height: `${(item.revenue / maxRevenue) * (isMobile ? 150 : 200)}px`,
-                    minHeight: isMobile ? "15px" : "20px",
-                  }}
-                />
-                <span className={`${isMobile ? 'text-[8px]' : 'text-[10px]'} text-gray-600 mt-1 sm:mt-2 whitespace-nowrap`}>
-                  {formatDate(item.date)}
-                </span>
-              </div>
-            ))}
+          <div className="flex items-end justify-between space-x-0.5 sm:space-x-1 min-w-max">
+            {displayData.map((item) => {
+              const weekend = isWeekend(item.date);
+              return (
+                <div key={item.id} className="flex flex-col items-center flex-1 min-w-[16px] sm:min-w-[20px]">
+                  <div
+                    className={`w-full rounded-t-sm transition-all duration-300 hover:bg-blue-600 cursor-pointer ${
+                      weekend ? 'bg-red-500' : 'bg-blue-500'
+                    }`}
+                    style={{
+                      height: `${(item.revenue / maxRevenue) * (isMobile ? 150 : 200)}px`,
+                      minHeight: isMobile ? "12px" : "16px",
+                    }}
+                    title={`${formatDate(item.date)}: ${formatRevenue(item.revenue)} VND`}
+                  />
+                  <span 
+                    className={`${isMobile ? 'text-[7px]' : 'text-[9px]'} mt-1 sm:mt-2 whitespace-nowrap font-medium ${
+                      weekend ? 'text-red-600' : 'text-gray-600'
+                    }`}
+                  >
+                    {formatDate(item.date)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
         <div className="mt-4 flex justify-between text-sm text-gray-600">

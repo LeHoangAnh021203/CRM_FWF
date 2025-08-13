@@ -116,6 +116,52 @@ export default function WeeklyServiceChartData({
               angle={isMobile ? -45 : 0}
               textAnchor={isMobile ? "end" : "middle"}
               height={isMobile ? 60 : 30}
+              tick={({ x, y, payload }) => {
+                const dateStr = payload.value;
+                // Parse date string like "15 thg 6" to determine if it's weekend
+                const isWeekend = (() => {
+                  try {
+                    const match = dateStr.match(/^(\d{1,2}) thg (\d{1,2})$/);
+                    if (match) {
+                      const [, day, month] = match;
+                      const year = new Date().getFullYear();
+                      const date = new Date(year, parseInt(month) - 1, parseInt(day));
+                      const dayOfWeek = date.getDay();
+                      // 0 = Sunday, 6 = Saturday
+                      return dayOfWeek === 0 || dayOfWeek === 6;
+                    }
+                    return false;
+                  } catch {
+                    return false;
+                  }
+                })();
+
+                return (
+                  <g transform={`translate(${x},${y})`}>
+                    <text
+                      x={0}
+                      y={0}
+                      dy={16}
+                      textAnchor={isMobile ? "end" : "middle"}
+                      fill={isWeekend ? "#ff6b6b" : "#666"}
+                      fontSize={isMobile ? 10 : 12}
+                      fontWeight={isWeekend ? "bold" : "normal"}
+                    >
+                      {payload.value}
+                    </text>
+                    {isWeekend && (
+                      <rect
+                        x={-20}
+                        y={-5}
+                        width={40}
+                        height={20}
+                        fill="rgba(255, 107, 107, 0.1)"
+                        rx={3}
+                      />
+                    )}
+                  </g>
+                );
+              }}
             />
             <YAxis
               fontSize={isMobile ? 10 : 12}

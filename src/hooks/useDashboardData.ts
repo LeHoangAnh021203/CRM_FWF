@@ -17,6 +17,7 @@ interface DashboardStats {
 }
 
 interface RevenueData {
+  id: string;
   date: string;
   revenue: number;
 }
@@ -69,6 +70,7 @@ export function useDashboardData() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        console.log('🔄 Starting dashboard data fetch...');
         setLoading(true);
         setError(null);
         setApiErrors([]);
@@ -170,17 +172,18 @@ export function useDashboardData() {
             name: "Daily Region Revenue",
             url: `${API_BASE_URL}/api/sales/daily-region-revenue`,
             handler: (data: ApiResponse) => {
-              console.log('Daily Region Revenue API response:', data);
+              console.log('📊 Daily Region Revenue API response:', data);
               // Process daily region revenue data for chart
               if (data && data.currentRange && Array.isArray(data.currentRange)) {
-                const chartData = data.currentRange.map((item) => ({
+                const chartData = data.currentRange.map((item, index) => ({
+                  id: `daily-${item.date}-${index}`,
                   date: item.date || new Date().toISOString().split('T')[0],
                   revenue: item.totalRevenue || 0,
                 }));
-                console.log('Chart data from daily region revenue:', chartData);
+                console.log('✅ Using Daily Region Revenue data:', chartData.length, 'items');
                 setRevenueData(chartData);
               } else {
-                console.log('No valid data from daily region revenue API');
+                console.log('❌ No valid data from daily region revenue API');
               }
             }
           },
@@ -188,17 +191,18 @@ export function useDashboardData() {
             name: "Region Revenue",
             url: `${API_BASE_URL}/api/sales/region-revenue`,
             handler: (data: ApiResponse) => {
-              console.log('Region Revenue API response:', data);
+              console.log('📊 Region Revenue API response:', data);
               // Process region revenue data for chart (fallback)
               if (data && data.currentRange && Array.isArray(data.currentRange)) {
-                const chartData = data.currentRange.map((item) => ({
+                const chartData = data.currentRange.map((item, index) => ({
+                  id: `region-${item.date}-${index}`,
                   date: item.date || new Date().toISOString().split('T')[0],
                   revenue: item.totalRevenue || 0,
                 }));
-                console.log('Chart data from region revenue:', chartData);
+                console.log('✅ Using Region Revenue data:', chartData.length, 'items');
                 setRevenueData(chartData);
               } else {
-                console.log('No valid data from region revenue API');
+                console.log('❌ No valid data from region revenue API');
               }
             }
           },
@@ -209,7 +213,8 @@ export function useDashboardData() {
               console.log('Shop Type Revenue API response:', data);
               // Process shop type revenue data for chart (another fallback)
               if (data && data.currentRange && Array.isArray(data.currentRange)) {
-                const chartData = data.currentRange.map((item) => ({
+                const chartData = data.currentRange.map((item, index) => ({
+                  id: `shop-${item.date}-${index}`,
                   date: item.date || new Date().toISOString().split('T')[0],
                   revenue: item.actualRevenue || item.totalRevenue || 0,
                 }));
@@ -237,6 +242,7 @@ export function useDashboardData() {
               }
 
               const data = await response.json();
+              console.log(`✅ ${apiCall.name} API called successfully`);
               apiCall.handler(data);
               
               // Report success
@@ -265,21 +271,10 @@ export function useDashboardData() {
           setError(null);
         }
 
-        // Fallback: If no revenue data is loaded, create sample data
+        // Fallback: If no revenue data is loaded, show error instead of fake data
         if (revenueData.length === 0 && !hasCreatedFallback.current) {
-          console.log('Creating fallback revenue data');
-          const fallbackData: RevenueData[] = [];
-          const today = new Date();
-          for (let i = 29; i >= 0; i--) {
-            const date = new Date(today);
-            date.setDate(date.getDate() - i);
-            fallbackData.push({
-              date: date.toISOString().split('T')[0],
-              revenue: Math.floor(Math.random() * 50000000) + 10000000, // 10M - 60M VND
-            });
-          }
-          console.log('Fallback revenue data:', fallbackData);
-          setRevenueData(fallbackData);
+          console.log('❌ No API data received - showing error instead of fallback data');
+          setError('Không thể tải dữ liệu doanh thu. Vui lòng kiểm tra kết nối mạng.');
           hasCreatedFallback.current = true;
         }
 

@@ -86,7 +86,7 @@ const CustomerFilters: React.FC<CustomerFiltersProps> = ({
             const date = parseDate(e.target.value);
             setEndDate(date);
           }}
-          min={startDate ? startDate.add({ days: 1 }).toString() : undefined}
+          min={startDate.add({ days: 1 }).toString()}
           max={today(getLocalTimeZone()).toString()}
         />
       </div>

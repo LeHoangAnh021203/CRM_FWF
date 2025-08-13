@@ -24,6 +24,18 @@ import { usePageStatus } from "@/hooks/usePageStatus";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
+// Utility function để đảm bảo CalendarDate instances
+function ensureCalendarDate(date: unknown): CalendarDate {
+  if (date instanceof CalendarDate) {
+    return date;
+  }
+  if (date && typeof date === 'object' && 'year' in date && 'month' in date && 'day' in date) {
+    const dateObj = date as { year: number; month: number; day: number };
+    return new CalendarDate(dateObj.year, dateObj.month, dateObj.day);
+  }
+  return today(getLocalTimeZone());
+}
+
 // Function để clear tất cả filter state
 function clearCustomerFilters() {
   clearLocalStorageKeys([
@@ -154,16 +166,15 @@ export default function CustomerReportPage() {
   const allRegions = ["Đã đóng cửa", "Đà Nẵng", "Nha Trang", "Hà Nội", "HCM"];
   const allBranches = ["Branch 1", "Branch 2", "Branch 3"];
 
-  const fromDate = startDate
-    ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
-        startDate.day
-      ).padStart(2, "0")}T00:00:00`
-    : "";
-  const toDate = endDate
-    ? `${endDate.year}-${String(endDate.month).padStart(2, "0")}-${String(
-        endDate.day
-      ).padStart(2, "0")}T23:59:59`
-    : "";
+  const safeStartDate = ensureCalendarDate(startDate);
+  const safeEndDate = ensureCalendarDate(endDate);
+  
+  const fromDate = `${safeStartDate.year}-${String(safeStartDate.month).padStart(2, "0")}-${String(
+    safeStartDate.day
+  ).padStart(2, "0")}T00:00:00`;
+  const toDate = `${safeEndDate.year}-${String(safeEndDate.month).padStart(2, "0")}-${String(
+    safeEndDate.day
+  ).padStart(2, "0")}T23:59:59`;
 
   // API calls
   const {
@@ -579,8 +590,8 @@ export default function CustomerReportPage() {
 
           {/* Filter */}
           <CustomerFilters
-            startDate={startDate}
-            endDate={endDate}
+            startDate={safeStartDate}
+            endDate={safeEndDate}
             setStartDate={setStartDate}
             setEndDate={setEndDate}
             today={today}

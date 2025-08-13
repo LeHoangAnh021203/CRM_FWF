@@ -34,6 +34,12 @@
       "namedRegex": "^/accounting(?:/)?$"
     },
     {
+      "page": "/calendar",
+      "regex": "^/calendar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/calendar(?:/)?$"
+    },
+    {
       "page": "/customers",
       "regex": "^/customers(?:/)?$",
       "routeKeys": {},

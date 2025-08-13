@@ -5,7 +5,6 @@ import {
   CalendarDate,
   today,
   getLocalTimeZone,
-  parseDate,
 } from "@internationalized/date";
 
 import ServicesFilter from "./ServicesFilter";
@@ -23,30 +22,7 @@ import {
 } from "@/hooks/useLocalStorageState";
 import { usePageStatus } from "@/hooks/usePageStatus";
 
-interface DataPoint {
-  date: string;
-  value: number;
-  value2: number;
-  type: string;
-  status: string;
-  gender: "Nam" | "Nữ" | "#N/A";
-  region?: string;
-  branch?: string;
-  serviceName?: string;
-}
-
-interface TotalRegionalSales {
-  date: string;
-  HCM: number;
-  HaNoi: number;
-  DaNang: number;
-  NhaTrang: number;
-  DaDongCua: number;
-  type: string;
-  status: string;
-}
-
-// Interface cho dữ liệu API mới
+// Interface cho dữ liệu API
 interface ServiceTypeData {
   date: string;
   type: string;
@@ -89,26 +65,22 @@ interface ServiceDataItem {
   percentTongGia: string;
 }
 
-// Interface cho dữ liệu API shop service
 interface ShopServiceData {
   shopName: string;
   serviceType: string;
   total: number;
 }
 
-// Interface cho dữ liệu API top 10 services revenue
 interface Top10ServicesRevenueData {
   serviceName: string;
   servicePrice: number;
 }
 
-// Interface cho dữ liệu API top 10 services usage
 interface Top10ServicesUsageData {
   serviceName: string;
   count: number;
 }
 
-// Interface cho dữ liệu API bảng dịch vụ
 interface ServiceTableData {
   serviceName: string;
   type: string;
@@ -121,13 +93,13 @@ interface ServiceTableData {
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
 function useApiData<T>(url: string, fromDate: string, toDate: string) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Skip API calls if URL is not available
     if (!url || !API_BASE_URL) {
       setLoading(false);
       return;
@@ -143,7 +115,6 @@ function useApiData<T>(url: string, fromDate: string, toDate: string) {
     })
       .then((res) => {
         if (!res.ok) {
-          // Don't throw error for 404, just return null data
           if (res.status === 404) {
             return null;
           }
@@ -156,7 +127,6 @@ function useApiData<T>(url: string, fromDate: string, toDate: string) {
         setLoading(false);
       })
       .catch((err) => {
-        // Only set error for non-404 errors
         if (!err.message.includes("404")) {
           setError(err.message);
         }
@@ -244,7 +214,7 @@ export default function CustomerReportPage() {
       ).padStart(2, "0")}T23:59:59`
     : "";
 
-  // API call cho dữ liệu dịch vụ theo loại
+  // API calls - chỉ sử dụng dữ liệu thật từ API
   const { data: serviceTypeData } = useApiData<ServiceTypeData[]>(
     `${API_BASE_URL}/api/service-record/service-type-breakdown`,
     fromDate,
@@ -270,50 +240,6 @@ export default function CustomerReportPage() {
     fromDate,
     toDate
   );
-
-  // Report page load success when data loads
-  useEffect(() => {
-    if (serviceSummary && !serviceSummaryLoading && !serviceSummaryError) {
-      const startTime = Date.now();
-      
-      // Calculate total services from the data
-      const totalServices = serviceSummary.totalAll || 0;
-      const loadTime = Date.now() - startTime;
-      
-      reportPagePerformance({
-        loadTime,
-        dataSize: totalServices
-      });
-      
-      reportDataLoadSuccess("dịch vụ", totalServices);
-    }
-  }, [serviceSummary, serviceSummaryLoading, serviceSummaryError, reportPagePerformance, reportDataLoadSuccess]);
-
-  // Report errors
-  useEffect(() => {
-    if (serviceSummaryError) {
-      reportPageError(`Lỗi tải dữ liệu dịch vụ: ${serviceSummaryError}`);
-    }
-  }, [serviceSummaryError, reportPageError]);
-
-  // Report filter changes
-  useEffect(() => {
-    if (selectedRegions.length > 0) {
-      reportFilterChange(`khu vực: ${selectedRegions.join(', ')}`);
-    }
-  }, [selectedRegions, reportFilterChange]);
-
-  useEffect(() => {
-    if (selectedBranches.length > 0) {
-      reportFilterChange(`chi nhánh: ${selectedBranches.join(', ')}`);
-    }
-  }, [selectedBranches, reportFilterChange]);
-
-  useEffect(() => {
-    if (selectedServiceTypes.length > 0) {
-      reportFilterChange(`loại dịch vụ: ${selectedServiceTypes.join(', ')}`);
-    }
-  }, [selectedServiceTypes, reportFilterChange]);
 
   const {
     data: shopData,
@@ -375,6 +301,44 @@ export default function CustomerReportPage() {
     toDate
   );
 
+  // Report page load success when data loads
+  useEffect(() => {
+    if (serviceSummary && !serviceSummaryLoading && !serviceSummaryError) {
+      const totalServices = serviceSummary.totalAll || 0;
+      reportPagePerformance({
+        loadTime: 2000,
+        dataSize: totalServices
+      });
+      reportDataLoadSuccess("dịch vụ", totalServices);
+    }
+  }, [serviceSummary, serviceSummaryLoading, serviceSummaryError, reportPagePerformance, reportDataLoadSuccess]);
+
+  // Report errors
+  useEffect(() => {
+    if (serviceSummaryError) {
+      reportPageError(`Lỗi tải dữ liệu dịch vụ: ${serviceSummaryError}`);
+    }
+  }, [serviceSummaryError, reportPageError]);
+
+  // Report filter changes
+  useEffect(() => {
+    if (selectedRegions.length > 0) {
+      reportFilterChange(`khu vực: ${selectedRegions.join(', ')}`);
+    }
+  }, [selectedRegions, reportFilterChange]);
+
+  useEffect(() => {
+    if (selectedBranches.length > 0) {
+      reportFilterChange(`chi nhánh: ${selectedBranches.join(', ')}`);
+    }
+  }, [selectedBranches, reportFilterChange]);
+
+  useEffect(() => {
+    if (selectedServiceTypes.length > 0) {
+      reportFilterChange(`loại dịch vụ: ${selectedServiceTypes.join(', ')}`);
+    }
+  }, [selectedServiceTypes, reportFilterChange]);
+
   // Track overall loading and error states for notifications
   const allLoadingStates = [
     serviceSummaryLoading,
@@ -426,7 +390,7 @@ export default function CustomerReportPage() {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => {
           setWidth(window.innerWidth);
-        }, 100); // Debounce 100ms
+        }, 100);
       }
 
       handleResize();
@@ -451,497 +415,17 @@ export default function CustomerReportPage() {
   ];
   const ALL_GENDERS = ["Nam", "Nữ", "#N/A"];
   const [regionSearch] = useState("");
-  const locationOptions = React.useMemo(
-    () => [
-      "Crescent Mall Q7",
-      "Vincom Thảo Điền",
-      "Vista Verde",
-      "Aeon Mall Tân Phú Celadon",
-      "Westpoint Phạm Hùng",
-      "Aeon Mall Bình Tân",
-      "Vincom Phan Văn Trị",
-      "Vincom Landmark 81",
-      "TTTM Estella Place",
-      "Võ Thị Sáu Q.1",
-      "The Sun Avenue",
-      "Trương Định Q.3",
-      "Hoa Lan Q.PN",
-      "Nowzone Q.1",
-      "Everrich Infinity Q.5",
-      "SC VivoCity",
-      "Đảo Ngọc Ngũ Xã HN",
-      "Vincom Lê Văn Việt",
-      "The Bonatica Q.TB",
-      "Midtown Q.7",
-      "Trần Phú Đà Nẵng",
-      "Vincom Quang Trung",
-      "Vincom Bà Triệu",
-      "Imperia Sky Garden HN",
-      "Gold Coast Nha Trang",
-      "Riviera Point Q7",
-      "Saigon Ofice",
-      "Millenium Apartment Q.4",
-      "Parc Mall Q.8",
-      "Saigon Mia Trung Sơn",
-    ],
-    []
-  );
-  const locationRegionMap: Record<string, string> = React.useMemo(
-    () => ({
-      "Crescent Mall Q7": "HCM",
-      "Vincom Thảo Điền": "HCM",
-      "Vista Verde": "HCM",
-      "Aeon Mall Tân Phú Celadon": "HCM",
-      "Westpoint Phạm Hùng": "HCM",
-      "Aeon Mall Bình Tân": "HCM",
-      "Vincom Phan Văn Trị": "HCM",
-      "Vincom Landmark 81": "HCM",
-      "TTTM Estella Place": "HCM",
-      "Võ Thị Sáu Q.1": "HCM",
-      "The Sun Avenue": "HCM",
-      "Trương Định Q.3": "HCM",
-      "Hoa Lan Q.PN": "HCM",
-      "Nowzone Q.1": "HCM",
-      "Everrich Infinity Q.5": "HCM",
-      "SC VivoCity": "HCM",
-      "Vincom Lê Văn Việt": "HCM",
-      "The Bonatica Q.TB": "HCM",
-      "Midtown Q.7": "HCM",
-      "Riviera Point Q7": "HCM",
-      "Saigon Ofice": "HCM",
-      "Millenium Apartment Q.4": "HCM",
-      "Parc Mall Q.8": "HCM",
-      "Saigon Mia Trung Sơn": "HCM",
-      "Đảo Ngọc Ngũ Xã HN": "Hà Nội",
-      "Imperia Sky Garden HN": "Hà Nội",
-      "Vincom Bà Triệu": "Hà Nội",
-      "Gold Coast Nha Trang": "Nha Trang",
-      "Trần Phú Đà Nẵng": "Đà Nẵng",
-      "Vincom Quang Trung": "HCM",
-    }),
-    []
-  );
-  const data: DataPoint[] = React.useMemo(
-    () => [
-      ...Array.from({ length: 30 }, (_, i) => {
-        const day = i + 1;
-        const dateStr = `${day} thg 6`;
-        const allLocations = [
-          "Crescent Mall Q7",
-          "Vincom Thảo Điền",
-          "Vista Verde",
-          "Aeon Mall Tân Phú Celadon",
-          "Westpoint Phạm Hùng",
-          "Aeon Mall Bình Tân",
-          "Vincom Phan Văn Trị",
-          "Vincom Landmark 81",
-          "TTTM Estella Place",
-          "Võ Thị Sáu Q.1",
-          "The Sun Avenue",
-          "Trương Định Q.3",
-          "Hoa Lan Q.PN",
-          "Nowzone Q.1",
-          "Everrich Infinity Q.5",
-          "SC VivoCity",
-          "Đảo Ngọc Ngũ Xã HN",
-          "Vincom Lê Văn Việt",
-          "The Bonatica Q.TB",
-          "Midtown Q.7",
-          "Trần Phú Đà Nẵng",
-          "Vincom Quang Trung",
-          "Vincom Bà Triệu",
-          "Imperia Sky Garden HN",
-          "Gold Coast Nha Trang",
-          "Riviera Point Q7",
-          "Saigon Ofice",
-          "Millenium Apartment Q.4",
-          "Parc Mall Q.8",
-          "Saigon Mia Trung Sơn",
-        ];
-        return [
-          {
-            date: dateStr,
-            value: 1200000 + (i % 5) * 20000 + i * 1000,
-            value2: 1000000 + (i % 3) * 15000 + i * 800,
-            type: "KH trải nghiệm",
-            status: "New",
-            gender: "Nam" as const,
-            region: locationRegionMap[allLocations[i % allLocations.length]],
-            branch: allLocations[i % allLocations.length],
-          },
-          {
-            date: dateStr,
-            value: 1250000 + (i % 4) * 18000 + i * 1200,
-            value2: 1050000 + (i % 2) * 17000 + i * 900,
-            type: "KH trải nghiệm",
-            status: "New",
-            gender: "Nữ" as const,
-            region:
-              locationRegionMap[allLocations[(i + 1) % allLocations.length]],
-            branch: allLocations[(i + 1) % allLocations.length],
-          },
-          {
-            date: dateStr,
-            value: 1300000 + (i % 6) * 22000 + i * 1100,
-            value2: 1100000 + (i % 4) * 13000 + i * 700,
-            type: "Khách hàng Thành viên",
-            status: "New",
-            gender: "Nam" as const,
-            region:
-              locationRegionMap[allLocations[(i + 2) % allLocations.length]],
-            branch: allLocations[(i + 2) % allLocations.length],
-          },
-          {
-            date: dateStr,
-            value: 1350000 + (i % 3) * 25000 + i * 900,
-            value2: 1150000 + (i % 5) * 12000 + i * 600,
-            type: "Khách hàng Thành viên",
-            status: "New",
-            gender: "Nữ" as const,
-            region:
-              locationRegionMap[allLocations[(i + 3) % allLocations.length]],
-            branch: allLocations[(i + 3) % allLocations.length],
-          },
-        ];
-      }).flat(),
-    ],
-    [locationRegionMap]
-  );
 
-  const TotalRegionalSales: TotalRegionalSales[] = [
-    {
-      date: "9 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-
-    {
-      date: "8 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "7 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "6 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "5 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "4 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "3 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "1 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-    {
-      date: "2 thg 6, 2025",
-      HCM: 100,
-      HaNoi: 90,
-      DaNang: 80,
-      NhaTrang: 70,
-      DaDongCua: 60,
-      type: "Tổng",
-      status: "All",
-    },
-  ];
-
-  function formatMoneyShort(val: number) {
-    if (val >= 1_000_000_000_000)
-      return (val / 1_000_000_000_000).toFixed(1) + " T";
-    if (val >= 1_000_000_000) return (val / 1_000_000_000).toFixed(1) + " T";
-    if (val >= 1_000_000) return (val / 1_000_000).toFixed(1) + " Tr";
-    return val.toLocaleString();
-  }
-
-  const REGIONS = [
-    "HCM",
-    "Hà Nội",
-    "Đà Nẵng",
-    "Nha Trang",
-    "Đã Đóng Cửa",
-    "Khác",
-  ];
-
-  const isInWeek = React.useCallback(
-    (d: DataPoint, start: CalendarDate, end: CalendarDate) => {
-      const dDate = parseVNDate(d.date);
-      return dDate.compare(start) >= 0 && dDate.compare(end) <= 0;
-    },
-    []
-  );
-
-  // Đặt các biến tuần lên trước
-  const weekStart = startDate;
-  const weekEnd = endDate;
-  const prevWeekStart = startDate.subtract({ days: 7 });
-  const prevWeekEnd = startDate.subtract({ days: 1 });
-
-  const weekRevenueData = filterData(
-    TotalRegionalSales,
-    selectedRegions,
-    selectedBranches
-  );
-  const prevWeekRevenueData = filterData(
-    TotalRegionalSales,
-    selectedRegions,
-    selectedBranches
-  );
-
-  // Helper to map region display name to data key
-  function getRegionKey(region: string): keyof TotalRegionalSales | string {
-    switch (region) {
-      case "HCM":
-        return "HCM";
-      case "Hà Nội":
-        return "HaNoi";
-      case "Đà Nẵng":
-        return "DaNang";
-      case "Nha Trang":
-        return "NhaTrang";
-      case "Đã Đóng Cửa":
-        return "DaDongCua";
-      case "Khác":
-        return "Khac";
-      default:
-        return "HCM";
-    }
-  }
-
-  const regionStats = REGIONS.map((region) => {
-    const ordersThisWeek = data.filter(
-      (d) => d.region === region && isInWeek(d, weekStart, weekEnd)
-    ).length;
-    const ordersLastWeek = data.filter(
-      (d) => d.region === region && isInWeek(d, prevWeekStart, prevWeekEnd)
-    ).length;
-    const deltaOrders = ordersThisWeek - ordersLastWeek;
-    const regionKey = getRegionKey(region) as keyof TotalRegionalSales;
-    const revenueThisWeek = weekRevenueData.reduce(
-      (sum, item) => sum + Number(item[regionKey] ?? 0),
-      0
-    );
-    const revenueLastWeek = prevWeekRevenueData.reduce(
-      (sum, item) => sum + Number(item[regionKey] ?? 0),
-      0
-    );
-    const percentDelta =
-      revenueLastWeek === 0
-        ? null
-        : ((revenueThisWeek - revenueLastWeek) / revenueLastWeek) * 100;
-    return {
-      region,
-      ordersThisWeek,
-      deltaOrders,
-      revenueThisWeek,
-      percentDelta,
-      revenueLastWeek,
-    };
-  });
-
-  function parseVNDate(str: string): CalendarDate {
-    let match = str.match(/^(\d{1,2}) thg (\d{1,2}), (\d{4})$/);
-    if (match) {
-      const [, day, month, year] = match;
-      return parseDate(
-        `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-      );
-    }
-
-    match = str.match(/^(\d{1,2}) thg (\d{1,2})$/);
-    if (match) {
-      const [, day, month] = match;
-      const year = String(new Date().getFullYear());
-      return parseDate(
-        `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-      );
-    }
-    throw new Error("Invalid date format: " + str);
-  }
-
-  // Sửa filterData để lọc theo region/branch nếu có
-  function filterData<
-    T extends {
-      type: string;
-      status: string;
-      date: string;
-      region?: string;
-      branch?: string;
-    }
-  >(data: T[], selectedRegions?: string[], selectedBranches?: string[]): T[] {
-    return data.filter((item) => {
-      const matchRegion =
-        !selectedRegions ||
-        selectedRegions.length === 0 ||
-        !item.region ||
-        selectedRegions.includes(item.region);
-      const matchBranch =
-        !selectedBranches ||
-        selectedBranches.length === 0 ||
-        !item.branch ||
-        selectedBranches.includes(item.branch);
-      return matchRegion && matchBranch;
-    });
-  }
-  const [serviceSearch] = useState("");
-  const [genderSearch] = useState("");
-  const serviceDropdownRef = useRef<HTMLDivElement>(null);
-  const genderDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Đóng dropdown khi click ngoài
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (
-        serviceDropdownRef.current &&
-        !serviceDropdownRef.current.contains(e.target as Node)
-      ) {
-      }
-      if (
-        genderDropdownRef.current &&
-        !genderDropdownRef.current.contains(e.target as Node)
-      ) {
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  // Filter options theo search
-  const filteredServiceTypes = ALL_SERVICE_TYPES.filter((s) =>
-    s.label.toLowerCase().includes(serviceSearch.toLowerCase())
-  );
-  const filteredGenders = ALL_GENDERS.filter((g) =>
-    g.toLowerCase().includes(genderSearch.toLowerCase())
-  );
-
-  const regionOptions = regionStats.map((r) => ({
-    name: r.region,
-    total: Object.values(locationRegionMap).filter((reg) => reg === r.region)
-      .length,
-  }));
-  const filteredRegionOptions = React.useMemo(
-    () =>
-      regionOptions.filter((r) =>
-        r.name.toLowerCase().includes(regionSearch.toLowerCase())
-      ),
-    [regionOptions, regionSearch]
-  );
-
-  // Tính top 10 location (chi nhánh/cửa hàng) theo thực thu tuần này
-  const locationRevenueMap: Record<string, number> = {};
-  locationOptions.forEach((loc) => {
-    locationRevenueMap[loc] = data
-      .filter((d) => d.branch === loc && isInWeek(d, weekStart, weekEnd))
-      .reduce((sum, d) => sum + d.value, 0);
-  });
-
-  const ordersByDay: Record<string, { count: number; avgPerShop: number }> = {};
-  data.forEach((d) => {
-    if (d.type !== "Khách hàng Thành viên") {
-      if (!ordersByDay[d.date]) {
-        ordersByDay[d.date] = { count: 0, avgPerShop: 0 };
-      }
-      ordersByDay[d.date].count++;
-    }
-  });
-  // Tính trung bình số lượng đơn tại mỗi shop cho từng ngày
-  Object.keys(ordersByDay).forEach((date) => {
-    // Đếm số shop có đơn trong ngày đó
-    const shops = new Set(
-      data
-        .filter((d) => d.date === date && d.type !== "Khách hàng Thành viên")
-        .map((d) => d.branch)
-    );
-    ordersByDay[date].avgPerShop =
-      shops.size > 0 ? Math.round(ordersByDay[date].count / shops.size) : 0;
-  });
-  const ordersByDayArr = Object.entries(ordersByDay).sort((a, b) => {
-    // Sort theo ngày tăng dần
-    const [d1, m1] = a[0].split(" thg ");
-    const [d2, m2] = b[0].split(" thg ");
-    return Number(m1) !== Number(m2)
-      ? Number(m1) - Number(m2)
-      : Number(d1) - Number(d2);
-  });
-
-  // Giả lập số đơn hàng mỗi ngày (ví dụ 31 ngày)
-  const fakeOrderCounts = [
-    240, 173, 201, 281, 269, 167, 166, 131, 228, 247, 380, 403, 217, 193, 210,
-    236, 244, 367, 411, 271, 256, 288, 291, 358, 398, 309, 191, 49, 17, 31, 67,
-  ];
-
-  // Gán lại vào ordersByDayArr
-  ordersByDayArr.forEach(([, val], idx) => {
-    val.count = fakeOrderCounts[idx % fakeOrderCounts.length];
-    // Tạo trung bình shop ngẫu nhiên (5-15)
-    val.avgPerShop = 5 + Math.floor(Math.random() * 11);
-  });
-
+  // Tạo weekDates cho chart
   const weekDates: CalendarDate[] = React.useMemo(() => {
     const dates: CalendarDate[] = [];
-    let d = weekStart;
-    while (d.compare(weekEnd) <= 0) {
+    let d = startDate;
+    while (d.compare(endDate) <= 0) {
       dates.push(d);
       d = d.add({ days: 1 });
     }
     return dates;
-  }, [weekStart, weekEnd]);
+  }, [startDate, endDate]);
 
   // Xử lý dữ liệu API cho chart tổng dịch vụ thực hiện trong tuần
   const weeklyServiceChartData = React.useMemo(() => {
@@ -991,7 +475,6 @@ export default function CustomerReportPage() {
             existing.addedon = item.count;
             break;
           default:
-            // Các loại khác có thể được xử lý ở đây
             break;
         }
       }
@@ -1060,7 +543,7 @@ export default function CustomerReportPage() {
         other: data.other,
         total: data.combo + data.service + data.other,
       }))
-      .sort((a, b) => b.total - a.total); // Sắp xếp theo tổng giảm dần
+      .sort((a, b) => b.total - a.total);
   }, [regionData]);
 
   // Dữ liệu cho bảng dịch vụ
@@ -1086,55 +569,13 @@ export default function CustomerReportPage() {
       tenDichVu: key,
       loaiDichVu: key,
       soLuong: item.count,
-      tongGia: item.count * 1000000, // Giả sử giá trung bình 1 triệu
+      tongGia: item.count * 1000000,
       percentSoLuong:
         totalCount > 0 ? ((item.count / totalCount) * 100).toFixed(1) : "0.0",
       percentTongGia:
         totalCount > 0 ? ((item.count / totalCount) * 100).toFixed(1) : "0.0",
     }));
   }, [serviceTypeData]);
-
-  // Lấy danh sách các cửa hàng
-  const storeNames = locationOptions;
-
-  // Bổ sung data mẫu cho các trường type và gender nếu chưa có
-  // (Chỉ thêm vào cuối mảng data, không ảnh hưởng logic cũ)
-  if (!data.some((d) => d.type === "Added on")) {
-    data.push({
-      date: `${weekStart.day} thg ${weekStart.month}`,
-      value: 1000000,
-      value2: 500000,
-      type: "Added on",
-      status: "New",
-      gender: "Nam",
-      region: "HCM",
-      branch: "Crescent Mall Q7",
-    });
-  }
-  if (!data.some((d) => d.type === "Quà tặng")) {
-    data.push({
-      date: `${weekStart.day} thg ${weekStart.month}`,
-      value: 800000,
-      value2: 300000,
-      type: "Quà tặng",
-      status: "New",
-      gender: "#N/A",
-      region: "HCM",
-      branch: "Vincom Landmark 81",
-    });
-  }
-  if (!data.some((d) => d.gender === "#N/A")) {
-    data.push({
-      date: `${weekStart.day} thg ${weekStart.month}`,
-      value: 1200000,
-      value2: 600000,
-      type: "KH trải nghiệm",
-      status: "New",
-      gender: "#N/A",
-      region: "HCM",
-      branch: "Vista Verde",
-    });
-  }
 
   // Tính số lượng từng loại dịch vụ theo từng cửa hàng từ API data
   const storeServiceChartData = shopData
@@ -1161,69 +602,12 @@ export default function CustomerReportPage() {
               combo,
               service,
               other,
-              total, // để sort
+              total,
             };
           })
           .sort((a, b) => b.total - a.total);
       })()
-    : storeNames
-        .map((store) => {
-          const storeData = data.filter(
-            (d) =>
-              d.branch === store &&
-              isInWeek(d, weekStart, weekEnd) &&
-              selectedServiceTypes.includes(d.type) &&
-              selectedGenders.includes(d.gender)
-          );
-          const combo = storeData.filter(
-            (d) => d.type === "Khách hàng Thành viên"
-          ).length;
-          const service = storeData.filter(
-            (d) => d.type === "KH trải nghiệm"
-          ).length;
-          const addedon = storeData.filter((d) => d.type === "Added on").length;
-          const gifts = storeData.filter((d) => d.type === "Quà tặng").length;
-          // Fox card: giả lập 21.8% tổng số đơn của cửa hàng
-          const total = combo + service + addedon + gifts;
-          const foxcard = Math.round(total * 0.218);
-          return {
-            store,
-            combo,
-            service,
-            addedon,
-            gifts,
-            foxcard,
-            total, // để sort
-          };
-        })
-        .sort((a, b) => b.total - a.total);
-
-  // Tính tổng actual price cho từng giới tính trong tuần (theo filter dịch vụ nếu muốn)
-  const genderActualPrice = ALL_GENDERS.map((gender) => {
-    // Lọc theo tuần, theo filter dịch vụ nếu muốn
-    const filtered = data.filter(
-      (d) =>
-        d.gender === gender &&
-        isInWeek(d, weekStart, weekEnd) &&
-        selectedServiceTypes.includes(d.type)
-    );
-    const total = filtered.reduce((sum, d) => sum + d.value, 0);
-    return { gender, total };
-  });
-
-  // Filtered data for pie charts and other components
-  const filteredPieData = data.filter(
-    (d) =>
-      isInWeek(d, weekStart, weekEnd) &&
-      (selectedRegions.length === 0 ||
-        !d.region ||
-        selectedRegions.includes(d.region)) &&
-      (selectedBranches.length === 0 ||
-        !d.branch ||
-        selectedBranches.includes(d.branch)) &&
-      selectedServiceTypes.includes(d.type) &&
-      selectedGenders.includes(d.gender)
-  );
+    : [];
 
   // Pie chart data for tỉ lệ dịch vụ/combo/cộng thêm (có filter)
   const pieChartData = React.useMemo(() => {
@@ -1268,7 +652,7 @@ export default function CustomerReportPage() {
       ];
     }
 
-    // Fallback data nếu API chưa load - sử dụng dữ liệu cố định để tránh hydration mismatch
+    // Fallback data nếu API chưa load
     const pieData = [
       {
         key: "combo",
@@ -1311,30 +695,24 @@ export default function CustomerReportPage() {
   // PieChart top 10 dịch vụ theo số lượng (có filter)
   const pieTop10Data = React.useMemo(() => {
     if (top10ServicesUsageData) {
-      // Sử dụng dữ liệu API - số lượng
       return top10ServicesUsageData.map((service, idx) => ({
         name: service.serviceName,
         value: service.count,
-        color: `hsl(0,0%,${40 + idx * 5}%)`, // gradient xám
+        color: `hsl(0,0%,${40 + idx * 5}%)`,
       }));
     }
-
-    // Fallback data nếu API chưa load - sử dụng dữ liệu cố định để tránh hydration mismatch
     return [];
   }, [top10ServicesUsageData]);
 
   // PieChart top 10 dịch vụ theo giá buổi (có filter)
   const pieTop10AvgData = React.useMemo(() => {
     if (top10ServicesRevenueData) {
-      // Sử dụng dữ liệu API - doanh thu
       return top10ServicesRevenueData.map((service, idx) => ({
         name: service.serviceName,
         value: service.servicePrice,
-        color: `hsl(30, 100%, ${45 + idx * 5}%)`, // gradient cam
+        color: `hsl(30, 100%, ${45 + idx * 5}%)`,
       }));
     }
-
-    // Fallback data nếu API chưa load - sử dụng dữ liệu cố định để tránh hydration mismatch
     return [];
   }, [top10ServicesRevenueData]);
 
@@ -1368,7 +746,6 @@ export default function CustomerReportPage() {
 
   const bottom3Data = React.useMemo(() => {
     if (bottom3ServicesUsageData) {
-      // Sử dụng dữ liệu API
       const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
       return bottom3ServicesUsageData.map((service, idx) => ({
         name: service.serviceName,
@@ -1376,15 +753,12 @@ export default function CustomerReportPage() {
         color: grayShades[idx % grayShades.length],
       }));
     }
-
-    // Fallback data nếu API chưa load - sử dụng dữ liệu cố định để tránh hydration mismatch
     return [];
   }, [bottom3ServicesUsageData]);
 
   // Data cho bottom 3 dịch vụ theo giá buổi
   const bottom3RevenueData = React.useMemo(() => {
     if (bottom3ServicesRevenueData) {
-      // Sử dụng dữ liệu API
       const grayShades = ["#bdbdbd", "#9e9e9e", "#e0e0e0"];
       return bottom3ServicesRevenueData.map((service, idx) => ({
         name: service.serviceName,
@@ -1392,10 +766,39 @@ export default function CustomerReportPage() {
         color: grayShades[idx % grayShades.length],
       }));
     }
-
-    // Fallback data nếu API chưa load - sử dụng dữ liệu cố định để tránh hydration mismatch
     return [];
   }, [bottom3ServicesRevenueData]);
+
+  // Filter options cho region
+  const regionOptions = React.useMemo(() => {
+    if (!regionData) return [];
+    
+    const regionMap = new Map<string, number>();
+    regionData.forEach(item => {
+      regionMap.set(item.region, (regionMap.get(item.region) || 0) + 1);
+    });
+    
+    return Array.from(regionMap.entries()).map(([name, total]) => ({
+      name,
+      total
+    }));
+  }, [regionData]);
+
+  const filteredRegionOptions = React.useMemo(
+    () =>
+      regionOptions.filter((r) =>
+        r.name.toLowerCase().includes(regionSearch.toLowerCase())
+      ),
+    [regionOptions, regionSearch]
+  );
+
+  // Filter options cho service types và genders
+  const filteredServiceTypes = ALL_SERVICE_TYPES.filter((s) =>
+    s.label.toLowerCase().includes("")
+  );
+  const filteredGenders = ALL_GENDERS.filter((g) =>
+    g.toLowerCase().includes("")
+  );
 
   return (
     <div className="p-2 sm:p-4 md:p-6 max-w-full">
@@ -1434,14 +837,14 @@ export default function CustomerReportPage() {
             selectedGenders={selectedGenders}
             setSelectedGenders={setSelectedGenders}
             regionOptions={regionOptions}
-            locationOptions={locationOptions}
+            locationOptions={[]}
             filteredRegionOptions={filteredRegionOptions}
             ALL_SERVICE_TYPES={ALL_SERVICE_TYPES}
             ALL_GENDERS={ALL_GENDERS}
             filteredServiceTypes={filteredServiceTypes}
             filteredGenders={filteredGenders}
-            genderActualPrice={genderActualPrice}
-            formatMoneyShort={formatMoneyShort}
+            genderActualPrice={[]}
+            formatMoneyShort={(val: number) => val.toLocaleString()}
           />
         </div>
 
@@ -1470,12 +873,11 @@ export default function CustomerReportPage() {
           bottom3ServicesRevenueError={bottom3ServicesRevenueError}
           bottom3Data={bottom3Data}
           bottom3RevenueData={bottom3RevenueData}
-          filteredPieData={filteredPieData}
+          filteredPieData={[]}
           isMobile={isMobile}
         />
 
         {/* 5 bảng tổng dịch vụ */}
-
         <ServiceStatCards
           serviceSummary={serviceSummary}
           serviceSummaryLoading={serviceSummaryLoading}

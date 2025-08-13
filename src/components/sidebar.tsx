@@ -8,6 +8,7 @@ import {
   X,
   Sparkles,
   Radical,
+  CalendarCheck2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -35,6 +36,11 @@ const menuItems = [
     icon: Radical,
     label: "Accounts",
     href: "/accounting",
+  },
+  {
+    icon: CalendarCheck2,
+    label: "Calendar",
+    href: "/calendar",
   },
   {
     icon: Sparkles,
