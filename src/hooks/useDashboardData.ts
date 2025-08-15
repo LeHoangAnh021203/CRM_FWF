@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { today, getLocalTimeZone } from "@internationalized/date";
 
 const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
@@ -65,7 +65,7 @@ export function useDashboardData() {
   const [error, setError] = useState<string | null>(null);
   const [apiErrors, setApiErrors] = useState<string[]>([]);
   const [apiSuccesses, setApiSuccesses] = useState<string[]>([]);
-  const hasCreatedFallback = useRef(false);
+  // Removed unused hasCreatedFallback ref
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -271,12 +271,7 @@ export function useDashboardData() {
           setError(null);
         }
 
-        // Fallback: If no revenue data is loaded, show error instead of fake data
-        if (revenueData.length === 0 && !hasCreatedFallback.current) {
-          console.log('❌ No API data received - showing error instead of fallback data');
-          setError('Không thể tải dữ liệu doanh thu. Vui lòng kiểm tra kết nối mạng.');
-          hasCreatedFallback.current = true;
-        }
+        // No fallback data - let error state handle it
 
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch dashboard data";
@@ -288,7 +283,7 @@ export function useDashboardData() {
     };
 
     fetchDashboardData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     stats,

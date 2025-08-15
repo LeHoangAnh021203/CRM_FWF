@@ -14,11 +14,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SmartNotifications } from "@/components/smart-notifications";
-
-
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 export function Header() {
   const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const { user, logout } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   return (
     <header className="bg-white border-b border-gray-200 px-3 py-2 sm:px-6 sm:py-4">
@@ -83,12 +90,17 @@ export function Header() {
                   <Image src="/logo.png" alt="FB Network Logo" width={32} height={32} className="w-full h-full" />
                 </div>
                 <span className="text-sm font-medium hidden sm:inline">
-                  FB Network
+                  {user?.firstname ? `${user.firstname} ${user.lastname}` : "User"}
                 </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44 sm:w-56">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium">{user?.firstname ? `${user.firstname} ${user.lastname}` : "User"}</p>
+                  <p className="text-xs text-gray-500">{user?.email || "user@example.com"}</p>
+                </div>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
                 <User className="mr-2 h-4 w-4" />
@@ -103,7 +115,7 @@ export function Header() {
                 Help & Support
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Log out
               </DropdownMenuItem>

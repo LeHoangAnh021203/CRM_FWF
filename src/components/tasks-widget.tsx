@@ -55,12 +55,7 @@ export function TasksWidget() {
         setError(errorMessage);
         console.warn("Tasks fetch error:", err);
         
-        // Fallback to default tasks if API fails
-        setTasks([
-          { id: 1, title: "Review monthly reports", priority: "high", completed: false, dueDate: "Today" },
-          { id: 2, title: "Update customer database", priority: "medium", completed: true, dueDate: "Tomorrow" },
-          { id: 3, title: "Prepare presentation", priority: "low", completed: false, dueDate: "Next week" },
-        ]);
+        // No fallback data - let error state handle it
       } finally {
         setLoading(false);
       }
@@ -135,10 +130,8 @@ export function TasksWidget() {
         }
       } catch (err) {
         console.warn("Failed to add task:", err);
-        // Add task locally if server fails
-        setTasks([...tasks, task]);
-        setNewTask("");
-        setShowAddTask(false);
+        // Don't add task locally if server fails
+        console.error("Failed to add task to server");
       }
     }
   };

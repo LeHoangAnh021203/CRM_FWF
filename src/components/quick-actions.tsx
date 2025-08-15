@@ -65,44 +65,7 @@ export function QuickActions() {
         setError(errorMessage);
         console.warn("Quick actions fetch error:", err);
 
-        setQuickActions([
-          {
-            id: "1",
-            icon: "ShoppingCart",
-            label: " Order Report",
-            color: "bg-blue-500 hover:bg-blue-600",
-          },
-          {
-            id: "2",
-            icon: "Users",
-            label: " Customer Report",
-            color: "bg-green-500 hover:bg-green-600",
-          },
-          {
-            id: "3",
-            icon: "BarChart3",
-            label: "Services Report",
-            color: "bg-purple-500 hover:bg-purple-600",
-          },
-          {
-            id: "4",
-            icon: "Radical",
-            label: "Accounting Report",
-            color: "bg-orange-500 hover:bg-orange-600",
-          },
-          {
-            id: "5",
-            icon: "Sparkles",
-            label: "Generate AI",
-            color: "bg-pink-500 hover:bg-pink-600",
-          },
-          {
-            id: "6",
-            icon: "Settings",
-            label: "System Settings",
-            color: "bg-gray-500 hover:bg-gray-600",
-          },
-        ]);
+        // No fallback data - let error state handle it
       } finally {
         setLoading(false);
       }

@@ -8,10 +8,16 @@ export function useLocalStorageState<T>(
   // Lấy giá trị từ localStorage hoặc sử dụng defaultValue
   const [state, setState] = useState<T>(defaultValue)
   const [isLoaded, setIsLoaded] = useState(false)
+  const [isClient, setIsClient] = useState(false)
   
+  // Đánh dấu rằng component đã mount trên client
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
   // Sử dụng useEffect để load từ localStorage sau khi component mount
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || !isClient) {
       return
     }
     
@@ -32,11 +38,11 @@ export function useLocalStorageState<T>(
       console.error(`Error reading localStorage key "${key}":`, error)
       setIsLoaded(true)
     }
-  }, [key])
+  }, [key, isClient])
 
   // Cập nhật localStorage khi state thay đổi
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || !isClient) {
       return
     }
     
@@ -56,7 +62,7 @@ export function useLocalStorageState<T>(
     } catch (error) {
       console.error(`Error setting localStorage key "${key}":`, error)
     }
-  }, [key, state])
+  }, [key, state, isClient])
 
   return [state, setState, isLoaded]
 }

@@ -96,7 +96,7 @@
         "transform": "lodash/{{member}}"
       }
     },
-    "outputFileTracingRoot": "/Users/lehoanganh/Documents/FB Network/FE",
+    "outputFileTracingRoot": "/Users/lehoanganh/Documents/FB Netwwork +/FE/CRM_FWF",
     "experimental": {
       "nodeMiddleware": false,
       "cacheLife": {
@@ -279,10 +279,10 @@
     "bundlePagesRouterDependencies": false,
     "configFileName": "next.config.ts",
     "turbopack": {
-      "root": "/Users/lehoanganh/Documents/FB Network/FE"
+      "root": "/Users/lehoanganh/Documents/FB Netwwork +/FE/CRM_FWF"
     }
   },
-  "appDir": "/Users/lehoanganh/Documents/FB Network/FE",
+  "appDir": "/Users/lehoanganh/Documents/FB Netwwork +/FE/CRM_FWF",
   "relativeAppDir": "",
   "files": [
     ".next/routes-manifest.json",

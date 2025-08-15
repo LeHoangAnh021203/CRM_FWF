@@ -8,13 +8,14 @@ import {
   X,
   Sparkles,
   Radical,
-  CalendarCheck2
+  CalendarCheck2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 
 const menuItems = [
   {
@@ -52,6 +53,13 @@ const menuItems = [
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   return (
     <>
@@ -124,11 +132,11 @@ export function Sidebar() {
         </nav>
 
         {/* User section */}
-        <div className="p-2  border-[#fdec40] rounded-full">
-          <Link href={"/"}>
-            <div className="flex items-center justify-center space-x-3">
-              <div className="w-8 h-8 bg-[#61c9d7] rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium">
+        <div className="p-2 border-t border-[#fdec40]">
+          <div className="flex items-center justify-center space-x-3">
+            <div className="w-8 h-8 bg-[#61c9d7] rounded-full flex items-center justify-center">
+              <span className="text-sm font-medium">
+                <Link href="/dashboard">
                   <Image
                     src="/logo.png"
                     alt="FB Network Logo"
@@ -136,28 +144,32 @@ export function Sidebar() {
                     height={32}
                     className="w-full h-full"
                   />
-                </span>
-              </div>
-              <div
-                className={cn(
-                  "transition-opacity duration-300",
-                  isOpen ? "block" : "hidden"
-                )}
-              >
-                <p className="text-sm font-medium">FB Network</p>
-                <p className="text-xs text-white">Administrator</p>
-              </div>
+                </Link>
+              </span>
             </div>
-          </Link>
+            <div
+              className={cn(
+                "transition-opacity duration-300",
+                isOpen ? "block" : "hidden"
+              )}
+            >
+              <p className="text-sm font-medium">{user?.firstname ? `${user.firstname} ${user.lastname}` : "User"}</p>
+              <p className="text-xs text-white">
+                {user?.email || "user@example.com"}
+              </p>
+            </div>
+          </div>
+
+          {/* Logout button */}
+          <button
+            onClick={handleLogout}
+            className={cn(
+              "w-full flex items-center justify-center lg:justify-start px-2 lg:px-3 py-2 rounded-lg text-left transition-colors mt-2 text-white hover:bg-red-600",
+              isOpen ? "hidden" : "hidden"
+            )}
+          ></button>
         </div>
       </div>
-
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 lg:hidden z-30"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
     </>
   );
 }
