@@ -1,4 +1,4 @@
-// File: /Users/lehoanganh/Documents/FB Network/FE/src/app/api/notifications/route.ts
+// File: /Users/lehoanganh/Documents/FB Netwwork +/FE/CRM_FWF/src/app/api/notifications/route.ts
 import * as entry from '../../../../../src/app/api/notifications/route.js'
 import type { NextRequest } from 'next/server.js'
 

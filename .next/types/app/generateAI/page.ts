@@ -1,4 +1,4 @@
-// File: /Users/lehoanganh/Documents/FB Network/FE/src/app/generateAI/page.tsx
+// File: /Users/lehoanganh/Documents/FB Netwwork +/FE/CRM_FWF/src/app/generateAI/page.tsx
 import * as entry from '../../../../src/app/generateAI/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

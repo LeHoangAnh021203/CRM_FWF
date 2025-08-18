@@ -1,4 +1,4 @@
-// File: /Users/lehoanganh/Documents/FB Network/FE/src/app/customers/page.tsx
+// File: /Users/lehoanganh/Documents/FB Netwwork +/FE/CRM_FWF/src/app/customers/page.tsx
 import * as entry from '../../../../src/app/customers/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
