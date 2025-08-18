@@ -1,21 +1,21 @@
 {
-  "/api/ai/generate/route": "/api/ai/generate",
   "/api/notifications/route": "/api/notifications",
+  "/api/ai/generate/route": "/api/ai/generate",
   "/api/proxy/[...path]/route": "/api/proxy/[...path]",
-  "/api/proxy/auth/logout/route": "/api/proxy/auth/logout",
   "/api/proxy/auth/refresh/route": "/api/proxy/auth/refresh",
   "/favicon.ico/route": "/favicon.ico",
+  "/api/proxy/auth/logout/route": "/api/proxy/auth/logout",
   "/_not-found/page": "/_not-found",
   "/page": "/",
   "/(dashboard)/accounting/page": "/accounting",
-  "/(dashboard)/calendar/page": "/calendar",
-  "/(dashboard)/customers/page": "/customers",
   "/(dashboard)/generateAI/page": "/generateAI",
+  "/(dashboard)/calendar/page": "/calendar",
   "/(dashboard)/orders/page": "/orders",
-  "/(dashboard)/page": "/",
   "/(dashboard)/services/page": "/services",
-  "/dashboard/page": "/dashboard",
+  "/(dashboard)/page": "/",
   "/(auth)/forgotPassword/page": "/forgotPassword",
+  "/(auth)/signup/page": "/signup",
   "/(auth)/login/page": "/login",
-  "/(auth)/signup/page": "/signup"
+  "/(dashboard)/customers/page": "/customers",
+  "/dashboard/page": "/dashboard"
 }
