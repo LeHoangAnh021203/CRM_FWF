@@ -75,22 +75,28 @@ export function SignUpForm() {
       <div className="hidden lg:block lg:w-1/2 relative overflow-hidden min-h-screen">
         <div className="relative w-full h-full">
           <div className="absolute inset-0 bg-gradient-to-br from-orange-900 via-red-900 to-orange-900"></div>
-          <div className="w-full h-full bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-xl mx-auto flex items-center justify-center shadow-2xl animate-float">
-            <div className="space-y-2 flex flex-col justify-center items-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-xl border border-white/30 rounded-3xl mx-auto flex items-center justify-center shadow-2xl animate-glow">
-                <Image src="/logo.png" alt="Logo" width={80} height={80} />
+          
+          {/* Content overlay */}
+          <div className="absolute inset-0 flex items-center justify-center z-20">
+            <div className="text-center space-y-6">
+              <div className="w-24 h-24 bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-xl border border-white/30 rounded-3xl mx-auto flex items-center justify-center shadow-2xl animate-glow">
+                <Image src="/logo.png" alt="Logo" width={96} height={96} />
               </div>
-              <h1
-                className="text-5xl font-black text-white drop-shadow-2xl animate-float"
-                style={{ fontFamily: "var(--font-montserrat)" }}
-              >
-                FB Network
-              </h1>
-              <p className="text-white/90 font-medium drop-shadow-lg text-xl">
-                Create Your Account
-              </p>
+              <div className="space-y-2">
+                <h1
+                  className="text-5xl font-black text-white drop-shadow-2xl animate-float"
+                  style={{ fontFamily: "var(--font-montserrat)" }}
+                >
+                  FB Network
+                </h1>
+                <p className="text-white/90 font-medium drop-shadow-lg text-xl">
+                  Create Your Account
+                </p>
+              </div>
+              <div className="mt-8">
+                <Image src="/foxWCard.png" alt="Fox Card" width={400} height={300} className="mx-auto" />
+              </div>
             </div>
-            <Image src="/foxWCard.png" alt="Logo" width={400} height={10} />
           </div>
 
           {/* Enhanced gradient overlay */}
@@ -129,8 +135,6 @@ export function SignUpForm() {
         </div>
 
         <div className="relative z-10 w-full max-w-lg">
-          {/* Modern header */}
-
           {/* Modern signup form */}
           <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-10 shadow-2xl">
             <form onSubmit={handleSubmit} className="space-y-6">
