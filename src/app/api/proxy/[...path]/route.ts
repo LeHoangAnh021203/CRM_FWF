@@ -143,6 +143,8 @@ export async function POST(
 
     const data = await response.json()
     console.log('API Response data:', JSON.stringify(data, null, 2))
+    console.log('🔍 Response content-type:', response.headers.get('content-type'))
+    console.log('🔍 Response body length:', JSON.stringify(data).length)
     return NextResponse.json(data)
   } catch (error) {
     console.error('Proxy Error:', error)

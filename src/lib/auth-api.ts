@@ -42,25 +42,44 @@ export class AuthAPI {
   static async login(credentials: LoginRequest): Promise<LoginResponse> {
     console.log('AuthAPI.login called with:', credentials)
     
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(credentials),
-    })
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(credentials),
+      })
 
-    console.log('AuthAPI.login response status:', response.status)
+      console.log('AuthAPI.login response status:', response.status)
+      console.log('AuthAPI.login response ok:', response.ok)
+      console.log('AuthAPI.login response headers:', Object.fromEntries(response.headers.entries()))
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      console.error('AuthAPI.login error details:', errorData)
-      throw new Error(`Login failed: ${response.status} - ${errorData.error || errorData.details || 'Unknown error'}`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('AuthAPI.login error details:', errorData)
+        throw new Error(`Login failed: ${response.status} - ${errorData.error || errorData.details || 'Unknown error'}`)
+      }
+
+      console.log('AuthAPI.login parsing response...')
+      
+      // Check if response has content
+      const responseText = await response.text()
+      console.log('AuthAPI.login response text:', responseText)
+      
+      if (!responseText) {
+        throw new Error('Empty response body')
+      }
+      
+      // Parse JSON from text
+      const data = JSON.parse(responseText)
+      console.log('AuthAPI.login success:', data)
+      console.log('AuthAPI.login returning data')
+      return data
+    } catch (error) {
+      console.error('AuthAPI.login error:', error)
+      throw error
     }
-
-    const data = await response.json()
-    console.log('AuthAPI.login success:', data)
-    return data
   }
 
   static async refreshToken(refreshToken: string): Promise<{ access_token: string }> {

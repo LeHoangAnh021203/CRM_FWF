@@ -85,6 +85,9 @@ export class TokenService {
       // Lưu token mới
       localStorage.setItem('access_token', newAccessToken)
       
+      // Also update cookie
+      document.cookie = `token=${newAccessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict`
+      
       console.log('Token refreshed successfully')
       return newAccessToken
     } catch (error) {
@@ -98,6 +101,8 @@ export class TokenService {
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
     localStorage.removeItem('user_data')
+    // Clear cookie
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
   }
 
   // Kiểm tra user có đăng nhập không

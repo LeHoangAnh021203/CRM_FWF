@@ -4,6 +4,7 @@ import { Header } from "@/components/header"
 import { NotificationProvider } from "@/components/notifications"
 import { AuthGuard } from "@/components/AuthGuard"
 import { TokenRefreshWrapper } from "@/components/TokenRefreshWrapper"
+import { NavigationDebugger } from "@/components/NavigationDebugger"
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   return (
@@ -31,6 +32,7 @@ export default function DashboardLayout({
           <DashboardLayoutContent>
             {children}
           </DashboardLayoutContent>
+          <NavigationDebugger />
         </TokenRefreshWrapper>
       </AuthGuard>
     </NotificationProvider>

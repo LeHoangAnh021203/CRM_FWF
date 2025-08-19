@@ -21,37 +21,38 @@ const menuItems = [
   {
     icon: Users,
     label: "Customer",
-    href: "/customers",
+    href: "/dashboard/customers",
   },
   {
     icon: ShoppingCart,
     label: "Orders",
-    href: "/orders",
+    href: "/dashboard/orders",
   },
   {
     icon: BarChart3,
     label: "Services",
-    href: "/services",
+    href: "/dashboard/services",
   },
   {
     icon: Radical,
     label: "Accounts",
-    href: "/accounting",
+    href: "/dashboard/accounting",
   },
   {
     icon: CalendarCheck2,
     label: "Calendar",
-    href: "/calendar",
+    href: "/dashboard/calendar",
   },
   {
     icon: Sparkles,
     label: "Generate",
-    href: "/generateAI",
+    href: "/dashboard/generateAI",
   },
 ];
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -103,8 +104,25 @@ export function Sidebar() {
                 const isActive = pathname === item.href;
                 return (
                   <li key={item.label}>
-                    <Link
-                      href={item.href}
+                    <button
+                      onClick={() => {
+                        if (isNavigating) return; // Prevent multiple clicks
+                        console.log(`[Sidebar] Navigating to: ${item.href}`);
+                        setIsNavigating(true);
+                        
+                        // Try router.push first
+                        router.push(item.href, { scroll: false });
+                        
+                        // Fallback to window.location if router doesn't work
+                        setTimeout(() => {
+                          if (window.location.pathname !== item.href) {
+                            console.log(`[Sidebar] Router failed, using window.location`);
+                            window.location.href = item.href;
+                          }
+                          setIsNavigating(false);
+                        }, 2000);
+                      }}
+                      disabled={isNavigating}
                       className={cn(
                         "w-full flex items-center j lg:justify-start px-2 lg:px-3 py-2 rounded-lg text-left transition-colors",
                         isActive
@@ -113,17 +131,21 @@ export function Sidebar() {
                       )}
                     >
                       <div className="flex items-center space-x-3">
-                        <item.icon className="h-5 w-5" />
+                        {isNavigating && pathname === item.href ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        ) : (
+                          <item.icon className="h-5 w-5" />
+                        )}
                         <span
                           className={cn(
                             "transition-opacity duration-300",
                             isOpen ? "block" : "hidden"
                           )}
                         >
-                          {item.label}
+                          {isNavigating && pathname === item.href ? "Loading..." : item.label}
                         </span>
                       </div>
-                    </Link>
+                    </button>
                   </li>
                 );
               })}

@@ -3,13 +3,14 @@
 import type React from "react";
 import Image from "next/image";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, User, Lock, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { MockAuthToggle } from "@/components/MockAuthToggle";
 
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -29,14 +30,20 @@ export function LoginForm() {
     setError("");
 
     try {
+      console.log('[LoginForm] Attempting login...');
       const success = await login(formData.username, formData.password);
+      console.log('[LoginForm] Login result:', success);
 
       if (success) {
+        console.log('[LoginForm] Login successful, redirecting to dashboard...');
+        // Chuyển hướng ngay lập tức sau khi đăng nhập thành công
         router.push("/dashboard");
       } else {
+        console.log('[LoginForm] Login failed, showing error');
         setError("Invalid username or password");
       }
-    } catch {
+    } catch (error) {
+      console.error('[LoginForm] Login error:', error);
       setError("An error occurred during login");
     } finally {
       setIsLoading(false);
@@ -254,6 +261,17 @@ export function LoginForm() {
             </div>
           </div>
         </div>
+        
+        {/* Mock Auth Toggle - Only show in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-6 relative z-10">
+            <MockAuthToggle />
+            {/* Debug info */}
+            <div className="mt-2 text-center text-white/60 text-xs">
+              Development mode - Mock auth available
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

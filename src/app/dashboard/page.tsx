@@ -8,7 +8,7 @@ import {
   TasksWidget,
   CustomerInsights,
   QuickActions,
-} from "../lazy-components";
+} from "./lazy-components";
 import { Notification, useNotification } from "@/components/notification";
 import { usePageStatus } from "@/hooks/usePageStatus";
 import { useDashboardData } from "@/hooks/useDashboardData";

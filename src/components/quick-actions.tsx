@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Users,
@@ -33,6 +34,8 @@ export function QuickActions() {
   const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchQuickActions = async () => {
@@ -98,28 +101,47 @@ export function QuickActions() {
   };
 
   const handleActionClick = (action: QuickAction) => {
+    if (isNavigating) return; // Prevent multiple clicks
+    
     if (action.href) {
-      window.location.href = action.href;
+      console.log(`[QuickActions] Navigating to: ${action.href}`);
+      setIsNavigating(true);
+      router.push(action.href, { scroll: false });
+      
+      // Fallback to window.location if router doesn't work
+      setTimeout(() => {
+        if (action.href && window.location.pathname !== action.href) {
+          console.log(`[QuickActions] Router failed, using window.location`);
+          window.location.href = action.href;
+        }
+        setIsNavigating(false);
+      }, 2000);
     } else {
       // Handle different action types
       switch (action.label) {
         case " Order Report":
-          window.location.href = "/orders";
+          console.log(`[QuickActions] Navigating to: /dashboard/orders`);
+          router.push("/dashboard/orders", { scroll: false });
           break;
         case " Customer Report":
-          window.location.href = "/customers";
+          console.log(`[QuickActions] Navigating to: /dashboard/customers`);
+          router.push("/dashboard/customers", { scroll: false });
           break;
         case "Services Report":
-          window.location.href = "/services";
+          console.log(`[QuickActions] Navigating to: /dashboard/services`);
+          router.push("/dashboard/services", { scroll: false });
           break;
         case "Accounting Report":
-          window.location.href = "/accounting";
+          console.log(`[QuickActions] Navigating to: /dashboard/accounting`);
+          router.push("/dashboard/accounting", { scroll: false });
           break;
         case "Generate AI":
-          window.location.href = "/generateAI";
+          console.log(`[QuickActions] Navigating to: /dashboard/generateAI`);
+          router.push("/dashboard/generateAI", { scroll: false });
           break;
         case "System Settings":
-          window.location.href = "/settings";
+          console.log(`[QuickActions] Navigating to: /dashboard/settings`);
+          router.push("/dashboard/settings", { scroll: false });
           break;
         default:
           console.log(`Action clicked: ${action.label}`);
@@ -164,7 +186,8 @@ export function QuickActions() {
               <Button
                 key={action.id}
                 variant="outline"
-                className={`h-14 sm:h-20 flex flex-col items-center justify-center space-y-1 sm:space-y-2 border-2 hover:border-transparent transition-all ${action.color} hover:text-white`}
+                disabled={isNavigating}
+                className={`h-14 sm:h-20 flex flex-col items-center justify-center space-y-1 sm:space-y-2 border-2 hover:border-transparent transition-all ${action.color} hover:text-white ${isNavigating ? 'opacity-50 cursor-not-allowed' : ''}`}
                 onClick={() => handleActionClick(action)}
               >
                 <IconComponent className="h-5 w-5 sm:h-6 sm:w-6" />
