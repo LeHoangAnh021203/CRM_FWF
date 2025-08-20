@@ -76,9 +76,9 @@ Nếu vẫn còn vấn đề:
 
 ## Files đã sửa
 
-- `src/hooks/useLocalStorageState.ts`
-- `src/app/customers/page.tsx`
-- `src/app/orders/page.tsx`
-- `src/app/services/page.tsx`
-- `src/app/accounting/page.tsx`
+- `hooks/useLocalStorageState.ts`
+- `app/customers/page.tsx`
+- `app/orders/page.tsx`
+- `app/services/page.tsx`
+- `app/accounting/page.tsx`
 

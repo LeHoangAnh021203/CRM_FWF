@@ -167,7 +167,7 @@ function checkGitignore() {
 
 // Main execution
 console.log('📁 Scanning source code for sensitive data...\n');
-scanDirectory('src');
+scanDirectory('app');
 
 console.log('\n📁 Scanning root directory...\n');
 scanDirectory('.');
