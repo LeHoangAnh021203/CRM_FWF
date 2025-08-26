@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import {
   CalendarDate,
   today,
@@ -15,6 +15,7 @@ import CustomerTypeTrendChart from "./CustomerTypeTrendChart";
 import CustomerSourceBarChart from "./CustomerSourceBarChart";
 import CustomerAppDownloadBarChart from "./CustomerAppDownloadBarChart";
 import CustomerAppDownloadPieChart from "./CustomerAppDownloadPieChart";
+import CustomerOldTypeTrendChart from "./CustomerOldTypeTrendChart";
 import { Notification, useNotification } from "@/app/components/notification";
 import {
   useLocalStorageState,
@@ -30,7 +31,13 @@ function ensureCalendarDate(date: unknown): CalendarDate {
   if (date instanceof CalendarDate) {
     return date;
   }
-  if (date && typeof date === 'object' && 'year' in date && 'month' in date && 'day' in date) {
+  if (
+    date &&
+    typeof date === "object" &&
+    "year" in date &&
+    "month" in date &&
+    "day" in date
+  ) {
     const dateObj = date as { year: number; month: number; day: number };
     return new CalendarDate(dateObj.year, dateObj.month, dateObj.day);
   }
@@ -49,28 +56,38 @@ function clearCustomerFilters() {
   ]);
 }
 
-// Custom hook dùng chung cho fetch API động
+// Custom hook dùng chung cho fetch API động với caching
 function useApiData<T>(url: string, fromDate: string, toDate: string) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+
   useEffect(() => {
     setLoading(true);
-    
+
     // Extract endpoint from full URL - remove /api/proxy prefix
-    const endpoint = url.replace(API_BASE_URL, '').replace('/api', '').replace(/^\/+/, '');
-    console.log('🔍 Debug - Original URL:', url);
-    console.log('🔍 Debug - Extracted Endpoint:', endpoint);
-    
+    const endpoint = url
+      .replace(API_BASE_URL, "")
+      .replace("/api", "")
+      .replace(/^\/+/, "");
+
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🔍 Debug - Original URL:", url);
+      console.log("🔍 Debug - Extracted Endpoint:", endpoint);
+    }
+
     ApiService.post(endpoint, { fromDate, toDate })
       .then((data: unknown) => {
-        console.log('🔍 Debug - API Response for', endpoint, ':', data);
+        if (process.env.NODE_ENV === 'development') {
+          console.log("🔍 Debug - API Response for", endpoint, ":", data);
+        }
         setData(data as T);
         setLoading(false);
       })
       .catch((err: Error) => {
-        console.error('🔍 Debug - API Error:', err);
+        console.error("🔍 Debug - API Error:", err);
         setError(err.message);
         setLoading(false);
       });
@@ -79,17 +96,28 @@ function useApiData<T>(url: string, fromDate: string, toDate: string) {
   return { data, loading, error };
 }
 
-// Hook lấy width window
+// Hook lấy width window với debouncing
 function useWindowWidth() {
   const [width, setWidth] = useState(1024);
+  
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     function handleResize() {
-      setWidth(window.innerWidth);
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setWidth(window.innerWidth);
+      }, 100); // Debounce 100ms
     }
+    
     handleResize();
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(timeoutId);
+    };
   }, []);
+  
   return width;
 }
 
@@ -106,7 +134,33 @@ export default function CustomerReportPage() {
     reportPagePerformance,
   } = usePageStatus("customers");
 
-  const resetFilters = () => {
+  // Sử dụng localStorage để lưu trữ state
+  const [selectedType, setSelectedType, selectedTypeLoaded] =
+    useLocalStorageState<string[]>("customer-selectedType", []);
+  const [selectedStatus, setSelectedStatus, selectedStatusLoaded] =
+    useLocalStorageState<string | null>("customer-selectedStatus", null);
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+
+  const [startDate, setStartDate, startDateLoaded] =
+    useLocalStorageState<CalendarDate>(
+      "customer-startDate",
+      today(getLocalTimeZone()).subtract({ days: 7 })
+    );
+  const [endDate, setEndDate, endDateLoaded] =
+    useLocalStorageState<CalendarDate>(
+      "customer-endDate",
+      today(getLocalTimeZone())
+    );
+
+  const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] =
+    useLocalStorageState<string[]>("customer-selectedRegions", []);
+  const [showRegionDropdown, setShowRegionDropdown] = useState(false);
+  const [selectedBranches, setSelectedBranches, selectedBranchesLoaded] =
+    useLocalStorageState<string[]>("customer-selectedBranches", []);
+  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+
+  const resetFilters = useMemo(() => () => {
     clearCustomerFilters();
     setSelectedType([]);
     setSelectedStatus(null);
@@ -116,43 +170,18 @@ export default function CustomerReportPage() {
     setSelectedBranches([]);
     showSuccess("Đã reset tất cả filter về mặc định!");
     reportResetFilters();
-  };
-
-  // Sử dụng localStorage để lưu trữ state
-  const [selectedType, setSelectedType, selectedTypeLoaded] = useLocalStorageState<string[]>(
-    "customer-selectedType",
-    []
-  );
-  const [selectedStatus, setSelectedStatus, selectedStatusLoaded] = useLocalStorageState<
-    string | null
-  >("customer-selectedStatus", null);
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-
-  const [startDate, setStartDate, startDateLoaded] = useLocalStorageState<CalendarDate>(
-    "customer-startDate",
-    today(getLocalTimeZone()).subtract({ days: 7 })
-  );
-  const [endDate, setEndDate, endDateLoaded] = useLocalStorageState<CalendarDate>(
-    "customer-endDate",
-    today(getLocalTimeZone())
-  );
-
-  const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] = useLocalStorageState<string[]>(
-    "customer-selectedRegions",
-    []
-  );
-  const [showRegionDropdown, setShowRegionDropdown] = useState(false);
-  const [selectedBranches, setSelectedBranches, selectedBranchesLoaded] = useLocalStorageState<
-    string[]
-  >("customer-selectedBranches", []);
-  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+  }, [showSuccess, reportResetFilters, setSelectedType, setSelectedStatus, setStartDate, setEndDate, setSelectedRegions, setSelectedBranches]);
 
   // Kiểm tra xem tất cả localStorage đã được load chưa
-  const isAllLoaded = selectedTypeLoaded && selectedStatusLoaded && startDateLoaded && 
-                     endDateLoaded && selectedRegionsLoaded && selectedBranchesLoaded;
+  const isAllLoaded =
+    selectedTypeLoaded &&
+    selectedStatusLoaded &&
+    startDateLoaded &&
+    endDateLoaded &&
+    selectedRegionsLoaded &&
+    selectedBranchesLoaded;
 
-  const COLORS = [
+  const COLORS = useMemo(() => [
     "#5bd1d7",
     "#eb94cf",
     "#f66035",
@@ -166,20 +195,21 @@ export default function CustomerReportPage() {
     "#81d4fa",
     "#fff176",
     "#d81b60",
-  ];
+  ], []);
 
-  const allRegions = ["Đã đóng cửa", "Đà Nẵng", "Nha Trang", "Hà Nội", "HCM"];
-  const allBranches = ["Branch 1", "Branch 2", "Branch 3"];
+  const allRegions = useMemo(() => ["Đã đóng cửa", "Đà Nẵng", "Nha Trang", "Hà Nội", "HCM"], []);
+  const allBranches = useMemo(() => ["Branch 1", "Branch 2", "Branch 3"], []);
 
   const safeStartDate = ensureCalendarDate(startDate);
   const safeEndDate = ensureCalendarDate(endDate);
-  
-  const fromDate = `${safeStartDate.year}-${String(safeStartDate.month).padStart(2, "0")}-${String(
-    safeStartDate.day
-  ).padStart(2, "0")}T00:00:00`;
-  const toDate = `${safeEndDate.year}-${String(safeEndDate.month).padStart(2, "0")}-${String(
-    safeEndDate.day
-  ).padStart(2, "0")}T23:59:59`;
+
+  const fromDate = `${safeStartDate.year}-${String(
+    safeStartDate.month
+  ).padStart(2, "0")}-${String(safeStartDate.day).padStart(2, "0")}T00:00:00`;
+  const toDate = `${safeEndDate.year}-${String(safeEndDate.month).padStart(
+    2,
+    "0"
+  )}-${String(safeEndDate.day).padStart(2, "0")}T23:59:59`;
 
   // API calls
   const {
@@ -208,6 +238,15 @@ export default function CustomerReportPage() {
   const { data: customerTypeRaw } = useApiData<
     Record<string, { date: string; count: number }[]>
   >(`${API_BASE_URL}/api/customer-sale/customer-type-trend`, fromDate, toDate);
+
+  const { data: customerOldTypeRaw } = useApiData<{
+    currentRange: { date: string; count: number }[];
+    previousRange: { date: string; count: number }[];
+  }>(
+    `${API_BASE_URL}/api/customer-sale/old-customer-lineChart`,
+    fromDate,
+    toDate
+  );
 
   const { data: customerSourceRaw } = useApiData<
     Record<string, { date: string; count: number }[]>
@@ -253,16 +292,16 @@ export default function CustomerReportPage() {
     loading: loadingGenderRevenue,
     error: errorGenderRevenue,
   } = useApiData<{
-    avgRevenueMale: number;
-    avgRevenueFemale: number;
-    avgServiceMale: number;
-    avgServiceFemale: number;
+    avgActualRevenueMale: number;
+    avgActualRevenueFemale: number;
+    avgFoxieRevenueMale: number;
+    avgFoxieRevenueFemale: number;
   }>(`${API_BASE_URL}/api/customer-sale/gender-revenue`, fromDate, toDate);
 
-  const { 
+  const {
     data: uniqueCustomersComparisonRaw,
     loading: loadingUniqueCustomersComparison,
-    error: errorUniqueCustomersComparison
+    error: errorUniqueCustomersComparison,
   } = useApiData<{
     currentTotal: number;
     previousTotal: number;
@@ -280,34 +319,38 @@ export default function CustomerReportPage() {
   );
 
   // Reset data khi thay đổi date range để tránh hiển thị data cũ
-  const [currentDateRange, setCurrentDateRange] = useState(`${fromDate}-${toDate}`);
+  const [currentDateRange, setCurrentDateRange] = useState(
+    `${fromDate}-${toDate}`
+  );
   const [isDataReady, setIsDataReady] = useState(false);
   const dataReadyRef = useRef(false);
-  
+
   useEffect(() => {
     const newDateRange = `${fromDate}-${toDate}`;
     if (newDateRange !== currentDateRange) {
       setCurrentDateRange(newDateRange);
       setIsDataReady(false);
       dataReadyRef.current = false;
-      console.log('🔍 Debug - Date range changed, resetting data');
+      // console.log("�� Debug - Date range changed, resetting data"); // Removed console.log
     }
   }, [fromDate, toDate, currentDateRange]);
 
   // Chỉ set data ready khi loading hoàn thành và có data
   useEffect(() => {
-    if (!loadingUniqueCustomersComparison && uniqueCustomersComparisonRaw && !dataReadyRef.current) {
+    if (
+      !loadingUniqueCustomersComparison &&
+      uniqueCustomersComparisonRaw &&
+      !dataReadyRef.current
+    ) {
       setIsDataReady(true);
       dataReadyRef.current = true;
-      console.log('🔍 Debug - Data is ready to display');
+      // console.log("🔍 Debug - Data is ready to display"); // Removed console.log
     }
   }, [loadingUniqueCustomersComparison, uniqueCustomersComparisonRaw]);
 
   // Debug log để xem API response (tạm thời)
   useEffect(() => {
     if (uniqueCustomersComparisonRaw) {
-      console.log('🔍 Debug - currentTotal:', uniqueCustomersComparisonRaw.currentTotal);
-      console.log('🔍 Debug - Date range:', { fromDate, toDate });
     }
   }, [uniqueCustomersComparisonRaw, fromDate, toDate]);
 
@@ -484,6 +527,24 @@ export default function CustomerReportPage() {
     });
   }, [customerTypeRaw]);
 
+  // 3.1. Số khách cũ chia theo loại
+  const customerOldTypeTrendData = React.useMemo(() => {
+    if (!customerOldTypeRaw) return [];
+    const current = Array.isArray(customerOldTypeRaw.currentRange)
+      ? customerOldTypeRaw.currentRange
+      : [];
+    const previous = Array.isArray(customerOldTypeRaw.previousRange)
+      ? customerOldTypeRaw.previousRange
+      : [];
+    return current.map(
+      (item: { date: string; count: number }, idx: number) => ({
+        date: item.date || "",
+        "Khách cũ hiện tại": item.count,
+        "Khách cũ tháng trước": previous[idx]?.count ?? 0,
+      })
+    );
+  }, [customerOldTypeRaw]);
+
   // 4. Nguồn của đơn hàng
   const customerSourceTrendData = React.useMemo(() => {
     if (!customerSourceRaw) return [];
@@ -522,16 +583,16 @@ export default function CustomerReportPage() {
     ];
   }, [appDownloadRaw]);
 
-  const customerTypes = [
+  const customerTypes = useMemo(() => [
     "KH trải nghiệm",
     "Khách hàng Thành viên",
     "Khách hàng Bạc",
     "Khách hàng Vàng",
     "Khách hàng Bạch Kim",
     "Khách hàng Kim cương",
-  ];
+  ], []);
 
-  const customerStatus = ["New", "Old"];
+  const customerStatus = useMemo(() => ["New", "Old"], []);
 
   const windowWidth = useWindowWidth();
   const isMobile = windowWidth < 640;
@@ -566,10 +627,10 @@ export default function CustomerReportPage() {
     return data.sort((a, b) => (b.total as number) - (a.total as number));
   }, [facilityHourServiceRaw]);
 
-  const customerTypeKeys =
+  const customerTypeKeys = useMemo(() => 
     customerTypeTrendData.length > 0
       ? Object.keys(customerTypeTrendData[0]).filter((k) => k !== "date")
-      : [];
+      : [], [customerTypeTrendData]);
 
   const customerSourceKeys = React.useMemo(() => {
     if (customerSourceTrendData.length === 0) return [];
@@ -578,8 +639,8 @@ export default function CustomerReportPage() {
     );
   }, [customerSourceTrendData]);
 
-  // Helper for cell color scale
-  function getCellBg(val: number) {
+  // Helper for cell color scale - memoized
+  const getCellBg = useMemo(() => (val: number) => {
     if (val === 0) return "";
 
     if (val >= 50) return "bg-[#68B2A0]";
@@ -588,7 +649,7 @@ export default function CustomerReportPage() {
     if (val <= 15) return "bg-[#F0F8F0]";
 
     return "";
-  }
+  }, []);
 
   const sortedAppDownloadStatusData = React.useMemo(() => {
     if (!appDownloadStatusData) return [];
@@ -672,39 +733,54 @@ export default function CustomerReportPage() {
           />
 
           {/* Accordion Card tổng số khách */}
-          <Suspense fallback={
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden p-6">
-              <div className="text-center">
-                <div className="text-lg text-gray-700 mb-2">Tổng số lượt khách sử dụng dịch vụ</div>
-                <div className="text-3xl font-bold text-gray-400">Đang tải dữ liệu...</div>
+          <Suspense
+            fallback={
+              <div className="bg-white rounded-xl shadow-lg overflow-hidden p-6">
+                <div className="text-center">
+                  <div className="text-lg text-gray-700 mb-2">
+                    Tổng số lượt khách sử dụng dịch vụ
+                  </div>
+                  <div className="text-3xl font-bold text-gray-400">
+                    Đang tải dữ liệu...
+                  </div>
+                </div>
               </div>
-            </div>
-          }>
+            }
+          >
             {loadingUniqueCustomersComparison || !isDataReady ? (
               <div className="bg-white rounded-xl shadow-lg overflow-hidden p-6">
                 <div className="text-center">
-                  <div className="text-lg text-gray-700 mb-2">Tổng số lượt khách sử dụng dịch vụ</div>
-                  <div className="text-3xl font-bold text-gray-400">Đang tải dữ liệu...</div>
+                  <div className="text-lg text-gray-700 mb-2">
+                    Tổng số lượt khách sử dụng dịch vụ
+                  </div>
+                  <div className="text-3xl font-bold text-gray-400">
+                    Đang tải dữ liệu...
+                  </div>
                 </div>
               </div>
             ) : (
               <CustomerAccordionCard
                 key={`${fromDate}-${toDate}-${Date.now()}`}
                 mainValue={
-                  uniqueCustomersComparisonRaw?.currentTotal?.toLocaleString() ?? "Chưa có dữ liệu"
+                  uniqueCustomersComparisonRaw?.currentTotal?.toLocaleString() ??
+                  "Chưa có dữ liệu"
                 }
                 mainLabel="Tổng số lượt khách sử dụng dịch vụ trong khoảng ngày đã chọn"
-                mainPercentChange={uniqueCustomersComparisonRaw?.changePercentTotal}
+                mainPercentChange={
+                  uniqueCustomersComparisonRaw?.changePercentTotal
+                }
                 maleValue={uniqueCustomersComparisonRaw?.currentMale}
-                malePercentChange={uniqueCustomersComparisonRaw?.changePercentMale}
+                malePercentChange={
+                  uniqueCustomersComparisonRaw?.changePercentMale
+                }
                 femaleValue={uniqueCustomersComparisonRaw?.currentFemale}
                 femalePercentChange={
                   uniqueCustomersComparisonRaw?.changePercentFemale
                 }
-                avgRevenueMale={genderRevenueRaw?.avgRevenueMale}
-                avgServiceMale={genderRevenueRaw?.avgServiceMale}
-                avgRevenueFemale={genderRevenueRaw?.avgRevenueFemale}
-                avgServiceFemale={genderRevenueRaw?.avgServiceFemale}
+                        avgRevenueMale={genderRevenueRaw?.avgActualRevenueMale}
+        avgServiceMale={genderRevenueRaw?.avgFoxieRevenueMale}
+        avgRevenueFemale={genderRevenueRaw?.avgActualRevenueFemale}
+        avgServiceFemale={genderRevenueRaw?.avgFoxieRevenueFemale}
                 loading={false}
                 error={errorUniqueCustomersComparison}
               />
@@ -724,6 +800,14 @@ export default function CustomerReportPage() {
               COLORS={COLORS}
             />
           </div>
+
+          {/* Khách cũ */}
+          <CustomerOldTypeTrendChart
+            isMobile={isMobile}
+            customerTypeTrendData={customerOldTypeTrendData}
+            customerTypeKeys={["Khách cũ hiện tại", "Khách cũ tháng trước"]}
+            COLORS={COLORS}
+          />
 
           {/* Tổng số khách mới */}
           <CustomerNewChart

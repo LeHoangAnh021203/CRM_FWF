@@ -41,7 +41,7 @@ const OrderActualCollection: React.FC<OrderActualCollectionProps> = ({
   <div className="flex flex-col lg:flex-row w-full bg-white rounded-xl shadow-lg gap-4 mt-5 h-fit lg:h-[550px] items-center">
     <div className="overflow-x-auto w-full lg:w-1/2 justify-center items-center rounded-xl ml-0 lg:ml-2">
       <div className="text-base sm:text-xl font-medium text-gray-700 text-center p-2">
-        Thực thu tại các khu vực trong tuần
+        Thực thu tại các khu vực
       </div>
       <div className="rounded-xl border border-gray-200 shadow-sm bg-white overflow-x-auto">
         <table className="min-w-[700px] w-full text-xs sm:text-sm">
@@ -133,7 +133,7 @@ const OrderActualCollection: React.FC<OrderActualCollectionProps> = ({
     <div className="flex flex-col justify-center items-center w-full lg:w-1/2">
       <div className="flex-1 flex flex-col items-center md:items-start">
       <div className="text-base sm:text-xl font-medium text-gray-700 text-center p-2">
-        Tổng thực thu tại các khu vực trong tuần
+        Tổng thực thu tại các khu vực 
       </div>
         <ResponsiveContainer width="100%" height={320} minWidth={320}>
           <PieChart className="mt-10 mb-10">

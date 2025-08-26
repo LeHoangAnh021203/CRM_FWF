@@ -75,7 +75,7 @@ const CONFIG = {
     "/forgotPassword",
     "/reset-password",
     "/dashboard",
-    "/mock-auth",
+
     "/test-customers",
     "/api/proxy/auth/login",
     "/api/proxy/auth/refresh",
@@ -382,7 +382,7 @@ export default function middleware(request: NextRequest) {
     !pathname.startsWith("/dashboard") &&
     !pathname.startsWith("/forgotPassword") &&
     !pathname.startsWith("/test-customers") &&
-    !pathname.startsWith("/mock-auth") &&
+
     !isMediaFile
   ) {
     const localizedUrl = new URL(`/${preferredLocale}${pathname}`, request.url);

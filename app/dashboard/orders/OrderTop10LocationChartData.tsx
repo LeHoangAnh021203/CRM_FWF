@@ -187,8 +187,8 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
     ? top10LocationChartData
     : bottom5LocationChartData;
   const currentTitle = showTop10
-    ? "Top 10 cửa hàng trong tuần theo thực thu - API Data"
-    : "Bottom 5 cửa hàng trong tuần theo thực thu - API Data";
+    ? "Top 10 cửa hàng theo thực thu"
+    : "Bottom 10 cửa hàng theo thực thu";
 
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
@@ -217,7 +217,7 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
                 : "text-gray-600 hover:text-gray-800"
             }`}
           >
-            Bottom 5
+            Bottom 10
           </button>
         </div>
       </div>

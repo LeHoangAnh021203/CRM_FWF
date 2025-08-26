@@ -8,7 +8,7 @@ interface CustomerTypeTrendChartProps {
   COLORS: string[];
 }
 
-const CustomerTypeTrendChart: React.FC<CustomerTypeTrendChartProps> = ({
+const CustomerOldTypeTrendChart: React.FC<CustomerTypeTrendChartProps> = ({
   isMobile,
   customerTypeTrendData,
   customerTypeKeys,
@@ -21,7 +21,7 @@ const CustomerTypeTrendChart: React.FC<CustomerTypeTrendChartProps> = ({
     style={{ minWidth: isMobile ? 220 : undefined }}
   >
     <h2 className="text-base lg:text-xl text-center font-semibold text-gray-800 p-3">
-      Số khách mới chia theo loại
+      Số khách cũ
     </h2>
     <div className="w-full flex justify-center">
       <ResponsiveContainer
@@ -149,4 +149,4 @@ const CustomerTypeTrendChart: React.FC<CustomerTypeTrendChartProps> = ({
   </div>
 );
 
-export default CustomerTypeTrendChart;
+export default CustomerOldTypeTrendChart;

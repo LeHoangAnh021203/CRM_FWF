@@ -15,8 +15,6 @@ import {
 
 import {
   LazyOrderFilter,
-  LazyOrderRegionalSalesByDay,
-  LazyOrderStoreTypeSalesByDay,
   LazyOrderTotalSales,
   LazyOrderActualCollection,
   LazyOrderTotalByDay,
@@ -114,19 +112,22 @@ function useApiData<T>(url: string, fromDate: string, toDate: string) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    
+
     // Extract endpoint from full URL - remove /api/proxy prefix
-    const endpoint = url.replace(API_BASE_URL, '').replace('/api', '').replace(/^\/+/, '');
-    console.log('🔍 Debug - Original URL:', url);
-    console.log('🔍 Debug - Extracted Endpoint:', endpoint);
-    
+    const endpoint = url
+      .replace(API_BASE_URL, "")
+      .replace("/api", "")
+      .replace(/^\/+/, "");
+    console.log("🔍 Debug - Original URL:", url);
+    console.log("🔍 Debug - Extracted Endpoint:", endpoint);
+
     ApiService.post(endpoint, { fromDate, toDate })
       .then((data: unknown) => {
         setData(data as T);
         setLoading(false);
       })
       .catch((err: Error) => {
-        console.error('🔍 Debug - API Error:', err);
+        console.error("🔍 Debug - API Error:", err);
         setError(err.message);
         setLoading(false);
       });
@@ -221,26 +222,29 @@ export default function CustomerReportPage() {
     reportResetFilters();
   };
 
-  const [startDate, setStartDate, startDateLoaded] = useLocalStorageState<CalendarDate>(
-    "orders-startDate",
-    today(getLocalTimeZone()).subtract({ days: 7 })
-  );
-  const [endDate, setEndDate, endDateLoaded] = useLocalStorageState<CalendarDate>(
-    "orders-endDate",
-    today(getLocalTimeZone())
-  );
-  const [selectedBranches, setSelectedBranches, selectedBranchesLoaded] = useLocalStorageState<
-    string[]
-  >("orders-selectedBranches", []);
+  const [startDate, setStartDate, startDateLoaded] =
+    useLocalStorageState<CalendarDate>(
+      "orders-startDate",
+      today(getLocalTimeZone()).subtract({ days: 7 })
+    );
+  const [endDate, setEndDate, endDateLoaded] =
+    useLocalStorageState<CalendarDate>(
+      "orders-endDate",
+      today(getLocalTimeZone())
+    );
+  const [selectedBranches, setSelectedBranches, selectedBranchesLoaded] =
+    useLocalStorageState<string[]>("orders-selectedBranches", []);
 
   // Thêm state cho Region và Branch
-  const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] = useLocalStorageState<string[]>(
-    "orders-selectedRegions",
-    []
-  );
+  const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] =
+    useLocalStorageState<string[]>("orders-selectedRegions", []);
 
   // Kiểm tra xem tất cả localStorage đã được load chưa
-  const isAllLoaded = startDateLoaded && endDateLoaded && selectedBranchesLoaded && selectedRegionsLoaded;
+  const isAllLoaded =
+    startDateLoaded &&
+    endDateLoaded &&
+    selectedBranchesLoaded &&
+    selectedRegionsLoaded;
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [regionSearch, setRegionSearch] = useState("");
@@ -475,8 +479,6 @@ export default function CustomerReportPage() {
       orderPercent: number;
     }[]
   >(`${API_BASE_URL}/api/sales/full-store-revenue`, fromDate, toDate);
-
-
 
   const {
     data: regionOrderBreakdownTable,
@@ -1031,24 +1033,31 @@ export default function CustomerReportPage() {
     // Tính trung bình thực thu mỗi ngày từ API overallOrderSummary
     let calculatedAvgRevenue = avgRevenueThisWeek;
     let calculatedPercentAvg = percentAvg;
-    
+
     if (overallOrderSummary) {
       // Tính trung bình thực thu mỗi ngày dựa trên tổng đơn hàng
       // Giả sử mỗi đơn hàng có giá trị trung bình là 500,000 VND
       const avgOrderValue = 500000; // 500K VND mỗi đơn hàng
-      const totalRevenueFromOrders = overallOrderSummary.totalOrders * avgOrderValue;
+      const totalRevenueFromOrders =
+        overallOrderSummary.totalOrders * avgOrderValue;
       calculatedAvgRevenue = Math.round(totalRevenueFromOrders / 7); // Chia cho 7 ngày
-      
+
       // Tính phần trăm thay đổi dựa trên delta orders và làm tròn
-      const previousTotalOrders = overallOrderSummary.totalOrders - overallOrderSummary.deltaTotalOrders;
+      const previousTotalOrders =
+        overallOrderSummary.totalOrders - overallOrderSummary.deltaTotalOrders;
       if (previousTotalOrders > 0) {
-        calculatedPercentAvg = Math.round((overallOrderSummary.deltaTotalOrders / previousTotalOrders) * 100 * 100) / 100; // Làm tròn 2 chữ số thập phân
+        calculatedPercentAvg =
+          Math.round(
+            (overallOrderSummary.deltaTotalOrders / previousTotalOrders) *
+              100 *
+              100
+          ) / 100; // Làm tròn 2 chữ số thập phân
       }
-      
+
       // Debug log để kiểm tra dữ liệu
-      console.log('Overall Order Summary API Data:', overallOrderSummary);
-      console.log('Calculated Average Revenue:', calculatedAvgRevenue);
-      console.log('Calculated Percent Change:', calculatedPercentAvg);
+      console.log("Overall Order Summary API Data:", overallOrderSummary);
+      console.log("Calculated Average Revenue:", calculatedAvgRevenue);
+      console.log("Calculated Percent Change:", calculatedPercentAvg);
     }
 
     return {
@@ -1157,13 +1166,13 @@ export default function CustomerReportPage() {
     const sortedStores = [...fullStoreRevenue].sort(
       (a, b) => b.actualRevenue - a.actualRevenue
     );
-    
+
     // Lấy top 10 cho chart
     const top10 = sortedStores.slice(0, 10);
 
     // Debug log để kiểm tra dữ liệu API
-    console.log('Full Store Revenue API Data:', fullStoreRevenue);
-    console.log('Top 10 Stores:', top10);
+    console.log("Full Store Revenue API Data:", fullStoreRevenue);
+    console.log("Top 10 Stores:", top10);
 
     return top10.map((store, idx) => ({
       name: store.storeName,
@@ -1321,18 +1330,16 @@ export default function CustomerReportPage() {
     val.avgPerShop = 5 + Math.floor(Math.random() * 11);
   });
 
-
-
   // Sử dụng dữ liệu API để tạo chart top 10 cửa hàng theo đơn hàng
   const chartOrderData = React.useMemo(() => {
-    console.log('regionOrderBreakdown data:', regionOrderBreakdown);
-    
+    console.log("regionOrderBreakdown data:", regionOrderBreakdown);
+
     if (regionOrderBreakdown && regionOrderBreakdown.length > 0) {
       // Sử dụng dữ liệu thực từ API
       const sortedStores = [...regionOrderBreakdown].sort(
         (a, b) => b.totalOrders - a.totalOrders
       );
-      
+
       // Lấy top 10 cửa hàng có nhiều đơn hàng nhất
       const top10 = sortedStores.slice(0, 10);
 
@@ -1344,17 +1351,54 @@ export default function CustomerReportPage() {
         foxieOrders: store.foxieCardOrders,
       }));
 
-      console.log('chartOrderData result:', result);
+      console.log("chartOrderData result:", result);
       return result;
     }
 
-    console.log('No regionOrderBreakdown data available');
+    console.log("No regionOrderBreakdown data available");
     return [];
   }, [regionOrderBreakdown]);
 
   // Tính dữ liệu bảng số đơn tại các cửa hàng (top 10 + tổng cộng)
   const storeOrderTableData = React.useMemo(() => {
     if (regionOrderBreakdownTable && regionOrderBreakdownTable.length > 0) {
+      // Tính thứ hạng cho từng loại đơn hàng
+      const calculateRanks = (data: typeof regionOrderBreakdownTable, field: string) => {
+        const sorted = [...data].sort((a, b) => (b[field as keyof typeof b] as number) - (a[field as keyof typeof a] as number));
+        const ranks = new Map<string, number>();
+        sorted.forEach((item, index) => {
+          ranks.set(item.shopName, index + 1);
+        });
+        return ranks;
+      };
+
+      // Tính thứ hạng hiện tại
+      const totalOrdersRanks = calculateRanks(regionOrderBreakdownTable, 'totalOrders');
+      const cardOrdersRanks = calculateRanks(regionOrderBreakdownTable, 'cardPurchaseOrders');
+      const retailOrdersRanks = calculateRanks(regionOrderBreakdownTable, 'serviceOrders');
+      const foxieOrdersRanks = calculateRanks(regionOrderBreakdownTable, 'prepaidCard');
+      const comboOrdersRanks = calculateRanks(regionOrderBreakdownTable, 'comboOrders');
+
+      // Tính thứ hạng tháng trước (giả định dựa trên delta)
+      const calculateLastMonthRanks = (data: typeof regionOrderBreakdownTable, field: string, deltaField: string) => {
+        const lastMonthData = data.map(item => ({
+          ...item,
+          [field]: Math.max(0, (item[field as keyof typeof item] as number) - ((item[deltaField as keyof typeof item] as number) || 0))
+        }));
+        const sorted = [...lastMonthData].sort((a, b) => (b[field as keyof typeof b] as number) - (a[field as keyof typeof a] as number));
+        const ranks = new Map<string, number>();
+        sorted.forEach((item, index) => {
+          ranks.set(item.shopName, index + 1);
+        });
+        return ranks;
+      };
+
+      const totalOrdersRanksLastMonth = calculateLastMonthRanks(regionOrderBreakdownTable, 'totalOrders', 'deltaTotalOrders');
+      const cardOrdersRanksLastMonth = calculateLastMonthRanks(regionOrderBreakdownTable, 'cardPurchaseOrders', 'deltaCardPurchaseOrders');
+      const retailOrdersRanksLastMonth = calculateLastMonthRanks(regionOrderBreakdownTable, 'serviceOrders', 'deltaServiceOrders');
+      const foxieOrdersRanksLastMonth = calculateLastMonthRanks(regionOrderBreakdownTable, 'prepaidCard', 'deltaPrepaidCard');
+      const comboOrdersRanksLastMonth = calculateLastMonthRanks(regionOrderBreakdownTable, 'comboOrders', 'deltaComboOrders');
+
       // Sử dụng dữ liệu từ API
       return regionOrderBreakdownTable.map((shop) => ({
         location: shop.shopName,
@@ -1368,6 +1412,16 @@ export default function CustomerReportPage() {
         foxieOrdersDelta: shop.deltaPrepaidCard,
         comboOrders: shop.comboOrders,
         comboOrdersDelta: shop.deltaComboOrders,
+        totalOrdersRank: totalOrdersRanks.get(shop.shopName) || 0,
+        cardOrdersRank: cardOrdersRanks.get(shop.shopName) || 0,
+        retailOrdersRank: retailOrdersRanks.get(shop.shopName) || 0,
+        foxieOrdersRank: foxieOrdersRanks.get(shop.shopName) || 0,
+        comboOrdersRank: comboOrdersRanks.get(shop.shopName) || 0,
+        totalOrdersRankLastMonth: totalOrdersRanksLastMonth.get(shop.shopName) || 0,
+        cardOrdersRankLastMonth: cardOrdersRanksLastMonth.get(shop.shopName) || 0,
+        retailOrdersRankLastMonth: retailOrdersRanksLastMonth.get(shop.shopName) || 0,
+        foxieOrdersRankLastMonth: foxieOrdersRanksLastMonth.get(shop.shopName) || 0,
+        comboOrdersRankLastMonth: comboOrdersRanksLastMonth.get(shop.shopName) || 0,
       }));
     }
 
@@ -1421,8 +1475,6 @@ export default function CustomerReportPage() {
       ? validOrderData.reduce((sum, s) => sum + (s.orderPercent ?? 0), 0) /
         validOrderData.length
       : 0;
-
-
 
   const windowWidth = useWindowWidth();
   const isMobile = windowWidth < 640;
@@ -1663,32 +1715,7 @@ export default function CustomerReportPage() {
             />
           </Suspense>
         </div>
-        {/* Tổng doanh số vùng */}
-        <Suspense
-          fallback={
-            <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
-              <div className="h-64 bg-gray-200 rounded"></div>
-            </div>
-          }
-        >
-          <LazyOrderRegionalSalesByDay
-            regionalSalesByDay={regionalSalesByDay}
-            formatAxisDate={formatAxisDate}
-          />
-        </Suspense>
-        {/* Tổng doanh số loại cửa hàng*/}
-        <Suspense
-          fallback={
-            <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
-              <div className="h-64 bg-gray-200 rounded"></div>
-            </div>
-          }
-        >
-          <LazyOrderStoreTypeSalesByDay
-            storeTypeSalesByDay={storeTypeSalesByDay}
-            formatAxisDate={formatAxisDate}
-          />
-        </Suspense>
+
         {/* Tổng doanh số và Tổng thực thu */}
         <Suspense
           fallback={
@@ -1881,7 +1908,6 @@ export default function CustomerReportPage() {
           />
         </Suspense>
         {/* PieChart tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ */}
-        
       </div>
     </div>
   );

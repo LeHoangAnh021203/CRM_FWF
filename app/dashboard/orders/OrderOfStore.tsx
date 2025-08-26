@@ -13,6 +13,16 @@ interface StoreOrderTableData {
   foxieOrdersDelta: number | null;
   comboOrders: number;
   comboOrdersDelta: number | null;
+  totalOrdersRank: number;
+  cardOrdersRank: number;
+  retailOrdersRank: number;
+  foxieOrdersRank: number;
+  comboOrdersRank: number;
+  totalOrdersRankLastMonth: number;
+  cardOrdersRankLastMonth: number;
+  retailOrdersRankLastMonth: number;
+  foxieOrdersRankLastMonth: number;
+  comboOrdersRankLastMonth: number;
 }
 
 interface TotalOrderSumAll {
@@ -36,7 +46,7 @@ interface OrderOfStoreProps {
 export default function OrderOfStore({
   storeOrderTableData,
   totalOrderSumAll,
-}: OrderOfStoreProps) {
+}: OrderOfStoreProps) { 
   const [isClient, setIsClient] = React.useState(false);
   
   React.useEffect(() => {
@@ -53,22 +63,27 @@ export default function OrderOfStore({
         <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
           <table className="min-w-[700px] w-full text-xs sm:text-sm">
             <thead className="sticky top-0 z-10 bg-yellow-200">
-              <tr className="bg-yellow-200 font-bold text-gray-900">
-                <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
-                <th className="px-3 py-3 text-left">Locations</th>
-                <th className="px-3 py-3 text-right ">Số đơn hàng</th>
-                <th className="px-3 py-3 text-right">Δ</th>
-                <th className="px-3 py-3 text-right ">Đơn mua thẻ</th>
-                <th className="px-3 py-3 text-right">Δ</th>
-                <th className="px-3 py-3 text-right ">Đơn dịch vụ lẻ</th>
-                <th className="px-3 py-3 text-right">Δ</th>
-                <th className="px-3 py-3 text-right ">
-                  Đơn trả bằng thẻ Foxie
-                </th>
-                <th className="px-3 py-3 text-right">Δ</th>
-                <th className="px-3 py-3 text-right ">Đơn combo</th>
-                <th className="px-3 py-3 text-right rounded-tr-xl">Δ</th>
-              </tr>
+                          <tr className="bg-yellow-200 font-bold text-gray-900">
+              <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
+              <th className="px-3 py-3 text-left">Locations</th>
+              <th className="px-3 py-3 text-right ">Số đơn hàng</th>
+              <th className="px-3 py-3 text-right">Hạng</th>
+              <th className="px-3 py-3 text-right">Δ</th>
+              <th className="px-3 py-3 text-right ">Đơn mua thẻ</th>
+              <th className="px-3 py-3 text-right">Hạng</th>
+              <th className="px-3 py-3 text-right">Δ</th>
+              <th className="px-3 py-3 text-right ">Đơn dịch vụ lẻ</th>
+              <th className="px-3 py-3 text-right">Hạng</th>
+              <th className="px-3 py-3 text-right">Δ</th>
+              <th className="px-3 py-3 text-right ">
+                Đơn trả bằng thẻ Foxie
+              </th>
+              <th className="px-3 py-3 text-right">Hạng</th>
+              <th className="px-3 py-3 text-right">Δ</th>
+              <th className="px-3 py-3 text-right ">Đơn combo</th>
+              <th className="px-3 py-3 text-right">Hạng</th>
+              <th className="px-3 py-3 text-right rounded-tr-xl">Δ</th>
+            </tr>
             </thead>
             <tbody>
               {storeOrderTableData.map((row: StoreOrderTableData, idx: number) => (
@@ -76,14 +91,44 @@ export default function OrderOfStore({
                   <td className="px-3 py-2 text-left">{idx + 1}</td>
                   <td className="px-3 py-2 text-left">{row.location}</td>
                   <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">-</td>
+                  <td className="px-3 py-2 text-right bg-yellow-100">
+                    <div className="text-center">
+                      <div>-</div>
+                      <div className="text-xs text-gray-500">(-)</div>
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-right">-</td>
                   <td className="px-3 py-2 text-right bg-[#8ed1fc]">-</td>
+                  <td className="px-3 py-2 text-right bg-yellow-100">
+                    <div className="text-center">
+                      <div>-</div>
+                      <div className="text-xs text-gray-500">(-)</div>
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-right">-</td>
                   <td className="px-3 py-2 text-right bg-[#fcb900]">-</td>
+                  <td className="px-3 py-2 text-right bg-yellow-100">
+                    <div className="text-center">
+                      <div>-</div>
+                      <div className="text-xs text-gray-500">(-)</div>
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-right">-</td>
                   <td className="px-3 py-2 text-right bg-[#a9b8c3]">-</td>
+                  <td className="px-3 py-2 text-right bg-yellow-100">
+                    <div className="text-center">
+                      <div>-</div>
+                      <div className="text-xs text-gray-500">(-)</div>
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-right">-</td>
                   <td className="px-3 py-2 text-right bg-[#98d8c8]">-</td>
+                  <td className="px-3 py-2 text-right bg-yellow-100">
+                    <div className="text-center">
+                      <div>-</div>
+                      <div className="text-xs text-gray-500">(-)</div>
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-right">-</td>
                 </tr>
               ))}
@@ -94,12 +139,19 @@ export default function OrderOfStore({
                   Tổng cộng
                 </td>
                 <td className="px-3 py-2 text-right bg-[#f8a0ca]">-</td>
+                <td className="px-3 py-2 text-right bg-gray-200">-</td>
                 <td className="px-3 py-2 text-right">-</td>
                 <td className="px-3 py-2 text-right bg-[#8ed1fc]">-</td>
+                <td className="px-3 py-2 text-right bg-gray-200">-</td>
                 <td className="px-3 py-2 text-right">-</td>
                 <td className="px-3 py-2 text-right bg-[#fcb900]">-</td>
+                <td className="px-3 py-2 text-right bg-gray-200">-</td>
                 <td className="px-3 py-2 text-right">-</td>
                 <td className="px-3 py-2 text-right bg-[#a9b8c3]">-</td>
+                <td className="px-3 py-2 text-right bg-gray-200">-</td>
+                <td className="px-3 py-2 text-right">-</td>
+                <td className="px-3 py-2 text-right bg-[#98d8c8]">-</td>
+                <td className="px-3 py-2 text-right bg-gray-200">-</td>
                 <td className="px-3 py-2 text-right rounded-br-xl">-</td>
               </tr>
             </tfoot>
@@ -121,18 +173,23 @@ export default function OrderOfStore({
               <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
               <th className="px-3 py-3 text-left">Locations</th>
               <th className="px-3 py-3 text-right ">Số đơn hàng</th>
+              <th className="px-3 py-3 text-right">Hạng</th>
               <th className="px-3 py-3 text-right">Δ</th>
               <th className="px-3 py-3 text-right ">Đơn mua thẻ</th>
+              <th className="px-3 py-3 text-right">Hạng</th>
               <th className="px-3 py-3 text-right">Δ</th>
               <th className="px-3 py-3 text-right ">Đơn dịch vụ lẻ</th>
+              <th className="px-3 py-3 text-right">Hạng</th>
               <th className="px-3 py-3 text-right">Δ</th>
               <th className="px-3 py-3 text-right ">
                 Đơn trả bằng thẻ Foxie
               </th>
+              <th className="px-3 py-3 text-right">Hạng</th>
               <th className="px-3 py-3 text-right">Δ</th>
               <th className="px-3 py-3 text-right ">
                 Đơn Combo
               </th>
+              <th className="px-3 py-3 text-right">Hạng</th>
               <th className="px-3 py-3 text-right rounded-tr-xl">Δ</th>
             </tr>
           </thead>
@@ -143,6 +200,16 @@ export default function OrderOfStore({
                 <td className="px-3 py-2 text-left">{row.location}</td>
                 <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">
                   {row.totalOrders}
+                </td>
+                <td className="px-3 py-2 text-right bg-yellow-100 font-semibold">
+                  <div className="text-center">
+                    <div className={`${row.totalOrdersRank < row.totalOrdersRankLastMonth ? 'text-green-600' : row.totalOrdersRank > row.totalOrdersRankLastMonth ? 'text-red-500' : 'text-gray-600'}`}>
+                      {row.totalOrdersRank}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      ({row.totalOrdersRankLastMonth})
+                    </div>
+                  </div>
                 </td>
                 <td
                   className={`px-3 py-2 text-right ${
@@ -164,6 +231,16 @@ export default function OrderOfStore({
                 <td className="px-3 py-2 text-right bg-[#8ed1fc]">
                   {row.cardOrders}
                 </td>
+                <td className="px-3 py-2 text-right bg-yellow-100 font-semibold">
+                  <div className="text-center">
+                    <div className={`${row.cardOrdersRank < row.cardOrdersRankLastMonth ? 'text-green-600' : row.cardOrdersRank > row.cardOrdersRankLastMonth ? 'text-red-500' : 'text-gray-600'}`}>
+                      {row.cardOrdersRank}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      ({row.cardOrdersRankLastMonth})
+                    </div>
+                  </div>
+                </td>
                 <td
                   className={`px-3 py-2 text-right ${
                     row.cardOrdersDelta !== null
@@ -183,6 +260,16 @@ export default function OrderOfStore({
                 </td>
                 <td className="px-3 py-2 text-right bg-[#fcb900]">
                   {row.retailOrders}
+                </td>
+                <td className="px-3 py-2 text-right bg-yellow-100 font-semibold">
+                  <div className="text-center">
+                    <div className={`${row.retailOrdersRank < row.retailOrdersRankLastMonth ? 'text-green-600' : row.retailOrdersRank > row.retailOrdersRankLastMonth ? 'text-red-500' : 'text-gray-600'}`}>
+                      {row.retailOrdersRank}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      ({row.retailOrdersRankLastMonth})
+                    </div>
+                  </div>
                 </td>
                 <td
                   className={`px-3 py-2 text-right ${
@@ -204,6 +291,16 @@ export default function OrderOfStore({
                 <td className="px-3 py-2 text-right bg-[#a9b8c3]">
                   {row.foxieOrders}
                 </td>
+                <td className="px-3 py-2 text-right bg-yellow-100 font-semibold">
+                  <div className="text-center">
+                    <div className={`${row.foxieOrdersRank < row.foxieOrdersRankLastMonth ? 'text-green-600' : row.foxieOrdersRank > row.foxieOrdersRankLastMonth ? 'text-red-500' : 'text-gray-600'}`}>
+                      {row.foxieOrdersRank}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      ({row.foxieOrdersRankLastMonth})
+                    </div>
+                  </div>
+                </td>
                 <td
                   className={`px-3 py-2 text-right ${
                     row.foxieOrdersDelta !== null
@@ -223,6 +320,16 @@ export default function OrderOfStore({
                 </td>
                 <td className="px-3 py-2 text-right bg-[#98d8c8]">
                   {row.comboOrders}
+                </td>
+                <td className="px-3 py-2 text-right bg-yellow-100 font-semibold">
+                  <div className="text-center">
+                    <div className={`${row.comboOrdersRank < row.comboOrdersRankLastMonth ? 'text-green-600' : row.comboOrdersRank > row.comboOrdersRankLastMonth ? 'text-red-500' : 'text-gray-600'}`}>
+                      {row.comboOrdersRank}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      ({row.comboOrdersRankLastMonth})
+                    </div>
+                  </div>
                 </td>
                 <td
                   className={`px-3 py-2 text-right ${
@@ -244,43 +351,73 @@ export default function OrderOfStore({
               </tr>
             ))}
           </tbody>
-          <tfoot className="sticky bottom-0 bg-gray-100 z-20">
-            <tr className="font-bold">
-              <td colSpan={2} className="px-3 py-2 text-left rounded-bl-xl">
-                Tổng cộng
-              </td>
-              <td className="px-3 py-2 text-right bg-[#f8a0ca]">
-                {totalOrderSumAll.totalOrders}
-              </td>
-              <td className="px-3 py-2 text-right">
-                {totalOrderSumAll.totalOrdersDelta}
-              </td>
-              <td className="px-3 py-2 text-right bg-[#8ed1fc]">
-                {totalOrderSumAll.cardOrders}
-              </td>
-              <td className="px-3 py-2 text-right">
-                {totalOrderSumAll.cardOrdersDelta}
-              </td>
-              <td className="px-3 py-2 text-right bg-[#fcb900]">
-                {totalOrderSumAll.retailOrders}
-              </td>
-              <td className="px-3 py-2 text-right">
-                {totalOrderSumAll.retailOrdersDelta}
-              </td>
-              <td className="px-3 py-2 text-right bg-[#a9b8c3]">
-                {totalOrderSumAll.foxieOrders}
-              </td>
-              <td className="px-3 py-2 text-right">
-                {totalOrderSumAll.foxieOrdersDelta}
-              </td>
-              <td className="px-3 py-2 text-right bg-[#98d8c8]">
-                {totalOrderSumAll.comboOrders}
-              </td>
-              <td className="px-3 py-2 text-right rounded-br-xl">
-                {totalOrderSumAll.comboOrdersDelta}
-              </td>
-            </tr>
-          </tfoot>
+                      <tfoot className="sticky bottom-0 bg-gray-100 z-20">
+              <tr className="font-bold">
+                <td colSpan={2} className="px-3 py-2 text-left rounded-bl-xl">
+                  Tổng cộng
+                </td>
+                <td className="px-3 py-2 text-right bg-[#f8a0ca]">
+                  {totalOrderSumAll.totalOrders}
+                </td>
+                <td className="px-3 py-2 text-right bg-gray-200">
+                  <div className="text-center">
+                    <div>-</div>
+                    <div className="text-xs text-gray-500">(-)</div>
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {totalOrderSumAll.totalOrdersDelta}
+                </td>
+                <td className="px-3 py-2 text-right bg-[#8ed1fc]">
+                  {totalOrderSumAll.cardOrders}
+                </td>
+                <td className="px-3 py-2 text-right bg-gray-200">
+                  <div className="text-center">
+                    <div>-</div>
+                    <div className="text-xs text-gray-500">(-)</div>
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {totalOrderSumAll.cardOrdersDelta}
+                </td>
+                <td className="px-3 py-2 text-right bg-[#fcb900]">
+                  {totalOrderSumAll.retailOrders}
+                </td>
+                <td className="px-3 py-2 text-right bg-gray-200">
+                  <div className="text-center">
+                    <div>-</div>
+                    <div className="text-xs text-gray-500">(-)</div>
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {totalOrderSumAll.retailOrdersDelta}
+                </td>
+                <td className="px-3 py-2 text-right bg-[#a9b8c3]">
+                  {totalOrderSumAll.foxieOrders}
+                </td>
+                <td className="px-3 py-2 text-right bg-gray-200">
+                  <div className="text-center">
+                    <div>-</div>
+                    <div className="text-xs text-gray-500">(-)</div>
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {totalOrderSumAll.foxieOrdersDelta}
+                </td>
+                <td className="px-3 py-2 text-right bg-[#98d8c8]">
+                  {totalOrderSumAll.comboOrders}
+                </td>
+                <td className="px-3 py-2 text-right bg-gray-200">
+                  <div className="text-center">
+                    <div>-</div>
+                    <div className="text-xs text-gray-500">(-)</div>
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-right rounded-br-xl">
+                  {totalOrderSumAll.comboOrdersDelta}
+                </td>
+              </tr>
+            </tfoot>
         </table>
       </div>
     </div>
