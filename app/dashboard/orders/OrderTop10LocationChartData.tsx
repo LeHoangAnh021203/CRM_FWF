@@ -30,23 +30,35 @@ interface StoreRevenueData {
   orderPercent: number;
 }
 
+interface OverallOrderSummary {
+  totalRevenue: number;
+  serviceRevenue: number;
+  foxieCardRevenue: number;
+  productRevenue: number;
+  cardPurchaseRevenue: number;
+  avgActualRevenueDaily: number;
+  deltaTotalRevenue: number;
+  deltaServiceRevenue: number;
+  deltaFoxieCardRevenue: number;
+  deltaProductRevenue: number;
+  deltaCardPurchaseRevenue: number;
+  deltaAvgActualRevenue: number;
+  percentTotalRevenue: number;
+  percentServiceRevenue: number;
+  percentFoxieCardRevenue: number;
+  percentProductRevenue: number;
+  percentCardPurchaseRevenue: number;
+  percentAvgActualRevenue: number;
+}
+
 interface Props {
   isMobile: boolean;
   top10LocationChartData: Top10LocationData[];
   fullStoreRevenueData?: StoreRevenueData[]; // Thêm dữ liệu API cho bottom 5
   formatMoneyShort: (val: number) => string;
-  totalRevenueThisWeek: number;
-  percentRevenue: number | null;
-  retailThisWeek: number;
-  percentRetail: number | null;
-  productThisWeek: number;
-  percentProduct: number | null;
-  cardThisWeek: number;
-  percentCard: number | null;
-  foxieThisWeek: number;
-  percentFoxie: number | null;
-  avgRevenueThisWeek: number;
-  percentAvg: number | null;
+  overallOrderSummary: OverallOrderSummary | null;
+  overallOrderSummaryLoading: boolean;
+  overallOrderSummaryError: string | null;
 }
 
 const StatCard = ({
@@ -135,16 +147,9 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
   top10LocationChartData,
   fullStoreRevenueData,
   formatMoneyShort,
-  retailThisWeek,
-  percentRetail,
-  productThisWeek,
-  percentProduct,
-  cardThisWeek,
-  percentCard,
-  foxieThisWeek,
-  percentFoxie,
-  avgRevenueThisWeek,
-  percentAvg,
+  overallOrderSummary,
+  overallOrderSummaryLoading,
+  overallOrderSummaryError,
 }) => {
   const [showTop10, setShowTop10] = React.useState(true);
 
@@ -383,71 +388,119 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
               }
             `}</style>
             <div className="flex items-center justify-center flex-col gap-3">
-              <StatCard
-                title="Thực thu dịch vụ lẻ"
-                value={retailThisWeek}
-                delta={percentRetail}
-                valueColor="text-[#fcb900]"
-              />
-              <StatCard
-                title="Thực thu foxie card"
-                value={cardThisWeek}
-                delta={percentProduct}
-                valueColor="text-[#b6d47a]"
-              />
-              <StatCard
-                title="Thực thu sản phẩm"
-                value={productThisWeek}
-                delta={percentCard}
-                valueColor="text-[#8ed1fc]"
-              />
-              <StatCard
-                title="Tổng trả bằng thẻ Foxie"
-                value={foxieThisWeek}
-                delta={percentFoxie}
-                valueColor="text-[#a9b8c3]"
-              />
-              <StatCard
-                title="Trung bình thực thu mỗi ngày"
-                value={avgRevenueThisWeek}
-                delta={percentAvg}
-                valueColor="text-[#b39ddb]"
-              />
+              {overallOrderSummaryLoading ? (
+                // Loading state
+                Array.from({ length: 5 }).map((_, index) => (
+                  <div key={index} className="bg-white rounded-xl shadow p-3 flex flex-col items-center w-full border-2 border-gray-200 animate-pulse">
+                    <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                    <div className="h-6 bg-gray-200 rounded w-16 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-12"></div>
+                  </div>
+                ))
+              ) : overallOrderSummaryError ? (
+                // Error state
+                <div className="text-red-500 text-center p-4">
+                  Lỗi tải dữ liệu: {overallOrderSummaryError}
+                </div>
+              ) : overallOrderSummary ? (
+                // Data state
+                <>
+                  <StatCard
+                    title="Tổng thực thu"
+                    value={overallOrderSummary.totalRevenue}
+                    delta={overallOrderSummary.percentTotalRevenue}
+                    valueColor="text-[#fcb900]"
+                  />
+                  <StatCard
+                    title="Thực thu dịch vụ"
+                    value={overallOrderSummary.serviceRevenue}
+                    delta={overallOrderSummary.percentServiceRevenue}
+                    valueColor="text-[#b6d47a]"
+                  />
+                  <StatCard
+                    title="Thực thu thẻ Foxie"
+                    value={overallOrderSummary.foxieCardRevenue}
+                    delta={overallOrderSummary.percentFoxieCardRevenue}
+                    valueColor="text-[#8ed1fc]"
+                  />
+                  <StatCard
+                    title="Thực thu sản phẩm"
+                    value={overallOrderSummary.productRevenue}
+                    delta={overallOrderSummary.percentProductRevenue}
+                    valueColor="text-[#a9b8c3]"
+                  />
+                  <StatCard
+                    title="Thực thu trung bình mỗi ngày"
+                    value={overallOrderSummary.avgActualRevenueDaily}
+                    delta={overallOrderSummary.percentAvgActualRevenue}
+                    valueColor="text-[#b39ddb]"
+                  />
+                </>
+              ) : (
+                // Empty state
+                <div className="text-gray-500 text-center p-4">
+                  Không có dữ liệu
+                </div>
+              )}
             </div>
           </div>
 
           {/* Desktop: Grid layout */}
           <div className="hidden lg:flex items-center justify-center lg:grid lg:grid-cols-1 gap-3 h-full">
-            <StatCard
-              title="Thực thu dịch vụ lẻ"
-              value={retailThisWeek}
-              delta={percentRetail}
-              valueColor="text-[#fcb900]"
-            />
-            <StatCard
-              title="Thực thu foxie card"
-              value={cardThisWeek}
-              delta={percentProduct}
-              valueColor="text-[#b6d47a]"
-            />
-            <StatCard
-              title="Thực thu sản phẩm"
-              value={productThisWeek}
-              delta={percentCard}
-              valueColor="text-[#8ed1fc]"
-            />
-            <StatCard
-              title="Tổng trả bằng thẻ Foxie"
-              value={foxieThisWeek}
-              delta={percentFoxie}
-              valueColor="text-[#a9b8c3]"
-            />
-            <StatCard
-              title="Trung bình thực thu mỗi ngày"
-              value={avgRevenueThisWeek}
-              delta={percentAvg}
-              valueColor="text-[#b39ddb]"
-            />
+            {overallOrderSummaryLoading ? (
+              // Loading state
+              Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="bg-white rounded-xl shadow p-3 flex flex-col items-center w-full border-2 border-gray-200 animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                  <div className="h-6 bg-gray-200 rounded w-16 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-12"></div>
+                </div>
+              ))
+            ) : overallOrderSummaryError ? (
+              // Error state
+              <div className="text-red-500 text-center p-4">
+                Lỗi tải dữ liệu: {overallOrderSummaryError}
+              </div>
+            ) : overallOrderSummary ? (
+              // Data state
+              <>
+                <StatCard
+                  title="Tổng thực thu"
+                  value={overallOrderSummary.totalRevenue}
+                  delta={overallOrderSummary.percentTotalRevenue}
+                  valueColor="text-[#fcb900]"
+                />
+                <StatCard
+                  title="Thực thu dịch vụ"
+                  value={overallOrderSummary.serviceRevenue}
+                  delta={overallOrderSummary.percentServiceRevenue}
+                  valueColor="text-[#b6d47a]"
+                />
+                <StatCard
+                  title="Thực thu thẻ Foxie"
+                  value={overallOrderSummary.foxieCardRevenue}
+                  delta={overallOrderSummary.percentFoxieCardRevenue}
+                  valueColor="text-[#8ed1fc]"
+                />
+                <StatCard
+                  title="Thực thu sản phẩm"
+                  value={overallOrderSummary.productRevenue}
+                  delta={overallOrderSummary.percentProductRevenue}
+                  valueColor="text-[#a9b8c3]"
+                />
+                <StatCard
+                  title="Thực thu mỗi ngày"
+                  value={overallOrderSummary.avgActualRevenueDaily}
+                  delta={overallOrderSummary.percentAvgActualRevenue}
+                  valueColor="text-[#b39ddb]"
+                />
+              </>
+            ) : (
+              // Empty state
+              <div className="text-gray-500 text-center p-4">
+                Không có dữ liệu
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -348,16 +348,19 @@ export default function CustomerReportPage() {
     foxieCardRevenue: number;
     productRevenue: number;
     cardPurchaseRevenue: number;
+    avgActualRevenueDaily: number;
     deltaTotalRevenue: number;
     deltaServiceRevenue: number;
     deltaFoxieCardRevenue: number;
     deltaProductRevenue: number;
     deltaCardPurchaseRevenue: number;
+    deltaAvgActualRevenue: number;
     percentTotalRevenue: number;
     percentServiceRevenue: number;
     percentFoxieCardRevenue: number;
     percentProductRevenue: number;
     percentCardPurchaseRevenue: number;
+    percentAvgActualRevenue: number;
   }>(`${API_BASE_URL}/api/sales/overall-summary`, fromDate, toDate);
 
   // Report page load success when data loads
@@ -1010,86 +1013,7 @@ export default function CustomerReportPage() {
       ? null
       : ((avgRevenueThisWeek - avgRevenueLastWeek) / avgRevenueLastWeek) * 100;
 
-  // Cập nhật các giá trị cho 6 bảng thống kê từ API overall summary
-  const updatedStats = React.useMemo(() => {
-    if (!overallSummary) {
-      // Fallback to old values if API data is not available
-      return {
-        totalRevenueThisWeek,
-        percentRevenue,
-        retailThisWeek,
-        percentRetail,
-        productThisWeek,
-        percentProduct,
-        cardThisWeek,
-        percentCard,
-        foxieThisWeek,
-        percentFoxie,
-        avgRevenueThisWeek,
-        percentAvg,
-      };
-    }
 
-    // Tính trung bình thực thu mỗi ngày từ API overallOrderSummary
-    let calculatedAvgRevenue = avgRevenueThisWeek;
-    let calculatedPercentAvg = percentAvg;
-
-    if (overallOrderSummary) {
-      // Tính trung bình thực thu mỗi ngày dựa trên tổng đơn hàng
-      // Giả sử mỗi đơn hàng có giá trị trung bình là 500,000 VND
-      const avgOrderValue = 500000; // 500K VND mỗi đơn hàng
-      const totalRevenueFromOrders =
-        overallOrderSummary.totalOrders * avgOrderValue;
-      calculatedAvgRevenue = Math.round(totalRevenueFromOrders / 7); // Chia cho 7 ngày
-
-      // Tính phần trăm thay đổi dựa trên delta orders và làm tròn
-      const previousTotalOrders =
-        overallOrderSummary.totalOrders - overallOrderSummary.deltaTotalOrders;
-      if (previousTotalOrders > 0) {
-        calculatedPercentAvg =
-          Math.round(
-            (overallOrderSummary.deltaTotalOrders / previousTotalOrders) *
-              100 *
-              100
-          ) / 100; // Làm tròn 2 chữ số thập phân
-      }
-
-      // Debug log để kiểm tra dữ liệu
-      console.log("Overall Order Summary API Data:", overallOrderSummary);
-      console.log("Calculated Average Revenue:", calculatedAvgRevenue);
-      console.log("Calculated Percent Change:", calculatedPercentAvg);
-    }
-
-    return {
-      totalRevenueThisWeek: overallSummary.totalRevenue,
-      percentRevenue: overallSummary.percentTotalRevenue,
-      retailThisWeek: overallSummary.serviceRevenue,
-      percentRetail: overallSummary.percentServiceRevenue,
-      productThisWeek: overallSummary.productRevenue,
-      percentProduct: overallSummary.percentProductRevenue,
-      cardThisWeek: overallSummary.cardPurchaseRevenue,
-      percentCard: overallSummary.percentCardPurchaseRevenue,
-      foxieThisWeek: overallSummary.foxieCardRevenue,
-      percentFoxie: overallSummary.percentFoxieCardRevenue,
-      avgRevenueThisWeek: calculatedAvgRevenue,
-      percentAvg: calculatedPercentAvg,
-    };
-  }, [
-    overallSummary,
-    overallOrderSummary,
-    totalRevenueThisWeek,
-    percentRevenue,
-    retailThisWeek,
-    percentRetail,
-    productThisWeek,
-    percentProduct,
-    cardThisWeek,
-    percentCard,
-    foxieThisWeek,
-    percentFoxie,
-    avgRevenueThisWeek,
-    percentAvg,
-  ]);
 
   // Đóng dropdown khi click ngoài
   useEffect(() => {
@@ -1760,18 +1684,9 @@ export default function CustomerReportPage() {
             top10LocationChartData={top10LocationChartData}
             fullStoreRevenueData={fullStoreRevenue || undefined}
             formatMoneyShort={formatMoneyShort}
-            totalRevenueThisWeek={updatedStats.totalRevenueThisWeek}
-            percentRevenue={updatedStats.percentRevenue}
-            retailThisWeek={updatedStats.retailThisWeek}
-            percentRetail={updatedStats.percentRetail}
-            productThisWeek={updatedStats.productThisWeek}
-            percentProduct={updatedStats.percentProduct}
-            cardThisWeek={updatedStats.cardThisWeek}
-            percentCard={updatedStats.percentCard}
-            foxieThisWeek={updatedStats.foxieThisWeek}
-            percentFoxie={updatedStats.percentFoxie}
-            avgRevenueThisWeek={updatedStats.avgRevenueThisWeek}
-            percentAvg={updatedStats.percentAvg}
+            overallOrderSummary={overallSummary}
+            overallOrderSummaryLoading={false}
+            overallOrderSummaryError={null}
           />
         </Suspense>
         {/* Thực thu cửa hàng */}
@@ -1860,7 +1775,6 @@ export default function CustomerReportPage() {
             error={overallOrderSummaryError}
           />
         </Suspense>
-        {/* PieChart tỉ lệ mua thẻ/dịch vụ lẻ/trả bằng thẻ */}
       </div>
     </div>
   );
