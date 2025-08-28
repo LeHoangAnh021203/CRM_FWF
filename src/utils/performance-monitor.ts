@@ -1,3 +1,5 @@
+import React from 'react';
+
 // Performance monitoring utilities
 export class PerformanceMonitor {
   private static instance: PerformanceMonitor;
@@ -120,12 +122,14 @@ export function getMemoryUsage(): {
   percentage: number;
 } {
   if ('memory' in performance) {
-    const memory = (performance as any).memory;
-    return {
-      used: memory.usedJSHeapSize,
-      total: memory.totalJSHeapSize,
-      percentage: (memory.usedJSHeapSize / memory.totalJSHeapSize) * 100
-    };
+    const memory = (performance as { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } }).memory;
+    if (memory) {
+      return {
+        used: memory.usedJSHeapSize,
+        total: memory.totalJSHeapSize,
+        percentage: (memory.usedJSHeapSize / memory.totalJSHeapSize) * 100
+      };
+    }
   }
   
   return {
@@ -152,20 +156,22 @@ export function measureNetworkPerformance(url: string): Promise<number> {
 }
 
 // Component render performance
-export function withPerformanceMonitoring<T extends React.ComponentType<any>>(
+export function withPerformanceMonitoring<T extends React.ComponentType<unknown>>(
   Component: T,
   name: string
 ): T {
-  const WrappedComponent = React.forwardRef<any, React.ComponentProps<T>>((props, ref) => {
+  const WrappedComponent = React.forwardRef<unknown, React.ComponentProps<T>>((props, ref) => {
     const monitor = PerformanceMonitor.getInstance();
     
     return monitor.measureTime(name, () => {
-      return React.createElement(Component, { ...props, ref });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const componentProps = Object.assign({}, props, { ref }) as any;
+      return React.createElement(Component, componentProps);
     });
   });
   
   WrappedComponent.displayName = `withPerformanceMonitoring(${name})`;
-  return WrappedComponent as T;
+  return WrappedComponent as unknown as T;
 }
 
 export default PerformanceMonitor.getInstance();

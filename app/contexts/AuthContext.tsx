@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect } from "react"
-import { AuthAPI, LoginRequest } from "../lib/auth-api"
+import { AuthAPI, LoginRequest, JWTPayload, LoginResponse } from "../lib/auth-api"
 import { TokenService } from "../lib/token-service"
 
 
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Use real API if mock is not enabled
       const credentials: LoginRequest = { username, password }
       console.log('[AuthContext] Calling AuthAPI.login...');
-      const response = await AuthAPI.login(credentials)
+      const response: LoginResponse = await AuthAPI.login(credentials)
       
       console.log('[AuthContext] AuthAPI.login completed successfully');
       console.log('[AuthContext] Response received:', response);
@@ -110,7 +110,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Store tokens and user data
       localStorage.setItem("access_token", response.access_token)
       localStorage.setItem("refresh_token", response.refresh_token)
-      localStorage.setItem("user_data", JSON.stringify(response.user))
+      // Derive user data if backend doesn't return it
+      const maybeUser = (response as { user?: User }).user
+      let userFromResponse = maybeUser || null
+      if (!userFromResponse) {
+        try {
+          const payload = AuthAPI.decodeToken(response.access_token) as JWTPayload | null
+          const derivedUser: User = {
+            id: payload?.userId ?? 0,
+            firstname: '',
+            lastname: '',
+            username: payload?.sub ?? username,
+            email: '',
+            phoneNumber: '',
+            dob: '',
+            gender: true,
+            bio: '',
+            avatar: null,
+            role: response.role || payload?.authorities?.[0] || 'USER',
+            active: true,
+          }
+          userFromResponse = derivedUser
+        } catch (e) {
+          console.warn('[AuthContext] Could not derive user from token:', e)
+        }
+      }
+      if (userFromResponse) {
+        localStorage.setItem("user_data", JSON.stringify(userFromResponse))
+      }
       
       // Also store token in cookie for middleware access
       document.cookie = `token=${response.access_token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict`
@@ -119,7 +146,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[AuthContext] User data:', response.user)
       
       // Set user state immediately
-      setUser(response.user)
+      if (userFromResponse) {
+        setUser(userFromResponse)
+      }
       
       // Get permissions from token with error handling
       try {
@@ -133,7 +162,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       console.log('[AuthContext] Setting user state...');
-      setUser(response.user)
+      if (userFromResponse) {
+        setUser(userFromResponse)
+      }
       
       // Ensure token is in cookie before returning
       if (typeof document !== 'undefined') {

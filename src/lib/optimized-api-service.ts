@@ -1,27 +1,37 @@
-import { ApiService } from './api-service';
+import { ApiService } from '../../app/lib/api-service';
 
 // Cache for API responses
-const apiCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+const apiCache = new Map<string, { data: unknown; timestamp: number; ttl: number }>();
 
 // Cache TTL in milliseconds (5 minutes)
 const CACHE_TTL = 5 * 60 * 1000;
 
 // Debounce function for API calls
-function debounce<T extends (...args: any[]) => any>(
+function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
-): (...args: Parameters<T>) => void {
+): (...args: Parameters<T>) => Promise<unknown> {
   let timeout: NodeJS.Timeout;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
+  
+  return (...args: Parameters<T>): Promise<unknown> => {
+    return new Promise((resolve) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(async () => {
+        try {
+          const result = await func(...args);
+          resolve(result);
+        } catch (error) {
+          resolve(error);
+        }
+      }, wait);
+    });
   };
 }
 
 // Optimized API service with caching
 export class OptimizedApiService {
   private static instance: OptimizedApiService;
-  private pendingRequests = new Map<string, Promise<any>>();
+  private pendingRequests = new Map<string, Promise<unknown>>();
 
   static getInstance(): OptimizedApiService {
     if (!OptimizedApiService.instance) {
@@ -31,7 +41,7 @@ export class OptimizedApiService {
   }
 
   // Get cached data if available and not expired
-  private getCachedData(key: string): any | null {
+  private getCachedData(key: string): unknown | null {
     const cached = apiCache.get(key);
     if (cached && Date.now() - cached.timestamp < cached.ttl) {
       return cached.data;
@@ -43,7 +53,7 @@ export class OptimizedApiService {
   }
 
   // Set cache data
-  private setCachedData(key: string, data: any, ttl: number = CACHE_TTL): void {
+  private setCachedData(key: string, data: unknown, ttl: number = CACHE_TTL): void {
     apiCache.set(key, {
       data,
       timestamp: Date.now(),
@@ -62,7 +72,7 @@ export class OptimizedApiService {
   }
 
   // Optimized POST method with caching and deduplication
-  async post<T>(endpoint: string, data: any, options?: { 
+  async post<T>(endpoint: string, data: unknown, options?: { 
     cache?: boolean; 
     ttl?: number; 
     skipCache?: boolean;
@@ -71,14 +81,14 @@ export class OptimizedApiService {
     
     // Check if request is already pending
     if (this.pendingRequests.has(cacheKey)) {
-      return this.pendingRequests.get(cacheKey)!;
+      return this.pendingRequests.get(cacheKey)! as T;
     }
 
     // Check cache if enabled
     if (options?.cache !== false && !options?.skipCache) {
       const cachedData = this.getCachedData(cacheKey);
       if (cachedData) {
-        return cachedData;
+        return cachedData as T;
       }
     }
 
@@ -87,13 +97,13 @@ export class OptimizedApiService {
 
     // Create new request
     const requestPromise = ApiService.post(endpoint, data)
-      .then((response: T) => {
+      .then((response: unknown) => {
         // Cache successful responses
         if (options?.cache !== false) {
           this.setCachedData(cacheKey, response, options?.ttl);
         }
         this.pendingRequests.delete(cacheKey);
-        return response;
+        return response as T;
       })
       .catch((error: Error) => {
         this.pendingRequests.delete(cacheKey);
@@ -129,7 +139,10 @@ export class OptimizedApiService {
 
 // Debounced version for rapid successive calls
 export const debouncedApiCall = debounce(
-  (endpoint: string, data: any) => OptimizedApiService.getInstance().post(endpoint, data),
+  (...args: unknown[]) => {
+    const [endpoint, data] = args as [string, unknown];
+    return OptimizedApiService.getInstance().post(endpoint, data);
+  },
   300
 );
 

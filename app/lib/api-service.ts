@@ -14,27 +14,39 @@ export class ApiService {
       'Authorization': `Bearer ${validToken}`
     }
 
-    const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
-      method: 'GET',
-      headers,
-    })
+    // Retry on 429 with exponential backoff
+    let attempt = 0
+    const maxRetries = 3
+    while (true) {
+      const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+        method: 'GET',
+        headers,
+      })
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        // Token expired, try to refresh
-        console.log('Token expired, attempting refresh...')
-        const newToken = await TokenService.getValidAccessToken()
-        if (newToken) {
-          // Retry with new token
-          return this.get(endpoint, newToken)
-        } else {
-          throw new Error('Authentication failed - please login again')
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired, try to refresh
+          console.log('Token expired, attempting refresh...')
+          const newToken = await TokenService.getValidAccessToken()
+          if (newToken) {
+            // Retry with new token
+            return this.get(endpoint, newToken)
+          } else {
+            throw new Error('Authentication failed - please login again')
+          }
         }
+        if (response.status === 429 && attempt < maxRetries) {
+          const retryAfter = response.headers.get('Retry-After')
+          const delayMs = retryAfter ? Number(retryAfter) * 1000 : (2 ** attempt) * 500
+          await new Promise(r => setTimeout(r, delayMs))
+          attempt += 1
+          continue
+        }
+        throw new Error(`GET request failed: ${response.status}`)
       }
-      throw new Error(`GET request failed: ${response.status}`)
-    }
 
-    return response.json()
+      return response.json()
+    }
   }
 
   static async post(endpoint: string, data: unknown, token?: string): Promise<unknown> {
@@ -57,32 +69,44 @@ export class ApiService {
     
     console.log('🔍 Request Headers:', headers)
 
-    const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(data),
-    })
+    // Retry on 429 with exponential backoff
+    let attempt = 0
+    const maxRetries = 3
+    while (true) {
+      const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data),
+      })
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        // Get response body for debugging
-        const errorText = await response.text()
-        console.log('🔍 401 Error Response:', errorText)
-        
-        // Token expired, try to refresh
-        console.log('Token expired, attempting refresh...')
-        const newToken = await TokenService.getValidAccessToken()
-        if (newToken) {
-          // Retry with new token
-          return this.post(endpoint, data, newToken)
-        } else {
-          throw new Error('Authentication failed - please login again')
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Get response body for debugging
+          const errorText = await response.text()
+          console.log('🔍 401 Error Response:', errorText)
+          
+          // Token expired, try to refresh
+          console.log('Token expired, attempting refresh...')
+          const newToken = await TokenService.getValidAccessToken()
+          if (newToken) {
+            // Retry with new token
+            return this.post(endpoint, data, newToken)
+          } else {
+            throw new Error('Authentication failed - please login again')
+          }
         }
+        if (response.status === 429 && attempt < maxRetries) {
+          const retryAfter = response.headers.get('Retry-After')
+          const delayMs = retryAfter ? Number(retryAfter) * 1000 : (2 ** attempt) * 500
+          await new Promise(r => setTimeout(r, delayMs))
+          attempt += 1
+          continue
+        }
+        throw new Error(`POST request failed: ${response.status}`)
       }
-      throw new Error(`POST request failed: ${response.status}`)
-    }
 
-    return response.json()
+      return response.json()
+    }
   }
 
   // Customer Sale APIs

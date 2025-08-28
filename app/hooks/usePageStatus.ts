@@ -26,25 +26,75 @@ class NotificationEventEmitter {
 
 export const notificationEmitter = new NotificationEventEmitter();
 
+// Simple per-page debouncing and backoff to avoid 429 spam
+const lastPostAtByPage: Record<string, number> = {};
+const pendingTimerByPage: Record<string, ReturnType<typeof setTimeout> | undefined> = {};
+const latestPayloadByPage: Record<string, Partial<PageStatus>> = {};
+const inFlightByPage: Record<string, boolean> = {};
+
+async function postPageStatus(pageName: string, payload: Partial<PageStatus>) {
+  try {
+    const response = await fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pageName, ...payload })
+    });
+
+    if (response.status === 429) {
+      // Basic backoff once to reduce UI jitter
+      await new Promise(r => setTimeout(r, 1000));
+      return fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageName, ...payload })
+      }).catch(() => undefined);
+    }
+
+    return response;
+  } catch {
+    return undefined;
+  }
+}
+
 export function usePageStatus(pageName: string) {
   // Update page status to API
   const updatePageStatus = useCallback(async (statusData: Partial<PageStatus>) => {
-    try {
-      await fetch('/api/notifications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pageName,
-          ...statusData
-        }),
-      });
-      
-      // Emit event to trigger immediate notification update
-      notificationEmitter.emit();
-    } catch (error) {
-      console.error('Failed to update page status:', error);
+    // Debounce per page to a maximum frequency
+    latestPayloadByPage[pageName] = { ...latestPayloadByPage[pageName], ...statusData };
+
+    const now = Date.now();
+    const minIntervalMs = 1200; // ~1.2s to smooth bursts
+    const timeSinceLast = now - (lastPostAtByPage[pageName] || 0);
+
+    const scheduleSend = () => {
+      if (inFlightByPage[pageName]) return; // avoid piling up while in-flight
+      const payload = latestPayloadByPage[pageName] || statusData;
+      inFlightByPage[pageName] = true;
+      postPageStatus(pageName, payload)
+        .finally(() => {
+          lastPostAtByPage[pageName] = Date.now();
+          inFlightByPage[pageName] = false;
+          // Emit event after successful attempt or completion to avoid UI flicker
+          notificationEmitter.emit();
+        })
+        .catch(() => {
+          inFlightByPage[pageName] = false;
+        });
+    };
+
+    // If enough time has passed, send immediately; otherwise debounce
+    if (timeSinceLast >= minIntervalMs) {
+      if (pendingTimerByPage[pageName]) {
+        clearTimeout(pendingTimerByPage[pageName]!);
+        pendingTimerByPage[pageName] = undefined;
+      }
+      scheduleSend();
+    } else {
+      if (pendingTimerByPage[pageName]) clearTimeout(pendingTimerByPage[pageName]!);
+      pendingTimerByPage[pageName] = setTimeout(() => {
+        pendingTimerByPage[pageName] = undefined;
+        scheduleSend();
+      }, minIntervalMs - timeSinceLast);
     }
   }, [pageName]);
 

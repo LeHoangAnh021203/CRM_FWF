@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import OptimizedApiService from '../lib/optimized-api-service';
 
 interface UseOptimizedApiDataOptions {
@@ -48,7 +48,7 @@ export function useOptimizedApiData<T>(
       .replace(/^\/+/, '');
   }, [url]);
 
-  const fetchData = async (isRetry = false): Promise<void> => {
+  const fetchData = useCallback(async (isRetry = false): Promise<void> => {
     try {
       // Cancel previous request if exists
       if (abortControllerRef.current) {
@@ -73,11 +73,11 @@ export function useOptimizedApiData<T>(
 
       setData(response);
       retryCountRef.current = 0; // Reset retry count on success
-    } catch (err: any) {
-      const errorMessage = err?.message || 'Unknown error occurred';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       
       // Handle retry logic
-      if (retryCountRef.current < retryCount && !err?.name === 'AbortError') {
+      if (retryCountRef.current < retryCount && !(err instanceof Error && err.name === 'AbortError')) {
         retryCountRef.current++;
         setTimeout(() => fetchData(true), retryDelay);
         return;
@@ -88,7 +88,7 @@ export function useOptimizedApiData<T>(
     } finally {
       setLoading(false);
     }
-  };
+  }, [endpoint, cache, ttl, skipCache, retryCount, retryDelay, fromDate, toDate]);
 
   // Fetch data when dependencies change
   useEffect(() => {
@@ -100,7 +100,7 @@ export function useOptimizedApiData<T>(
         abortControllerRef.current.abort();
       }
     };
-  }, [cacheKey]);
+  }, [cacheKey, fetchData]);
 
   // Refetch function
   const refetch = async (): Promise<void> => {
@@ -122,34 +122,6 @@ export function useOptimizedApiData<T>(
   };
 }
 
-// Hook for batch API calls
-export function useBatchApiData<T>(
-  endpoints: Array<{ url: string; fromDate: string; toDate: string }>,
-  options: UseOptimizedApiDataOptions = {}
-) {
-  const results = endpoints.map(({ url, fromDate, toDate }) =>
-    useOptimizedApiData<T>(url, fromDate, toDate, options)
-  );
-
-  const allLoading = results.some(result => result.loading);
-  const allErrors = results.map(result => result.error).filter(Boolean);
-  const allData = results.map(result => result.data);
-
-  const refetchAll = async (): Promise<void> => {
-    await Promise.all(results.map(result => result.refetch()));
-  };
-
-  const clearAllCache = (): void => {
-    results.forEach(result => result.clearCache());
-  };
-
-  return {
-    results,
-    allLoading,
-    allErrors,
-    allData,
-    refetchAll,
-    clearAllCache
-  };
-}
+// Hook for batch API calls - removed due to rules of hooks violation
+// This would need to be restructured to avoid calling hooks in callbacks
 

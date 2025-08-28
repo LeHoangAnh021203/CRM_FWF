@@ -297,6 +297,25 @@ export default function middleware(request: NextRequest) {
   const isApiRoute = pathname.startsWith("/api");
   const rateLimitKey = `${clientIP}:${pathname}`;
 
+  // Special rate limiting for facility-booking-hour endpoint
+  if (pathname.startsWith("/api/proxy/booking/facility-booking-hour")) {
+    const facilityRateLimitKey = `${clientIP}:facility-booking-hour`;
+    const now = Date.now();
+    const facilityInfo = rateLimitStore.get(facilityRateLimitKey);
+    
+    if (!facilityInfo || now > facilityInfo.resetTime) {
+      rateLimitStore.set(facilityRateLimitKey, {
+        count: 1,
+        resetTime: now + 1000, // 1 second window
+      });
+    } else if (facilityInfo.count >= 10) { // 10 requests per 1 second
+      console.log(`[Middleware] Facility booking rate limited: ${clientIP}`);
+      return new NextResponse("Too Many Requests", { status: 429 });
+    } else {
+      facilityInfo.count++;
+    }
+  }
+  
   // Skip rate limiting for forgotPassword route
   if (
     !pathname.startsWith("/forgotPassword") &&
