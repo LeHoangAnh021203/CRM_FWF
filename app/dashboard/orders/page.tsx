@@ -1362,43 +1362,6 @@ export default function CustomerReportPage() {
   // Tính dữ liệu bảng số đơn tại các cửa hàng (top 10 + tổng cộng)
   const storeOrderTableData = React.useMemo(() => {
     if (regionOrderBreakdownTable && regionOrderBreakdownTable.length > 0) {
-      // Tính thứ hạng cho từng loại đơn hàng
-      const calculateRanks = (data: typeof regionOrderBreakdownTable, field: string) => {
-        const sorted = [...data].sort((a, b) => (b[field as keyof typeof b] as number) - (a[field as keyof typeof a] as number));
-        const ranks = new Map<string, number>();
-        sorted.forEach((item, index) => {
-          ranks.set(item.shopName, index + 1);
-        });
-        return ranks;
-      };
-
-      // Tính thứ hạng hiện tại
-      const totalOrdersRanks = calculateRanks(regionOrderBreakdownTable, 'totalOrders');
-      const cardOrdersRanks = calculateRanks(regionOrderBreakdownTable, 'cardPurchaseOrders');
-      const retailOrdersRanks = calculateRanks(regionOrderBreakdownTable, 'serviceOrders');
-      const foxieOrdersRanks = calculateRanks(regionOrderBreakdownTable, 'prepaidCard');
-      const comboOrdersRanks = calculateRanks(regionOrderBreakdownTable, 'comboOrders');
-
-      // Tính thứ hạng tháng trước (giả định dựa trên delta)
-      const calculateLastMonthRanks = (data: typeof regionOrderBreakdownTable, field: string, deltaField: string) => {
-        const lastMonthData = data.map(item => ({
-          ...item,
-          [field]: Math.max(0, (item[field as keyof typeof item] as number) - ((item[deltaField as keyof typeof item] as number) || 0))
-        }));
-        const sorted = [...lastMonthData].sort((a, b) => (b[field as keyof typeof b] as number) - (a[field as keyof typeof a] as number));
-        const ranks = new Map<string, number>();
-        sorted.forEach((item, index) => {
-          ranks.set(item.shopName, index + 1);
-        });
-        return ranks;
-      };
-
-      const totalOrdersRanksLastMonth = calculateLastMonthRanks(regionOrderBreakdownTable, 'totalOrders', 'deltaTotalOrders');
-      const cardOrdersRanksLastMonth = calculateLastMonthRanks(regionOrderBreakdownTable, 'cardPurchaseOrders', 'deltaCardPurchaseOrders');
-      const retailOrdersRanksLastMonth = calculateLastMonthRanks(regionOrderBreakdownTable, 'serviceOrders', 'deltaServiceOrders');
-      const foxieOrdersRanksLastMonth = calculateLastMonthRanks(regionOrderBreakdownTable, 'prepaidCard', 'deltaPrepaidCard');
-      const comboOrdersRanksLastMonth = calculateLastMonthRanks(regionOrderBreakdownTable, 'comboOrders', 'deltaComboOrders');
-
       // Sử dụng dữ liệu từ API
       return regionOrderBreakdownTable.map((shop) => ({
         location: shop.shopName,
@@ -1412,16 +1375,6 @@ export default function CustomerReportPage() {
         foxieOrdersDelta: shop.deltaPrepaidCard,
         comboOrders: shop.comboOrders,
         comboOrdersDelta: shop.deltaComboOrders,
-        totalOrdersRank: totalOrdersRanks.get(shop.shopName) || 0,
-        cardOrdersRank: cardOrdersRanks.get(shop.shopName) || 0,
-        retailOrdersRank: retailOrdersRanks.get(shop.shopName) || 0,
-        foxieOrdersRank: foxieOrdersRanks.get(shop.shopName) || 0,
-        comboOrdersRank: comboOrdersRanks.get(shop.shopName) || 0,
-        totalOrdersRankLastMonth: totalOrdersRanksLastMonth.get(shop.shopName) || 0,
-        cardOrdersRankLastMonth: cardOrdersRanksLastMonth.get(shop.shopName) || 0,
-        retailOrdersRankLastMonth: retailOrdersRanksLastMonth.get(shop.shopName) || 0,
-        foxieOrdersRankLastMonth: foxieOrdersRanksLastMonth.get(shop.shopName) || 0,
-        comboOrdersRankLastMonth: comboOrdersRanksLastMonth.get(shop.shopName) || 0,
       }));
     }
 

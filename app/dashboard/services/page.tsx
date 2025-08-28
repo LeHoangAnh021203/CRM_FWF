@@ -1,11 +1,7 @@
 "use client";
 import React from "react";
 import { useState, useEffect, useRef } from "react";
-import {
-  CalendarDate,
-  today,
-  getLocalTimeZone,
-} from "@internationalized/date";
+import { CalendarDate, today, getLocalTimeZone } from "@internationalized/date";
 
 import ServicesFilter from "./ServicesFilter";
 import WeeklyServiceChartData from "./ServiceWeeklyChartData";
@@ -15,6 +11,9 @@ import ServiceStatCards from "./ServiceStatCards";
 import ServiceStoreChartData from "./ServiceStoreChartData";
 import ServicesRegionData from "./ServicesRegionData";
 import ServicesTable from "./ServicesTable";
+import ServiceTopCustomer from "./ServiceTopCustomer";
+import ServiceNewOldCustomer from "./ServiceNewOldCustomer";
+import ServiceBookingStatusData from "./ServiceBookingStatusData";
 import { Notification, useNotification } from "@/app/components/notification";
 import {
   useLocalStorageState,
@@ -93,6 +92,22 @@ interface ServiceTableData {
   revenuePercent: number;
 }
 
+interface TopCustomerData {
+  phoneNumber: string;
+  customerName: string;
+  bookingCount: number;
+}
+
+interface CustomerStatusData {
+  newCustomers: number;
+  returningCustomers: number;
+}
+
+type BookingStatusData = {
+  status: string;
+  count: number;
+}[];
+
 const API_BASE_URL = "/api/proxy";
 
 function useApiData<T>(url: string, fromDate: string, toDate: string) {
@@ -103,19 +118,22 @@ function useApiData<T>(url: string, fromDate: string, toDate: string) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    
+
     // Extract endpoint from full URL - remove /api/proxy prefix
-    const endpoint = url.replace(API_BASE_URL, '').replace('/api', '').replace(/^\/+/, '');
-    console.log('🔍 Debug - Original URL:', url);
-    console.log('🔍 Debug - Extracted Endpoint:', endpoint);
-    
+    const endpoint = url
+      .replace(API_BASE_URL, "")
+      .replace("/api", "")
+      .replace(/^\/+/, "");
+    console.log("🔍 Debug - Original URL:", url);
+    console.log("🔍 Debug - Extracted Endpoint:", endpoint);
+
     ApiService.post(endpoint, { fromDate, toDate })
       .then((data: unknown) => {
         setData(data as T);
         setLoading(false);
       })
       .catch((err: Error) => {
-        console.error('🔍 Debug - API Error:', err);
+        console.error("🔍 Debug - API Error:", err);
         setError(err.message);
         setLoading(false);
       });
@@ -129,13 +147,13 @@ export default function CustomerReportPage() {
     useNotification();
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
-  const { 
-    reportPageError, 
-    reportDataLoadSuccess, 
-    reportFilterChange, 
+  const {
+    reportPageError,
+    reportDataLoadSuccess,
+    reportFilterChange,
     reportResetFilters,
-    reportPagePerformance
-  } = usePageStatus('services');
+    reportPagePerformance,
+  } = usePageStatus("services");
 
   // Function để reset tất cả filter về mặc định
   const resetFilters = () => {
@@ -162,37 +180,45 @@ export default function CustomerReportPage() {
     reportResetFilters();
   };
 
-  const [startDate, setStartDate, startDateLoaded] = useLocalStorageState<CalendarDate>(
-    "services-startDate",
-    today(getLocalTimeZone()).subtract({ days: 7 })
-  );
-  const [endDate, setEndDate, endDateLoaded] = useLocalStorageState<CalendarDate>(
-    "services-endDate",
-    today(getLocalTimeZone())
-  );
-  const [selectedBranches, setSelectedBranches, selectedBranchesLoaded] = useLocalStorageState<
-    string[]
-  >("services-selectedBranches", []);
-  const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] = useLocalStorageState<string[]>(
-    "services-selectedRegions",
-    []
-  );
-  const [selectedServiceTypes, setSelectedServiceTypes, selectedServiceTypesLoaded] = useLocalStorageState<
-    string[]
-  >("services-selectedServiceTypes", [
+  const [startDate, setStartDate, startDateLoaded] =
+    useLocalStorageState<CalendarDate>(
+      "services-startDate",
+      today(getLocalTimeZone()).subtract({ days: 7 })
+    );
+  const [endDate, setEndDate, endDateLoaded] =
+    useLocalStorageState<CalendarDate>(
+      "services-endDate",
+      today(getLocalTimeZone())
+    );
+  const [selectedBranches, setSelectedBranches, selectedBranchesLoaded] =
+    useLocalStorageState<string[]>("services-selectedBranches", []);
+  const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] =
+    useLocalStorageState<string[]>("services-selectedRegions", []);
+  const [
+    selectedServiceTypes,
+    setSelectedServiceTypes,
+    selectedServiceTypesLoaded,
+  ] = useLocalStorageState<string[]>("services-selectedServiceTypes", [
     "Khách hàng Thành viên",
     "KH trải nghiệm",
     "Added on",
     "Quà tặng",
   ]);
-  const [selectedGenders, setSelectedGenders, selectedGendersLoaded] = useLocalStorageState<string[]>(
-    "services-selectedGenders",
-    ["Nam", "Nữ", "#N/A"]
-  );
+  const [selectedGenders, setSelectedGenders, selectedGendersLoaded] =
+    useLocalStorageState<string[]>("services-selectedGenders", [
+      "Nam",
+      "Nữ",
+      "#N/A",
+    ]);
 
   // Kiểm tra xem tất cả localStorage đã được load chưa
-  const isAllLoaded = startDateLoaded && endDateLoaded && selectedBranchesLoaded && 
-                     selectedRegionsLoaded && selectedServiceTypesLoaded && selectedGendersLoaded;
+  const isAllLoaded =
+    startDateLoaded &&
+    endDateLoaded &&
+    selectedBranchesLoaded &&
+    selectedRegionsLoaded &&
+    selectedServiceTypesLoaded &&
+    selectedGendersLoaded;
 
   const fromDate = startDate
     ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
@@ -292,17 +318,53 @@ export default function CustomerReportPage() {
     toDate
   );
 
+  const {
+    data: topCustomerData,
+    loading: topCustomerLoading,
+    error: topCustomerError,
+  } = useApiData<TopCustomerData[]>(
+    `${API_BASE_URL}/api/booking/top-customers`,
+    fromDate,
+    toDate
+  );
+
+  const {
+    data: customerStatusData,
+    loading: customerStatusLoading,
+    error: customerStatusError,
+  } = useApiData<CustomerStatusData>(
+    `${API_BASE_URL}/api/booking/customer-status-ratio`,
+    fromDate,
+    toDate
+  );
+
+  const {
+    data: bookingStatusData,
+    loading: bookingStatusLoading,
+    error: bookingStatusError,
+  } = useApiData<BookingStatusData>(
+    `${API_BASE_URL}/api/booking/booking-status-stats`,
+    fromDate,
+    toDate
+  );
+
   // Report page load success when data loads
   useEffect(() => {
     if (serviceSummary && !serviceSummaryLoading && !serviceSummaryError) {
       const totalServices = serviceSummary.totalAll || 0;
       reportPagePerformance({
         loadTime: 2000,
-        dataSize: totalServices
+        dataSize: totalServices,
       });
       reportDataLoadSuccess("dịch vụ", totalServices);
     }
-  }, [serviceSummary, serviceSummaryLoading, serviceSummaryError, reportPagePerformance, reportDataLoadSuccess]);
+  }, [
+    serviceSummary,
+    serviceSummaryLoading,
+    serviceSummaryError,
+    reportPagePerformance,
+    reportDataLoadSuccess,
+  ]);
 
   // Report errors
   useEffect(() => {
@@ -314,19 +376,19 @@ export default function CustomerReportPage() {
   // Report filter changes
   useEffect(() => {
     if (selectedRegions.length > 0) {
-      reportFilterChange(`khu vực: ${selectedRegions.join(', ')}`);
+      reportFilterChange(`khu vực: ${selectedRegions.join(", ")}`);
     }
   }, [selectedRegions, reportFilterChange]);
 
   useEffect(() => {
     if (selectedBranches.length > 0) {
-      reportFilterChange(`chi nhánh: ${selectedBranches.join(', ')}`);
+      reportFilterChange(`chi nhánh: ${selectedBranches.join(", ")}`);
     }
   }, [selectedBranches, reportFilterChange]);
 
   useEffect(() => {
     if (selectedServiceTypes.length > 0) {
-      reportFilterChange(`loại dịch vụ: ${selectedServiceTypes.join(', ')}`);
+      reportFilterChange(`loại dịch vụ: ${selectedServiceTypes.join(", ")}`);
     }
   }, [selectedServiceTypes, reportFilterChange]);
 
@@ -335,22 +397,26 @@ export default function CustomerReportPage() {
     serviceSummaryLoading,
     regionLoading,
     shopLoading,
-    top10ServicesLoading,
     top10ServicesUsageLoading,
     bottom3ServicesUsageLoading,
     bottom3ServicesRevenueLoading,
     serviceTableLoading,
+    topCustomerLoading,
+    customerStatusLoading,
+    bookingStatusLoading,
   ];
 
   const allErrorStates = [
     serviceSummaryError,
     regionError,
     shopError,
-    top10ServicesError,
     top10ServicesUsageError,
     bottom3ServicesUsageError,
     bottom3ServicesRevenueError,
     serviceTableError,
+    topCustomerError,
+    customerStatusError,
+    bookingStatusError,
   ];
 
   const isLoading = allLoadingStates.some((loading) => loading);
@@ -718,7 +784,7 @@ export default function CustomerReportPage() {
     y?: number;
     index?: number;
   }) => {
-    if (isMobile && percent !== undefined && percent < 0.00) return null;
+    if (isMobile && percent !== undefined && percent < 0.0) return null;
     if (percent !== undefined && percent < 0.05) return null;
     return (
       <text
@@ -763,15 +829,15 @@ export default function CustomerReportPage() {
   // Filter options cho region
   const regionOptions = React.useMemo(() => {
     if (!regionData) return [];
-    
+
     const regionMap = new Map<string, number>();
-    regionData.forEach(item => {
+    regionData.forEach((item) => {
       regionMap.set(item.region, (regionMap.get(item.region) || 0) + 1);
     });
-    
+
     return Array.from(regionMap.entries()).map(([name, total]) => ({
       name,
-      total
+      total,
     }));
   }, [regionData]);
 
@@ -908,6 +974,29 @@ export default function CustomerReportPage() {
           serviceTableLoading={serviceTableLoading}
           serviceTableError={serviceTableError}
           serviceData={serviceData}
+        />
+
+        <div className="flex gap-2">
+          {/* Top 10 khách hàng sử dụng dịch vụ */}
+          <ServiceTopCustomer
+            topCustomerData={topCustomerData}
+            loading={topCustomerLoading}
+            error={topCustomerError}
+          />
+
+          {/* Tỉ lệ trạng thái đặt lịch */}
+          <ServiceBookingStatusData
+            bookingStatusData={bookingStatusData}
+            loading={bookingStatusLoading}
+            error={bookingStatusError}
+          />
+        </div>
+
+        {/* Tỉ lệ khách hàng mới và cũ sử dụng dịch vụ */}
+        <ServiceNewOldCustomer
+          customerStatusData={customerStatusData}
+          loading={customerStatusLoading}
+          error={customerStatusError}
         />
       </div>
     </div>

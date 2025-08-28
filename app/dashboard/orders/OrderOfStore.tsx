@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState, useMemo } from "react";
 
 interface StoreOrderTableData {
   location: string;
@@ -13,16 +13,6 @@ interface StoreOrderTableData {
   foxieOrdersDelta: number | null;
   comboOrders: number;
   comboOrdersDelta: number | null;
-  totalOrdersRank: number;
-  cardOrdersRank: number;
-  retailOrdersRank: number;
-  foxieOrdersRank: number;
-  comboOrdersRank: number;
-  totalOrdersRankLastMonth: number;
-  cardOrdersRankLastMonth: number;
-  retailOrdersRankLastMonth: number;
-  foxieOrdersRankLastMonth: number;
-  comboOrdersRankLastMonth: number;
 }
 
 interface TotalOrderSumAll {
@@ -43,16 +33,87 @@ interface OrderOfStoreProps {
   totalOrderSumAll: TotalOrderSumAll;
 }
 
+type SortField = 'location' | 'totalOrders' | 'cardOrders' | 'retailOrders' | 'foxieOrders' | 'comboOrders';
+type SortDirection = 'asc' | 'desc';
+
 export default function OrderOfStore({
   storeOrderTableData,
   totalOrderSumAll,
 }: OrderOfStoreProps) { 
   const [isClient, setIsClient] = React.useState(false);
+  const [sortField, setSortField] = useState<SortField>('totalOrders');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   
   React.useEffect(() => {
     setIsClient(true);
   }, []);
-  
+
+  // Sort function
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  // Sort data
+  const sortedData = useMemo(() => {
+    return [...storeOrderTableData].sort((a, b) => {
+      let aValue: number | string;
+      let bValue: number | string;
+
+      switch (sortField) {
+        case 'location':
+          aValue = a.location;
+          bValue = b.location;
+          break;
+        case 'totalOrders':
+          aValue = a.totalOrders;
+          bValue = b.totalOrders;
+          break;
+        case 'cardOrders':
+          aValue = a.cardOrders;
+          bValue = b.cardOrders;
+          break;
+        case 'retailOrders':
+          aValue = a.retailOrders;
+          bValue = b.retailOrders;
+          break;
+        case 'foxieOrders':
+          aValue = a.foxieOrders;
+          bValue = b.foxieOrders;
+          break;
+        case 'comboOrders':
+          aValue = a.comboOrders;
+          bValue = b.comboOrders;
+          break;
+        default:
+          aValue = a.totalOrders;
+          bValue = b.totalOrders;
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      } else {
+        return sortDirection === 'asc' 
+          ? (aValue as number) - (bValue as number)
+          : (bValue as number) - (aValue as number);
+      }
+    });
+  }, [storeOrderTableData, sortField, sortDirection]);
+
+  // Sort indicator component
+  const SortIndicator = ({ field }: { field: SortField }) => {
+    if (sortField !== field) {
+      return <span className="text-gray-400">↕</span>;
+    }
+    return sortDirection === 'asc' ? <span className="text-blue-600">↑</span> : <span className="text-blue-600">↓</span>;
+  };
+
   // Show loading state during SSR to prevent hydration mismatch
   if (!isClient) {
     return (
@@ -63,27 +124,20 @@ export default function OrderOfStore({
         <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
           <table className="min-w-[700px] w-full text-xs sm:text-sm">
             <thead className="sticky top-0 z-10 bg-yellow-200">
-                          <tr className="bg-yellow-200 font-bold text-gray-900">
-              <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
-              <th className="px-3 py-3 text-left">Locations</th>
-              <th className="px-3 py-3 text-right ">Số đơn hàng</th>
-              <th className="px-3 py-3 text-right">Hạng</th>
-              <th className="px-3 py-3 text-right">Δ</th>
-              <th className="px-3 py-3 text-right ">Đơn mua thẻ</th>
-              <th className="px-3 py-3 text-right">Hạng</th>
-              <th className="px-3 py-3 text-right">Δ</th>
-              <th className="px-3 py-3 text-right ">Đơn dịch vụ lẻ</th>
-              <th className="px-3 py-3 text-right">Hạng</th>
-              <th className="px-3 py-3 text-right">Δ</th>
-              <th className="px-3 py-3 text-right ">
-                Đơn trả bằng thẻ Foxie
-              </th>
-              <th className="px-3 py-3 text-right">Hạng</th>
-              <th className="px-3 py-3 text-right">Δ</th>
-              <th className="px-3 py-3 text-right ">Đơn combo</th>
-              <th className="px-3 py-3 text-right">Hạng</th>
-              <th className="px-3 py-3 text-right rounded-tr-xl">Δ</th>
-            </tr>
+              <tr className="bg-yellow-200 font-bold text-gray-900">
+                <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
+                <th className="px-3 py-3 text-left">Locations</th>
+                <th className="px-3 py-3 text-right">Số đơn hàng</th>
+                <th className="px-3 py-3 text-right">Δ</th>
+                <th className="px-3 py-3 text-right">Đơn mua thẻ</th>
+                <th className="px-3 py-3 text-right">Δ</th>
+                <th className="px-3 py-3 text-right">Đơn dịch vụ lẻ</th>
+                <th className="px-3 py-3 text-right">Δ</th>
+                <th className="px-3 py-3 text-right">Đơn trả bằng thẻ Foxie</th>
+                <th className="px-3 py-3 text-right">Δ</th>
+                <th className="px-3 py-3 text-right rounded-tr-xl">Đơn Combo</th>
+                <th className="px-3 py-3 text-right">Δ</th>
+              </tr>
             </thead>
             <tbody>
               {storeOrderTableData.map((row: StoreOrderTableData, idx: number) => (
@@ -91,44 +145,14 @@ export default function OrderOfStore({
                   <td className="px-3 py-2 text-left">{idx + 1}</td>
                   <td className="px-3 py-2 text-left">{row.location}</td>
                   <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">-</td>
-                  <td className="px-3 py-2 text-right bg-yellow-100">
-                    <div className="text-center">
-                      <div>-</div>
-                      <div className="text-xs text-gray-500">(-)</div>
-                    </div>
-                  </td>
                   <td className="px-3 py-2 text-right">-</td>
                   <td className="px-3 py-2 text-right bg-[#8ed1fc]">-</td>
-                  <td className="px-3 py-2 text-right bg-yellow-100">
-                    <div className="text-center">
-                      <div>-</div>
-                      <div className="text-xs text-gray-500">(-)</div>
-                    </div>
-                  </td>
                   <td className="px-3 py-2 text-right">-</td>
                   <td className="px-3 py-2 text-right bg-[#fcb900]">-</td>
-                  <td className="px-3 py-2 text-right bg-yellow-100">
-                    <div className="text-center">
-                      <div>-</div>
-                      <div className="text-xs text-gray-500">(-)</div>
-                    </div>
-                  </td>
                   <td className="px-3 py-2 text-right">-</td>
                   <td className="px-3 py-2 text-right bg-[#a9b8c3]">-</td>
-                  <td className="px-3 py-2 text-right bg-yellow-100">
-                    <div className="text-center">
-                      <div>-</div>
-                      <div className="text-xs text-gray-500">(-)</div>
-                    </div>
-                  </td>
                   <td className="px-3 py-2 text-right">-</td>
                   <td className="px-3 py-2 text-right bg-[#98d8c8]">-</td>
-                  <td className="px-3 py-2 text-right bg-yellow-100">
-                    <div className="text-center">
-                      <div>-</div>
-                      <div className="text-xs text-gray-500">(-)</div>
-                    </div>
-                  </td>
                   <td className="px-3 py-2 text-right">-</td>
                 </tr>
               ))}
@@ -139,19 +163,14 @@ export default function OrderOfStore({
                   Tổng cộng
                 </td>
                 <td className="px-3 py-2 text-right bg-[#f8a0ca]">-</td>
-                <td className="px-3 py-2 text-right bg-gray-200">-</td>
                 <td className="px-3 py-2 text-right">-</td>
                 <td className="px-3 py-2 text-right bg-[#8ed1fc]">-</td>
-                <td className="px-3 py-2 text-right bg-gray-200">-</td>
                 <td className="px-3 py-2 text-right">-</td>
                 <td className="px-3 py-2 text-right bg-[#fcb900]">-</td>
-                <td className="px-3 py-2 text-right bg-gray-200">-</td>
                 <td className="px-3 py-2 text-right">-</td>
                 <td className="px-3 py-2 text-right bg-[#a9b8c3]">-</td>
-                <td className="px-3 py-2 text-right bg-gray-200">-</td>
                 <td className="px-3 py-2 text-right">-</td>
                 <td className="px-3 py-2 text-right bg-[#98d8c8]">-</td>
-                <td className="px-3 py-2 text-right bg-gray-200">-</td>
                 <td className="px-3 py-2 text-right rounded-br-xl">-</td>
               </tr>
             </tfoot>
@@ -171,45 +190,74 @@ export default function OrderOfStore({
           <thead className="sticky top-0 z-10 bg-yellow-200">
             <tr className="bg-yellow-200 font-bold text-gray-900">
               <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
-              <th className="px-3 py-3 text-left">Locations</th>
-              <th className="px-3 py-3 text-right ">Số đơn hàng</th>
-              <th className="px-3 py-3 text-right">Hạng</th>
-              <th className="px-3 py-3 text-right">Δ</th>
-              <th className="px-3 py-3 text-right ">Đơn mua thẻ</th>
-              <th className="px-3 py-3 text-right">Hạng</th>
-              <th className="px-3 py-3 text-right">Δ</th>
-              <th className="px-3 py-3 text-right ">Đơn dịch vụ lẻ</th>
-              <th className="px-3 py-3 text-right">Hạng</th>
-              <th className="px-3 py-3 text-right">Δ</th>
-              <th className="px-3 py-3 text-right ">
-                Đơn trả bằng thẻ Foxie
+              <th 
+                className="px-3 py-3 text-left cursor-pointer hover:bg-yellow-300 transition-colors"
+                onClick={() => handleSort('location')}
+              >
+                <div className="flex items-center justify-between">
+                  Locations
+                  <SortIndicator field="location" />
+                </div>
               </th>
-              <th className="px-3 py-3 text-right">Hạng</th>
-              <th className="px-3 py-3 text-right">Δ</th>
-              <th className="px-3 py-3 text-right ">
-                Đơn Combo
+              <th 
+                className="px-3 py-3 text-right cursor-pointer hover:bg-yellow-300 transition-colors"
+                onClick={() => handleSort('totalOrders')}
+              >
+                <div className="flex items-center justify-end gap-1">
+                  Số đơn hàng
+                  <SortIndicator field="totalOrders" />
+                </div>
               </th>
-              <th className="px-3 py-3 text-right">Hạng</th>
+              <th className="px-3 py-3 text-right">Δ</th>
+              <th 
+                className="px-3 py-3 text-right cursor-pointer hover:bg-yellow-300 transition-colors"
+                onClick={() => handleSort('cardOrders')}
+              >
+                <div className="flex items-center justify-end gap-1">
+                  Đơn mua thẻ
+                  <SortIndicator field="cardOrders" />
+                </div>
+              </th>
+              <th className="px-3 py-3 text-right">Δ</th>
+              <th 
+                className="px-3 py-3 text-right cursor-pointer hover:bg-yellow-300 transition-colors"
+                onClick={() => handleSort('retailOrders')}
+              >
+                <div className="flex items-center justify-end gap-1">
+                  Đơn dịch vụ lẻ
+                  <SortIndicator field="retailOrders" />
+                </div>
+              </th>
+              <th className="px-3 py-3 text-right">Δ</th>
+              <th 
+                className="px-3 py-3 text-right cursor-pointer hover:bg-yellow-300 transition-colors"
+                onClick={() => handleSort('foxieOrders')}
+              >
+                <div className="flex items-center justify-end gap-1">
+                  Đơn trả bằng thẻ Foxie
+                  <SortIndicator field="foxieOrders" />
+                </div>
+              </th>
+              <th className="px-3 py-3 text-right">Δ</th>
+              <th 
+                className="px-3 py-3 text-right cursor-pointer hover:bg-yellow-300 transition-colors"
+                onClick={() => handleSort('comboOrders')}
+              >
+                <div className="flex items-center justify-end gap-1">
+                  Đơn Combo
+                  <SortIndicator field="comboOrders" />
+                </div>
+              </th>
               <th className="px-3 py-3 text-right rounded-tr-xl">Δ</th>
             </tr>
           </thead>
           <tbody>
-            {storeOrderTableData.map((row: StoreOrderTableData, idx: number) => (
-              <tr key={row.location}>
+            {sortedData.map((row: StoreOrderTableData, idx: number) => (
+              <tr key={row.location} className="hover:bg-gray-50">
                 <td className="px-3 py-2 text-left">{idx + 1}</td>
                 <td className="px-3 py-2 text-left">{row.location}</td>
                 <td className="px-3 py-2 text-right bg-[#f8a0ca] font-bold">
-                  {row.totalOrders}
-                </td>
-                <td className="px-3 py-2 text-right bg-yellow-100 font-semibold">
-                  <div className="text-center">
-                    <div className={`${row.totalOrdersRank < row.totalOrdersRankLastMonth ? 'text-green-600' : row.totalOrdersRank > row.totalOrdersRankLastMonth ? 'text-red-500' : 'text-gray-600'}`}>
-                      {row.totalOrdersRank}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      ({row.totalOrdersRankLastMonth})
-                    </div>
-                  </div>
+                  {row.totalOrders.toLocaleString()}
                 </td>
                 <td
                   className={`px-3 py-2 text-right ${
@@ -229,17 +277,7 @@ export default function OrderOfStore({
                       }`}
                 </td>
                 <td className="px-3 py-2 text-right bg-[#8ed1fc]">
-                  {row.cardOrders}
-                </td>
-                <td className="px-3 py-2 text-right bg-yellow-100 font-semibold">
-                  <div className="text-center">
-                    <div className={`${row.cardOrdersRank < row.cardOrdersRankLastMonth ? 'text-green-600' : row.cardOrdersRank > row.cardOrdersRankLastMonth ? 'text-red-500' : 'text-gray-600'}`}>
-                      {row.cardOrdersRank}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      ({row.cardOrdersRankLastMonth})
-                    </div>
-                  </div>
+                  {row.cardOrders.toLocaleString()}
                 </td>
                 <td
                   className={`px-3 py-2 text-right ${
@@ -259,17 +297,7 @@ export default function OrderOfStore({
                       }`}
                 </td>
                 <td className="px-3 py-2 text-right bg-[#fcb900]">
-                  {row.retailOrders}
-                </td>
-                <td className="px-3 py-2 text-right bg-yellow-100 font-semibold">
-                  <div className="text-center">
-                    <div className={`${row.retailOrdersRank < row.retailOrdersRankLastMonth ? 'text-green-600' : row.retailOrdersRank > row.retailOrdersRankLastMonth ? 'text-red-500' : 'text-gray-600'}`}>
-                      {row.retailOrdersRank}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      ({row.retailOrdersRankLastMonth})
-                    </div>
-                  </div>
+                  {row.retailOrders.toLocaleString()}
                 </td>
                 <td
                   className={`px-3 py-2 text-right ${
@@ -289,17 +317,7 @@ export default function OrderOfStore({
                       }`}
                 </td>
                 <td className="px-3 py-2 text-right bg-[#a9b8c3]">
-                  {row.foxieOrders}
-                </td>
-                <td className="px-3 py-2 text-right bg-yellow-100 font-semibold">
-                  <div className="text-center">
-                    <div className={`${row.foxieOrdersRank < row.foxieOrdersRankLastMonth ? 'text-green-600' : row.foxieOrdersRank > row.foxieOrdersRankLastMonth ? 'text-red-500' : 'text-gray-600'}`}>
-                      {row.foxieOrdersRank}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      ({row.foxieOrdersRankLastMonth})
-                    </div>
-                  </div>
+                  {row.foxieOrders.toLocaleString()}
                 </td>
                 <td
                   className={`px-3 py-2 text-right ${
@@ -319,17 +337,7 @@ export default function OrderOfStore({
                       }`}
                 </td>
                 <td className="px-3 py-2 text-right bg-[#98d8c8]">
-                  {row.comboOrders}
-                </td>
-                <td className="px-3 py-2 text-right bg-yellow-100 font-semibold">
-                  <div className="text-center">
-                    <div className={`${row.comboOrdersRank < row.comboOrdersRankLastMonth ? 'text-green-600' : row.comboOrdersRank > row.comboOrdersRankLastMonth ? 'text-red-500' : 'text-gray-600'}`}>
-                      {row.comboOrdersRank}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      ({row.comboOrdersRankLastMonth})
-                    </div>
-                  </div>
+                  {row.comboOrders.toLocaleString()}
                 </td>
                 <td
                   className={`px-3 py-2 text-right ${
@@ -351,73 +359,43 @@ export default function OrderOfStore({
               </tr>
             ))}
           </tbody>
-                      <tfoot className="sticky bottom-0 bg-gray-100 z-20">
-              <tr className="font-bold">
-                <td colSpan={2} className="px-3 py-2 text-left rounded-bl-xl">
-                  Tổng cộng
-                </td>
-                <td className="px-3 py-2 text-right bg-[#f8a0ca]">
-                  {totalOrderSumAll.totalOrders}
-                </td>
-                <td className="px-3 py-2 text-right bg-gray-200">
-                  <div className="text-center">
-                    <div>-</div>
-                    <div className="text-xs text-gray-500">(-)</div>
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-right">
-                  {totalOrderSumAll.totalOrdersDelta}
-                </td>
-                <td className="px-3 py-2 text-right bg-[#8ed1fc]">
-                  {totalOrderSumAll.cardOrders}
-                </td>
-                <td className="px-3 py-2 text-right bg-gray-200">
-                  <div className="text-center">
-                    <div>-</div>
-                    <div className="text-xs text-gray-500">(-)</div>
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-right">
-                  {totalOrderSumAll.cardOrdersDelta}
-                </td>
-                <td className="px-3 py-2 text-right bg-[#fcb900]">
-                  {totalOrderSumAll.retailOrders}
-                </td>
-                <td className="px-3 py-2 text-right bg-gray-200">
-                  <div className="text-center">
-                    <div>-</div>
-                    <div className="text-xs text-gray-500">(-)</div>
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-right">
-                  {totalOrderSumAll.retailOrdersDelta}
-                </td>
-                <td className="px-3 py-2 text-right bg-[#a9b8c3]">
-                  {totalOrderSumAll.foxieOrders}
-                </td>
-                <td className="px-3 py-2 text-right bg-gray-200">
-                  <div className="text-center">
-                    <div>-</div>
-                    <div className="text-xs text-gray-500">(-)</div>
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-right">
-                  {totalOrderSumAll.foxieOrdersDelta}
-                </td>
-                <td className="px-3 py-2 text-right bg-[#98d8c8]">
-                  {totalOrderSumAll.comboOrders}
-                </td>
-                <td className="px-3 py-2 text-right bg-gray-200">
-                  <div className="text-center">
-                    <div>-</div>
-                    <div className="text-xs text-gray-500">(-)</div>
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-right rounded-br-xl">
-                  {totalOrderSumAll.comboOrdersDelta}
-                </td>
-              </tr>
-            </tfoot>
+          <tfoot className="sticky bottom-0 bg-gray-100 z-20">
+            <tr className="font-bold">
+              <td colSpan={2} className="px-3 py-2 text-left rounded-bl-xl">
+                Tổng cộng
+              </td>
+              <td className="px-3 py-2 text-right bg-[#f8a0ca]">
+                {totalOrderSumAll.totalOrders.toLocaleString()}
+              </td>
+              <td className="px-3 py-2 text-right">
+                {totalOrderSumAll.totalOrdersDelta}
+              </td>
+              <td className="px-3 py-2 text-right bg-[#8ed1fc]">
+                {totalOrderSumAll.cardOrders.toLocaleString()}
+              </td>
+              <td className="px-3 py-2 text-right">
+                {totalOrderSumAll.cardOrdersDelta}
+              </td>
+              <td className="px-3 py-2 text-right bg-[#fcb900]">
+                {totalOrderSumAll.retailOrders.toLocaleString()}
+              </td>
+              <td className="px-3 py-2 text-right">
+                {totalOrderSumAll.retailOrdersDelta}
+              </td>
+              <td className="px-3 py-2 text-right bg-[#a9b8c3]">
+                {totalOrderSumAll.foxieOrders.toLocaleString()}
+              </td>
+              <td className="px-3 py-2 text-right">
+                {totalOrderSumAll.foxieOrdersDelta}
+              </td>
+              <td className="px-3 py-2 text-right bg-[#98d8c8]">
+                {totalOrderSumAll.comboOrders.toLocaleString()}
+              </td>
+              <td className="px-3 py-2 text-right rounded-br-xl">
+                {totalOrderSumAll.comboOrdersDelta}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
