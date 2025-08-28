@@ -99,7 +99,7 @@ export default function ServiceNewOldCustomer({
 
       {/* Line Chart */}
       <div className="flex gap-2 items-center">
-        <div className="w-[60%] rbg-gray-50 rounded-lg">
+        <div className="w-[60%] rbg-gray-50 rounded-l">
           <div className="relative h-64 bg-gray-50 rounded-lg p-4">
             <div className="flex items-end justify-center  space-x-8">
               {/* New Customers Bar */}
