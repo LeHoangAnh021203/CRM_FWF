@@ -29,7 +29,7 @@ export async function GET(
     }
 
     // Build backend URL
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL + "/api"
+    const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL) + "/api"
     const backendUrl = queryString 
       ? `${API_BASE_URL}/${path}?${queryString}`
       : `${API_BASE_URL}/${path}`
@@ -99,7 +99,7 @@ export async function POST(
     }
 
     // Build backend URL
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL + "/api"
+    const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001") + "/api"
     const backendUrl = `${API_BASE_URL}/${path}`
     
     console.log('🔍 Proxy Debug:', {

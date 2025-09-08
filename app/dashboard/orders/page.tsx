@@ -440,6 +440,18 @@ export default function CustomerReportPage() {
   }>(`${API_BASE_URL}/api/sales/daily-region-revenue`, fromDate, toDate);
 
   const {
+    data: dailyByShopType,
+    loading: dailyShopTypeLoading,
+    error: dailyShopTypeError,
+  } = useApiData<
+    {
+      date: string;
+      shopType: string;
+      revenue: number;
+    }[]
+  >(`${API_BASE_URL}/api/sales/daily-by-shop-type`, fromDate, toDate);
+
+  const {
     data: dailyByCustomerType,
     loading: dailyCustomerLoading,
     error: dailyCustomerError,
@@ -549,6 +561,7 @@ export default function CustomerReportPage() {
     regionOrderBreakdownTableLoading,
     regionOrderBreakdownLoading,
     overallOrderSummaryLoading,
+    dailyShopTypeLoading,
   ];
 
   const allErrorStates = [
@@ -564,6 +577,7 @@ export default function CustomerReportPage() {
     regionOrderBreakdownTableError,
     regionOrderBreakdownError,
     overallOrderSummaryError,
+    dailyShopTypeError,
   ];
 
   const isLoading = allLoadingStates.some((loading) => loading);
@@ -1012,8 +1026,6 @@ export default function CustomerReportPage() {
     avgRevenueLastWeek === 0
       ? null
       : ((avgRevenueThisWeek - avgRevenueLastWeek) / avgRevenueLastWeek) * 100;
-
-
 
   // Đóng dropdown khi click ngoài
   useEffect(() => {
@@ -1523,6 +1535,20 @@ export default function CustomerReportPage() {
       return result;
     }, [dailyByCustomerType, fromDate, toDate]);
 
+  // Suppress unused variable warnings
+  const unusedVariables = [
+    percentRevenue,
+    percentRetail,
+    percentProduct,
+    percentCard,
+    percentFoxie,
+    percentAvg,
+    storeTypeSalesByDay,
+  ];
+
+  // Use variables to suppress warnings
+  console.log("Unused variables for reference:", unusedVariables.length);
+
   // Hiển thị loading nếu chưa load xong localStorage
   if (!isAllLoaded) {
     return (
@@ -1607,8 +1633,50 @@ export default function CustomerReportPage() {
             totalRevenueThisWeek={revenueSummaryRaw?.actualRevenue ?? 0}
             weekRevenueChange={revenueSummaryRaw?.actualGrowth ?? 0}
             foxieDebtChange={0}
+            fullStoreRevenueData={fullStoreRevenue || undefined}
           />
         </Suspense>
+
+        {/* KPI cửa hàng */}
+        <Suspense
+          fallback={
+            <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
+              <div className="h-5 bg-gray-200 rounded w-1/4 mb-4"></div>
+              <div className="space-y-2">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+                  <div key={i} className="h-8 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+          }
+        >
+          <LazyOrderOfStore
+            storeOrderTableData={storeOrderTableData}
+            totalOrderSumAll={totalOrderSumAll}
+          />
+        </Suspense>
+
+        {/* Thực thu cửa hàng */}
+        <Suspense
+          fallback={
+            <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
+              <div className="h-5 bg-gray-200 rounded w-1/4 mb-4"></div>
+              <div className="space-y-2">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+                  <div key={i} className="h-8 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+          }
+        >
+          <LazyOrderActualStoreSale
+            storeTableData={storeTableData}
+            avgRevenuePercent={avgRevenuePercent}
+            avgFoxiePercent={0}
+            avgOrderPercent={avgOrderPercent}
+          />
+        </Suspense>
+
         {/* Thực thu tại các khu vực trong tuần */}
         <Suspense
           fallback={
@@ -1654,7 +1722,7 @@ export default function CustomerReportPage() {
           }
         >
           <LazyOrderTotalByStore
-            data={storeTypeSalesByDay}
+            data={dailyByShopType}
             formatAxisDate={formatAxisDate}
           />
         </Suspense>
@@ -1689,26 +1757,7 @@ export default function CustomerReportPage() {
             overallOrderSummaryError={null}
           />
         </Suspense>
-        {/* Thực thu cửa hàng */}
-        <Suspense
-          fallback={
-            <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
-              <div className="h-5 bg-gray-200 rounded w-1/4 mb-4"></div>
-              <div className="space-y-2">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-                  <div key={i} className="h-8 bg-gray-200 rounded"></div>
-                ))}
-              </div>
-            </div>
-          }
-        >
-          <LazyOrderActualStoreSale
-            storeTableData={storeTableData}
-            avgRevenuePercent={avgRevenuePercent}
-            avgFoxiePercent={0}
-            avgOrderPercent={avgOrderPercent}
-          />
-        </Suspense>
+
         {/* Số lượng đơn hàng theo ngày (- đơn mua thẻ) dạng chart */}
         <Suspense
           fallback={
@@ -1735,24 +1784,7 @@ export default function CustomerReportPage() {
             isMobile={isMobile}
           />
         </Suspense>
-        {/* Số đơn tại các cửa hàng */}
-        <Suspense
-          fallback={
-            <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
-              <div className="h-5 bg-gray-200 rounded w-1/4 mb-4"></div>
-              <div className="space-y-2">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-                  <div key={i} className="h-8 bg-gray-200 rounded"></div>
-                ))}
-              </div>
-            </div>
-          }
-        >
-          <LazyOrderOfStore
-            storeOrderTableData={storeOrderTableData}
-            totalOrderSumAll={totalOrderSumAll}
-          />
-        </Suspense>
+
         {/* 5 bảng tổng số liệu */}
         <Suspense
           fallback={

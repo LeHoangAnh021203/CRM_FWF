@@ -7,6 +7,17 @@ interface OrderTotalSalesProps {
   weekRevenueChange: number | null;
   foxieDebtLastMonth?: number;
   foxieDebtChange?: number | null;
+  fullStoreRevenueData?: Array<{
+    storeName: string;
+    currentOrders: number;
+    deltaOrders: number;
+    actualRevenue: number;
+    foxieRevenue: number;
+    revenueGrowth: number;
+    revenuePercent: number;
+    foxiePercent: number;
+    orderPercent: number;
+  }>;
 }
 
 function formatBillion(val: number) {
@@ -34,9 +45,36 @@ const OrderTotalSales: React.FC<OrderTotalSalesProps> = ({
   totalRevenueThisWeek,
   weekRevenueChange,
   foxieDebtChange,
+  fullStoreRevenueData,
 }) => {
   const [showRevenueDetails, setShowRevenueDetails] = useState(false);
   const [expandedServiceDetails, setExpandedServiceDetails] = useState(false);
+
+  // Tính tổng foxie revenue từ API data
+  const totalFoxieRevenue = React.useMemo(() => {
+    if (!fullStoreRevenueData || !Array.isArray(fullStoreRevenueData)) {
+      return totalWeekSales; // Fallback to totalWeekSales if no API data
+    }
+    return fullStoreRevenueData.reduce((sum, store) => sum + (store.foxieRevenue || 0), 0);
+  }, [fullStoreRevenueData, totalWeekSales]);
+
+  // Tính phần trăm thay đổi foxie revenue
+  const foxieRevenueChange = React.useMemo(() => {
+    if (!fullStoreRevenueData || !Array.isArray(fullStoreRevenueData)) {
+      return weekSalesChange; // Fallback to weekSalesChange if no API data
+    }
+    
+    // Tính tổng foxie revenue hiện tại và trước đó (giả lập từ delta)
+    const currentFoxieTotal = fullStoreRevenueData.reduce((sum, store) => sum + (store.foxieRevenue || 0), 0);
+    const previousFoxieTotal = fullStoreRevenueData.reduce((sum, store) => {
+      // Ước tính foxie revenue trước đó dựa trên foxiePercent
+      const estimatedPreviousFoxie = store.foxieRevenue / (1 + (store.foxiePercent / 100));
+      return sum + estimatedPreviousFoxie;
+    }, 0);
+    
+    if (previousFoxieTotal === 0) return 0;
+    return ((currentFoxieTotal - previousFoxieTotal) / previousFoxieTotal) * 100;
+  }, [fullStoreRevenueData, weekSalesChange]);
 
   // Giả lập dữ liệu chi tiết thực thu
   const revenueDetails = [
@@ -82,24 +120,24 @@ const OrderTotalSales: React.FC<OrderTotalSalesProps> = ({
   return (
     <>
       <div className="flex flex-col md:flex-row gap-4 mt-4">
-        {/* Tổng doanh số trong tuần */}
+        {/* Tổng trả thẻ foxie */}
         <div className="flex-1 bg-white rounded-xl shadow-lg p-4 sm:p-6 flex flex-col items-center justify-center min-w-[180px]">
           <div className="text-base sm:text-xl font-medium text-gray-700 mb-2 text-center">
-            Tổng doanh số
+            Tổng trả thẻ Foxie
           </div>
           <div className="text-3xl sm:text-5xl font-bold text-black mb-2">
-            {formatBillion(totalWeekSales)}
+            {formatBillion(totalFoxieRevenue)}
           </div>
           <div
             className={`flex items-center gap-1 text-lg sm:text-2xl font-semibold ${
-              weekSalesChange === null
+              foxieRevenueChange === null
                 ? "text-gray-500"
-                : weekSalesChange > 0
+                : foxieRevenueChange > 0
                 ? "text-green-600"
                 : "text-red-500"
             }`}
           >
-            {weekSalesChange === null ? "N/A" : `${Math.abs(weekSalesChange)}%`}
+            {foxieRevenueChange === null ? "N/A" : `${Math.abs(foxieRevenueChange).toFixed(1)}%`}
           </div>
         </div>
 

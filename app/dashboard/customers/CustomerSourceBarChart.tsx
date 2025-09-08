@@ -100,61 +100,79 @@ const CustomerSourceBarChart: React.FC<CustomerSourceBarChartProps> = ({
               fontSize: isMobile ? 9 : 14,
             }}
           />
-          {customerSourceKeys.map((source: string, idx: number) => (
-            <Bar
-              key={source}
-              dataKey={source}
-              fill={COLORS[idx % COLORS.length]}
-              name={source}
-              label={
-                isMobile
-                  ? undefined
-                  : (props: {
-                      x?: number;
-                      y?: number;
-                      width?: number;
-                      value?: number;
-                      index?: number;
-                    }) => {
-                      const { x, y, width, value, index } = props;
-                      if (
-                        typeof index !== "number" ||
-                        index < 0 ||
-                        typeof x !== "number" ||
-                        typeof y !== "number" ||
-                        typeof width !== "number"
-                      ) {
+          {customerSourceKeys.map((source: string, idx: number) => {
+            // Màu sắc tùy chỉnh cho từng nguồn
+            const getCustomColor = (sourceName: string) => {
+              switch (sourceName) {
+                case 'Fanpage':
+                  return '#3B82F6'; // Blue
+                case 'App':
+                  return '#10B981'; // Green
+                case 'Ecommerce':
+                  return '#F59E0B'; // Orange
+                case 'Vãng lai':
+                  return '#EF4444'; // Red
+                default:
+                  return COLORS[idx % COLORS.length];
+              }
+            };
+
+            return (
+              <Bar
+                key={source}
+                dataKey={source}
+                fill={getCustomColor(source)}
+                name={source}
+                              label={
+                  isMobile
+                    ? undefined
+                    : (props: {
+                        x?: number;
+                        y?: number;
+                        width?: number;
+                        value?: number;
+                        index?: number;
+                      }) => {
+                        const { x, y, width, value, index } = props;
+                        if (
+                          typeof index !== "number" ||
+                          index < 0 ||
+                          typeof x !== "number" ||
+                          typeof y !== "number" ||
+                          typeof width !== "number"
+                        ) {
+                          // Trả về 1 <g /> rỗng thay vì null
+                          return <g />;
+                        }
+                        const d = customerSourceTrendData[index] as Record<string, number>;
+                        if (!d) return <g />;
+                        // Tìm giá trị lớn nhất trong các nguồn tại ngày đó
+                        const max = Math.max(
+                          ...customerSourceKeys.map((k: string) =>
+                            Number(d[k] || 0)
+                          )
+                        );
+                        if (value === max && value > 0) {
+                          return (
+                            <text
+                              x={x + width / 2}
+                              y={y - 5}
+                              textAnchor="middle"
+                              fill={getCustomColor(source)}
+                              fontSize={14}
+                              fontWeight={600}
+                            >
+                              {value}
+                            </text>
+                          );
+                        }
                         // Trả về 1 <g /> rỗng thay vì null
                         return <g />;
                       }
-                      const d = customerSourceTrendData[index] as Record<string, number>;
-                      if (!d) return <g />;
-                      // Tìm giá trị lớn nhất trong các nguồn tại ngày đó
-                      const max = Math.max(
-                        ...customerSourceKeys.map((k: string) =>
-                          Number(d[k] || 0)
-                        )
-                      );
-                      if (value === max && value > 0) {
-                        return (
-                          <text
-                            x={x + width / 2}
-                            y={y - 5}
-                            textAnchor="middle"
-                            fill={COLORS[idx % COLORS.length]}
-                            fontSize={14}
-                            fontWeight={600}
-                          >
-                            {value}
-                          </text>
-                        );
-                      }
-                      // Trả về 1 <g /> rỗng thay vì null
-                      return <g />;
-                    }
-              }
-            />
-          ))}
+                }
+              />
+            );
+          })}
         </BarChart>
       </ResponsiveContainer>
     </div>

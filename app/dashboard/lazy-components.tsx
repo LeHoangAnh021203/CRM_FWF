@@ -31,3 +31,8 @@ export const QuickActions = lazy(() =>
     default: module.QuickActions,
   })),
 );
+export const TopSaleChart = lazy(() =>
+  import("./TopSaleChart").then((module) => ({
+    default: module.default,
+  })),
+);

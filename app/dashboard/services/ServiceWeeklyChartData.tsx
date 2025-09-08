@@ -12,6 +12,49 @@ import {
   LabelList,
 } from "recharts";
 
+// Custom Tooltip component
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    value: number;
+    name: string;
+    color: string;
+  }>;
+  label?: string;
+}
+
+const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
+  if (active && payload && payload.length) {
+    const total = payload.reduce((sum, item) => sum + (item.value || 0), 0);
+    
+    return (
+      <div className="bg-white p-4 border border-gray-300 rounded-lg shadow-lg">
+        <p className="font-semibold text-gray-800 mb-2">{label}</p>
+        <div className="space-y-1">
+          {payload.map((item, index) => (
+            <div key={index} className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div 
+                  className="w-3 h-3 rounded-sm" 
+                  style={{ backgroundColor: item.color }}
+                ></div>
+                <span className="text-sm">{item.name}:</span>
+              </div>
+              <span className="font-medium">{item.value?.toLocaleString()}</span>
+            </div>
+          ))}
+          <hr className="my-2" />
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-semibold">Tổng:</span>
+            <span className="font-bold text-blue-600">{total.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 interface WeeklyServiceChartDataProps {
   weeklyServiceChartData: Array<{
     date: string;
@@ -29,6 +72,20 @@ export default function WeeklyServiceChartData({
   weeklyServiceChartData,
   isMobile,
 }: WeeklyServiceChartDataProps) {
+  // Tính tổng số dịch vụ
+  const totalServices = weeklyServiceChartData.reduce((sum, day) => 
+    sum + (day.combo || 0) + (day.service || 0) + (day.addedon || 0) + (day.foxcard || 0), 0
+  );
+  
+  const totalDays = weeklyServiceChartData.length;
+  const avgPerDay = totalDays > 0 ? Math.round(totalServices / totalDays) : 0;
+  
+  // Tìm ngày có nhiều dịch vụ nhất
+  const peakDay = weeklyServiceChartData.reduce((peak, day) => {
+    const dayTotal = (day.combo || 0) + (day.service || 0) + (day.addedon || 0) + (day.foxcard || 0);
+    const peakTotal = (peak.combo || 0) + (peak.service || 0) + (peak.addedon || 0) + (peak.foxcard || 0);
+    return dayTotal > peakTotal ? day : peak;
+  }, weeklyServiceChartData[0] || { date: '', combo: 0, service: 0, addedon: 0, foxcard: 0 });
 
   // Create a map of max values for each date
   const maxValuesByDate = React.useMemo(() => {
@@ -94,7 +151,27 @@ export default function WeeklyServiceChartData({
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
       <div className="text-sm sm:text-base md:text-xl font-medium text-gray-700 text-center mb-4">
-        Tổng dịch vụ thực hiện trong tuần
+        Tổng dịch vụ thực hiện
+      </div>
+      
+      {/* Thống kê tổng quan */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-blue-600">{totalServices.toLocaleString()}</div>
+          <div className="text-sm text-gray-600">Tổng dịch vụ</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-green-600">{avgPerDay.toLocaleString()}</div>
+          <div className="text-sm text-gray-600">Trung bình/ngày</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-purple-600">
+            {((peakDay.combo || 0) + (peakDay.service || 0) + (peakDay.addedon || 0) + (peakDay.foxcard || 0)).toLocaleString()}
+          </div>
+          <div className="text-sm text-gray-600">
+            Ngày cao nhất: {peakDay.date}
+          </div>
+        </div>
       </div>
       <div className="w-full overflow-x-auto">
         <ResponsiveContainer width="100%" height={isMobile ? 300 : 400} minWidth={280}>
@@ -168,15 +245,7 @@ export default function WeeklyServiceChartData({
               width={isMobile ? 60 : 80}
               domain={[0, maxValue]}
             />
-            <Tooltip
-              contentStyle={{
-                fontSize: isMobile ? 12 : 14,
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                border: '1px solid #ccc',
-                borderRadius: '4px',
-                padding: '8px'
-              }}
-            />
+            <Tooltip content={<CustomTooltip />} />
             <Legend 
               wrapperStyle={{
                 fontSize: isMobile ? 10 : 12,
@@ -220,12 +289,12 @@ export default function WeeklyServiceChartData({
                 }}
               />
             </Bar>
-            <Bar dataKey="service" name="Dịch vụ" fill="#c5e1a5" maxBarSize={isMobile ? 80 : 120}>
+            <Bar dataKey="service" name="Dịch vụ" fill="#689F38" maxBarSize={isMobile ? 80 : 120}>
               <LabelList 
                 dataKey="service" 
                 position="top" 
                 fontSize={isMobile ? 10 : 12} 
-                fill="#c5e1a5"
+                fill="#689F38"
                 formatter={(value: React.ReactNode) => {
                   if (typeof value === "number" && value === 0) {
                     return "";
@@ -257,7 +326,7 @@ export default function WeeklyServiceChartData({
                 }}
               />
             </Bar>
-            <Bar dataKey="addedon" name="Added on" fill="#f16a3f" maxBarSize={isMobile ? 80 : 120}>
+            <Bar dataKey="addedon" name="Cộng thêm" fill="#f16a3f" maxBarSize={isMobile ? 80 : 120}>
               <LabelList 
                 dataKey="addedon" 
                 position="top" 

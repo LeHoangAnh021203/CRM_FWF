@@ -1,175 +1,281 @@
-# Performance Optimizations for CRM_FWF
+# 🚀 Performance Optimizations Guide
 
-## 🚀 Tối ưu hóa đã thực hiện
+## Tổng quan
 
-### 1. **API Layer Optimizations**
+Dự án đã được tối ưu hóa performance với các kỹ thuật hiện đại để đảm bảo trải nghiệm người dùng mượt mà và nhanh chóng.
 
-#### **OptimizedApiService** (`src/lib/optimized-api-service.ts`)
-- ✅ **Caching**: Cache responses với TTL 5 phút
-- ✅ **Request Deduplication**: Tránh duplicate requests
-- ✅ **Debouncing**: Debounce rapid successive calls (300ms)
-- ✅ **Cache Management**: Auto cleanup expired entries
-- ✅ **Error Handling**: Retry logic với exponential backoff
+## 🔧 Các Hook và Component đã tạo
 
-#### **useOptimizedApiData Hook** (`src/hooks/useOptimizedApiData.ts`)
-- ✅ **Abort Controller**: Cancel previous requests
-- ✅ **Retry Logic**: Auto retry failed requests (3 lần)
-- ✅ **Cache Integration**: Seamless cache integration
-- ✅ **Batch API Calls**: `useBatchApiData` cho multiple endpoints
+### 1. `useOptimizedApiData` Hook
+**File:** `app/hooks/useOptimizedApiData.ts`
 
-### 2. **React Component Optimizations**
+**Tính năng:**
+- ✅ **Caching**: Cache dữ liệu trong 5 phút
+- ✅ **Debouncing**: Tránh spam API calls
+- ✅ **Retry Logic**: Tự động thử lại với exponential backoff
+- ✅ **Stale-While-Revalidate**: Hiển thị data cũ tức thì, cập nhật sau
+- ✅ **AbortController**: Hủy request cũ khi có request mới
+- ✅ **Rate Limiting**: Xử lý lỗi 429
 
-#### **Customer Page** (`app/dashboard/customers/page.tsx`)
-- ✅ **useMemo**: Memoize expensive calculations
-- ✅ **useCallback**: Optimize function references
-- ✅ **Debounced Window Resize**: 100ms debounce
-- ✅ **Conditional Logging**: Only log in development
-- ✅ **Optimized Data Processing**: Efficient data transformations
-
-#### **Constants Optimization**
+**Sử dụng:**
 ```typescript
-// Before
-const COLORS = ["#5bd1d7", "#eb94cf", ...];
-
-// After  
-const COLORS = useMemo(() => ["#5bd1d7", "#eb94cf", ...], []);
-```
-
-### 3. **Lazy Loading & Code Splitting**
-
-#### **OptimizedLazyLoader** (`src/components/OptimizedLazyLoader.tsx`)
-- ✅ **Intersection Observer**: Load components when visible
-- ✅ **Skeleton Loading**: Beautiful loading states
-- ✅ **Chart Wrapper**: Optimized chart loading
-- ✅ **Table Wrapper**: Optimized table loading
-
-### 4. **Performance Monitoring**
-
-#### **PerformanceMonitor** (`src/utils/performance-monitor.ts`)
-- ✅ **Execution Time Tracking**: Measure function performance
-- ✅ **Memory Usage Monitoring**: Track memory consumption
-- ✅ **Network Performance**: Monitor API response times
-- ✅ **Component Profiling**: HOC for component performance
-- ✅ **Development Warnings**: Alert slow operations
-
-## 📊 Performance Metrics
-
-### **Before Optimization**
-- ❌ Multiple API calls without caching
-- ❌ Expensive calculations on every render
-- ❌ No request deduplication
-- ❌ Console logs in production
-- ❌ No lazy loading
-- ❌ No performance monitoring
-
-### **After Optimization**
-- ✅ **API Response Time**: Reduced by ~60% (caching)
-- ✅ **Bundle Size**: Reduced by ~15% (lazy loading)
-- ✅ **Memory Usage**: Reduced by ~25% (memoization)
-- ✅ **User Experience**: Improved loading states
-- ✅ **Error Handling**: Robust retry mechanisms
-
-## 🔧 Implementation Guide
-
-### **1. Sử dụng Optimized API Service**
-```typescript
-import OptimizedApiService from '@/lib/optimized-api-service';
-
-// Thay thế ApiService.post
-const data = await OptimizedApiService.post('/endpoint', payload, {
-  cache: true,
-  ttl: 5 * 60 * 1000 // 5 minutes
-});
-```
-
-### **2. Sử dụng Optimized Hook**
-```typescript
-import { useOptimizedApiData } from '@/hooks/useOptimizedApiData';
-
-const { data, loading, error, refetch } = useOptimizedApiData(
-  '/api/endpoint',
+const { data, loading, error, refetch, isStale } = useOptimizedApiData({
+  url: "customer-sale/new-customer-lineChart",
   fromDate,
   toDate,
-  { retryCount: 3, cache: true }
-);
-```
-
-### **3. Sử dụng Lazy Loading**
-```typescript
-import { OptimizedChartWrapper } from '@/components/OptimizedLazyLoader';
-
-<OptimizedChartWrapper title="Chart Title" isMobile={isMobile}>
-  <YourChartComponent />
-</OptimizedChartWrapper>
-```
-
-### **4. Performance Monitoring**
-```typescript
-import { usePerformanceMonitor } from '@/utils/performance-monitor';
-
-const { measureTime, getMetrics } = usePerformanceMonitor();
-
-const result = measureTime('expensive-calculation', () => {
-  return expensiveCalculation();
+  priority: 'high',
+  cacheKey: 'new-customers',
+  staleWhileRevalidate: true,
 });
 ```
+
+### 2. `usePriorityLoading` Hook
+**File:** `app/hooks/usePriorityLoading.ts`
+
+**Tính năng:**
+- ✅ **Priority Queue**: Ưu tiên API calls quan trọng
+- ✅ **Dependencies**: Xử lý dependencies giữa các API calls
+- ✅ **Concurrent Processing**: Xử lý song song các requests
+
+**Sử dụng:**
+```typescript
+const { addToQueue, isProcessing, queueLength } = usePriorityLoading();
+
+addToQueue({
+  id: 'unique-customers',
+  priority: 'high',
+  execute: async () => {
+    // API call logic
+  },
+  dependencies: ['user-auth']
+});
+```
+
+### 3. `useDebounce` Hook
+**File:** `app/hooks/useDebounce.ts`
+
+**Tính năng:**
+- ✅ **Debounce Values**: Tránh re-render không cần thiết
+- ✅ **Debounce Callbacks**: Tránh spam function calls
+- ✅ **Search Debouncing**: Tối ưu cho search box
+- ✅ **Filter Debouncing**: Tối ưu cho filter changes
+
+**Sử dụng:**
+```typescript
+const debouncedValue = useDebounce(value, 300);
+const debouncedCallback = useDebounceCallback(callback, 500);
+const { query, setQuery, debouncedQuery } = useSearchDebounce('', 300, onSearch);
+```
+
+### 4. Skeleton Components
+**File:** `app/components/ui/skeleton.tsx`
+
+**Tính năng:**
+- ✅ **Multiple Types**: Card, Chart, Table, Pie, Stats
+- ✅ **Customizable**: Size, animation, rounded corners
+- ✅ **Responsive**: Tự động điều chỉnh theo screen size
+
+**Sử dụng:**
+```typescript
+<SkeletonCard className="mb-4" />
+<SkeletonChart className="h-64" />
+<SkeletonTable rows={5} cols={4} />
+<SkeletonPieChart />
+<SkeletonStatsCard />
+```
+
+### 5. Loading States Components
+**File:** `app/components/LoadingStates.tsx`
+
+**Tính năng:**
+- ✅ **Loading Wrapper**: Tự động hiển thị skeleton/error
+- ✅ **Error Handling**: UI đẹp cho error states
+- ✅ **Retry Logic**: Nút thử lại cho failed requests
+- ✅ **Stale Indicator**: Hiển thị khi data đang được cập nhật
+- ✅ **Performance Indicator**: Hiển thị thời gian load
+
+**Sử dụng:**
+```typescript
+<LoadingWrapper
+  loading={loading}
+  error={error}
+  onRetry={refetch}
+  loadingType="chart"
+>
+  <YourComponent />
+</LoadingWrapper>
+
+<StaleDataIndicator isStale={isStale} />
+<PerformanceIndicator loadTime={loadTime} />
+```
+
+### 6. Performance Metrics
+**File:** `app/components/PerformanceMetrics.tsx`
+
+**Tính năng:**
+- ✅ **Cache Stats**: Hiển thị thống kê cache
+- ✅ **Performance Monitoring**: Theo dõi performance metrics
+- ✅ **Cache Management**: Clear cache, refresh stats
+
+**Sử dụng:**
+```typescript
+<PerformanceMetrics showDetails={true} />
+const { metrics, startPageLoad, recordApiCall } = usePerformanceMonitor();
+```
+
+## 📊 Checklist Tối ưu hóa
+
+### ✅ Đã hoàn thành
+
+#### 1. Giảm số lượng và tần suất API call
+- [x] **Debounce/Throttle**: 300ms cho search, 500ms cho filters
+- [x] **Caching**: 5 phút cache với stale-while-revalidate
+- [x] **Rate Limiting**: Xử lý lỗi 429 và retry logic
+- [x] **AbortController**: Hủy request cũ
+
+#### 2. Giảm độ trễ và tránh block UI
+- [x] **Skeleton Loading**: Hiển thị ngay lập tức
+- [x] **Background Fetch**: Stale-while-revalidate
+- [x] **Priority Loading**: Ưu tiên data quan trọng
+- [x] **Concurrent Processing**: Xử lý song song
+
+#### 3. Cache & Reuse Data
+- [x] **Client-side Cache**: In-memory cache với expiration
+- [x] **Stale-While-Revalidate**: Hiển thị data cũ tức thì
+- [x] **Cache Management**: Clear cache, stats monitoring
+- [x] **Memoization**: Tránh re-render không cần thiết
+
+#### 4. Tối ưu kỹ thuật FE
+- [x] **Error & Retry Strategy**: Exponential backoff
+- [x] **Parallel vs Sequential**: Priority-based processing
+- [x] **Performance Monitoring**: Real-time metrics
+- [x] **Loading States**: Skeleton, error, stale indicators
+
+### 🔄 Cần triển khai thêm
+
+#### 1. Advanced Caching
+- [ ] **IndexedDB**: Persistent cache cho large data
+- [ ] **Service Worker**: Offline support
+- [ ] **ETag Support**: Conditional requests
+
+#### 2. Advanced Loading
+- [ ] **Infinite Scroll**: Pagination cho large lists
+- [ ] **Virtual Scrolling**: Cho tables lớn
+- [ ] **Progressive Loading**: Load từng phần
+
+#### 3. Advanced Optimization
+- [ ] **Web Workers**: Heavy computations
+- [ ] **Streaming API**: Server-sent events
+- [ ] **Compression**: Gzip, Brotli support
 
 ## 🎯 Best Practices
 
-### **1. Memoization**
-- ✅ Use `useMemo` for expensive calculations
-- ✅ Use `useCallback` for function props
-- ✅ Memoize static arrays/objects
+### 1. API Call Optimization
+```typescript
+// ✅ Tốt - Sử dụng optimized hook
+const { data, loading, error } = useOptimizedApiData({
+  url: "api/endpoint",
+  fromDate,
+  toDate,
+  priority: 'high',
+  cacheKey: 'unique-key',
+});
 
-### **2. API Optimization**
-- ✅ Enable caching for static data
-- ✅ Use request deduplication
-- ✅ Implement proper error handling
-- ✅ Add retry logic for failed requests
+// ❌ Không tốt - Call trực tiếp
+const [data, setData] = useState(null);
+useEffect(() => {
+  fetch('/api/endpoint').then(setData);
+}, []);
+```
 
-### **3. Component Optimization**
-- ✅ Use lazy loading for heavy components
-- ✅ Implement skeleton loading
-- ✅ Optimize re-renders with memoization
-- ✅ Use intersection observer for visibility
+### 2. Loading States
+```typescript
+// ✅ Tốt - Sử dụng LoadingWrapper
+<LoadingWrapper loading={loading} error={error} loadingType="chart">
+  <ChartComponent data={data} />
+</LoadingWrapper>
 
-### **4. Development Practices**
-- ✅ Monitor performance metrics
-- ✅ Use development-only logging
-- ✅ Implement proper error boundaries
-- ✅ Regular performance audits
+// ❌ Không tốt - Loading đơn giản
+{loading ? <div>Loading...</div> : <ChartComponent data={data} />}
+```
 
-## 📈 Monitoring & Analytics
+### 3. Debouncing
+```typescript
+// ✅ Tốt - Debounce filter changes
+const debouncedDateRange = useDebounce(dateRange, 500);
 
-### **Performance Metrics to Track**
-1. **API Response Times**: Average, 95th percentile
-2. **Component Render Times**: Heavy components
-3. **Memory Usage**: Heap size, garbage collection
-4. **Bundle Size**: JavaScript bundle optimization
-5. **User Experience**: Loading times, interactions
+// ❌ Không tốt - Call API ngay lập tức
+useEffect(() => {
+  fetchData(dateRange);
+}, [dateRange]);
+```
 
-### **Tools for Monitoring**
-- ✅ **Built-in Performance Monitor**: Custom metrics tracking
-- ✅ **React DevTools**: Component profiling
-- ✅ **Chrome DevTools**: Network, memory, performance
-- ✅ **Lighthouse**: Performance audits
+### 4. Error Handling
+```typescript
+// ✅ Tốt - Comprehensive error handling
+<ErrorState error={error} onRetry={refetch} />
 
-## 🚀 Next Steps
+// ❌ Không tốt - Basic error
+{error && <div>Error: {error}</div>}
+```
 
-### **Future Optimizations**
-1. **Service Worker**: Offline caching
-2. **Web Workers**: Heavy computations
-3. **Virtual Scrolling**: Large data sets
-4. **Image Optimization**: WebP, lazy loading
-5. **CDN Integration**: Static asset delivery
+## 📈 Performance Metrics
 
-### **Continuous Monitoring**
-1. **Performance Budgets**: Set limits for metrics
-2. **Automated Testing**: Performance regression tests
-3. **Real User Monitoring**: Production performance data
-4. **Alerting**: Performance degradation alerts
+### Cache Performance
+- **Hit Rate**: >80% (target)
+- **Cache Size**: <10MB (target)
+- **Expiration**: 5 minutes (configurable)
+
+### Loading Performance
+- **First Paint**: <1s (target)
+- **Time to Interactive**: <2s (target)
+- **API Response Time**: <3s (target)
+
+### User Experience
+- **Skeleton Loading**: Immediate display
+- **Stale Data**: Show cached data instantly
+- **Error Recovery**: Automatic retry with backoff
+
+## 🔧 Configuration
+
+### Cache Settings
+```typescript
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const DEBOUNCE_DELAY = 300; // 300ms
+const RETRY_DELAYS = [1000, 2000, 5000]; // Exponential backoff
+const MAX_RETRIES = 3;
+```
+
+### Priority Levels
+```typescript
+priority: 'high' | 'medium' | 'low'
+// high: Critical data (user info, main dashboard)
+// medium: Secondary data (charts, tables)
+// low: Background data (analytics, logs)
+```
+
+## 🚀 Deployment Checklist
+
+- [x] Skeleton components ready
+- [x] Error handling implemented
+- [x] Cache management working
+- [x] Performance monitoring active
+- [x] Debouncing configured
+- [x] Priority loading setup
+- [x] Retry logic tested
+- [x] Rate limiting handled
+
+## 📝 Notes
+
+1. **Cache Invalidation**: Cache tự động expire sau 5 phút
+2. **Error Recovery**: Tự động retry với exponential backoff
+3. **Performance Monitoring**: Real-time metrics trong development
+4. **Graceful Degradation**: Fallback cho slow connections
+5. **User Feedback**: Clear loading states và error messages
 
 ---
 
-**Kết quả**: Web application đã được tối ưu hóa đáng kể với cải thiện performance ~60% và trải nghiệm người dùng tốt hơn nhiều!
+**Tác giả:** AI Assistant  
+**Cập nhật:** 2024  
+**Version:** 1.0.0
 

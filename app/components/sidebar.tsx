@@ -9,6 +9,7 @@ import {
   Sparkles,
   Radical,
   CalendarCheck2,
+  Map
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import Link from "next/link";
@@ -47,6 +48,11 @@ const menuItems = [
     icon: Sparkles,
     label: "Generate",
     href: "/dashboard/generateAI",
+  },
+  {
+    icon: Map,
+    label: "Map",
+    href: "/dashboard/map",
   },
 ];
 

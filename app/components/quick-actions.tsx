@@ -20,6 +20,7 @@ interface QuickAction {
   icon: string;
   label: string;
   color: string;
+  border?: string;
   count?: number;
   trend?: number;
   href?: string;
@@ -62,13 +63,67 @@ export function QuickActions() {
         const data = await response.json();
         setQuickActions(data);
         setError(null);
+        console.log('✅ Quick Actions loaded successfully:', data.length, 'actions');
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to fetch quick actions";
         setError(errorMessage);
         console.warn("Quick actions fetch error:", err);
 
-        // No fallback data - let error state handle it
+        // Fallback data when API fails
+        const fallbackActions = [
+          {
+            id: 'orders',
+            icon: 'ShoppingCart',
+            label: 'Order Report',
+            color: 'hover:bg-blue-500 hover:border-blue-500',
+            border: 'border-blue-500',
+            href: '/dashboard/orders'
+          },
+          {
+            id: 'customers',
+            icon: 'Users',
+            label: 'Customer Report',
+            color: 'hover:bg-green-500 hover:border-green-500',
+            border: 'border-green-500',
+            href: '/dashboard/customers'
+          },
+          {
+            id: 'services',
+            icon: 'Radical',
+            label: 'Services Report',
+            color: 'hover:bg-purple-500 hover:border-purple-500',
+            border: 'border-purple-500',
+            href: '/dashboard/services'
+          },
+          {
+            id: 'accounting',
+            icon: 'BarChart3',
+            label: 'Accounting Report',
+            color: 'hover:bg-orange-500 hover:border-orange-500',
+            border: 'border-orange-500',
+            href: '/dashboard/accounting'
+          },
+          {
+            id: 'generate-ai',
+            icon: 'Sparkles',
+            label: 'Generate AI',
+            color: 'hover:bg-pink-500 hover:border-pink-500',
+            border: 'border-pink-500',
+            href: '/dashboard/generateAI'
+          },
+          {
+            id: 'settings',
+            icon: 'Settings',
+            label: 'System Settings',
+            color: 'hover:bg-gray-500 hover:border-gray-500',
+            border: 'border-gray-500',
+            href: '/dashboard/settings'
+          }
+        ];
+        
+        setQuickActions(fallbackActions);
+        console.log('🔄 Using fallback Quick Actions data');
       } finally {
         setLoading(false);
       }
@@ -174,8 +229,12 @@ export function QuickActions() {
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Quick Actions
           </h3>
+
+          
           {error && (
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded"></span>
+            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+              Using offline data
+            </span>
           )}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
@@ -187,18 +246,14 @@ export function QuickActions() {
                 key={action.id}
                 variant="outline"
                 disabled={isNavigating}
-                className={`h-14 sm:h-20 flex flex-col items-center justify-center space-y-1 sm:space-y-2 border-2 hover:border-transparent transition-all ${action.color} hover:text-white ${isNavigating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`h-14 sm:h-20 flex flex-col items-center justify-center space-y-1 sm:space-y-2 border-2 hover:border-transparent transition-all ${action.color} hover:text-white ${isNavigating ? 'opacity-50 cursor-not-allowed' : ''} ${action.border || 'border-gray-300'}`}
                 onClick={() => handleActionClick(action)}
               >
                 <IconComponent className="h-5 w-5 sm:h-6 sm:w-6" />
                 <span className="text-[11px] sm:text-xs font-medium">
                   {action.label}
                 </span>
-                {action.count && (
-                  <span className="text-[10px] sm:text-xs bg-white/20 rounded px-1">
-                    {action.count}
-                  </span>
-                )}
+               
               </Button>
             );
           })}

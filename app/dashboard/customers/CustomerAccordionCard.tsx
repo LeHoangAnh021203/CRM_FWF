@@ -133,7 +133,7 @@ const CustomerAccordionCard: React.FC<CustomerAccordionCardProps> = ({
                   </div>
                   <div className="bg-green-50 p-3 rounded-lg">
                     <div className="text-sm text-gray-600">
-                      Trung bình đơn dịch vụ nam
+                      Trung bình đơn thẻ foxie nam
                     </div>
                     <div className="text-lg font-bold text-green-700">
                       {avgServiceMale?.toLocaleString() ?? 0}{" "}
@@ -198,7 +198,7 @@ const CustomerAccordionCard: React.FC<CustomerAccordionCardProps> = ({
                   </div>
                   <div className="bg-purple-50 p-3 rounded-lg">
                     <div className="text-sm text-gray-600">
-                      Trung bình đơn dịch vụ nữ
+                      Trung bình đơn thẻ foxie nữ
                     </div>
                     <div className="text-lg font-bold text-purple-700">
                       {avgServiceFemale?.toLocaleString() ?? 0}{" "}

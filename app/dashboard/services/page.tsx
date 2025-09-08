@@ -11,9 +11,7 @@ import ServiceStatCards from "./ServiceStatCards";
 import ServiceStoreChartData from "./ServiceStoreChartData";
 import ServicesRegionData from "./ServicesRegionData";
 import ServicesTable from "./ServicesTable";
-import ServiceTopCustomer from "./ServiceTopCustomer";
 import ServiceNewOldCustomer from "./ServiceNewOldCustomer";
-import ServiceBookingStatusData from "./ServiceBookingStatusData";
 import { Notification, useNotification } from "@/app/components/notification";
 import {
   useLocalStorageState,
@@ -92,21 +90,10 @@ interface ServiceTableData {
   revenuePercent: number;
 }
 
-interface TopCustomerData {
-  phoneNumber: string;
-  customerName: string;
-  bookingCount: number;
-}
-
 interface CustomerStatusData {
   newCustomers: number;
   returningCustomers: number;
 }
-
-type BookingStatusData = {
-  status: string;
-  count: number;
-}[];
 
 const API_BASE_URL = "/api/proxy";
 
@@ -319,31 +306,11 @@ export default function CustomerReportPage() {
   );
 
   const {
-    data: topCustomerData,
-    loading: topCustomerLoading,
-    error: topCustomerError,
-  } = useApiData<TopCustomerData[]>(
-    `${API_BASE_URL}/api/booking/top-customers`,
-    fromDate,
-    toDate
-  );
-
-  const {
     data: customerStatusData,
     loading: customerStatusLoading,
     error: customerStatusError,
   } = useApiData<CustomerStatusData>(
     `${API_BASE_URL}/api/booking/customer-status-ratio`,
-    fromDate,
-    toDate
-  );
-
-  const {
-    data: bookingStatusData,
-    loading: bookingStatusLoading,
-    error: bookingStatusError,
-  } = useApiData<BookingStatusData>(
-    `${API_BASE_URL}/api/booking/booking-status-stats`,
     fromDate,
     toDate
   );
@@ -401,9 +368,7 @@ export default function CustomerReportPage() {
     bottom3ServicesUsageLoading,
     bottom3ServicesRevenueLoading,
     serviceTableLoading,
-    topCustomerLoading,
     customerStatusLoading,
-    bookingStatusLoading,
   ];
 
   const allErrorStates = [
@@ -414,9 +379,7 @@ export default function CustomerReportPage() {
     bottom3ServicesUsageError,
     bottom3ServicesRevenueError,
     serviceTableError,
-    topCustomerError,
     customerStatusError,
-    bookingStatusError,
   ];
 
   const isLoading = allLoadingStates.some((loading) => loading);
@@ -569,12 +532,24 @@ export default function CustomerReportPage() {
     // Nhóm dữ liệu theo khu vực
     const regionMap = new Map<
       string,
-      { combo: number; service: number; other: number }
+      {
+        combo: number;
+        comboCS: number;
+        service: number;
+        addedon: number;
+        gifts: number;
+      }
     >();
 
     regionData.forEach((item) => {
       if (!regionMap.has(item.region)) {
-        regionMap.set(item.region, { combo: 0, service: 0, other: 0 });
+        regionMap.set(item.region, {
+          combo: 0,
+          comboCS: 0,
+          service: 0,
+          addedon: 0,
+          gifts: 0,
+        });
       }
 
       const region = regionMap.get(item.region)!;
@@ -582,11 +557,17 @@ export default function CustomerReportPage() {
         case "Combo":
           region.combo = item.total;
           break;
+        case "Combo CS":
+          region.comboCS = item.total;
+          break;
         case "Dịch vụ":
           region.service = item.total;
           break;
-        case "Khác":
-          region.other = item.total;
+        case "Added on":
+          region.addedon = item.total;
+          break;
+        case "Gift":
+          region.gifts = item.total;
           break;
       }
     });
@@ -596,9 +577,12 @@ export default function CustomerReportPage() {
       .map(([regionName, data]) => ({
         region: regionName,
         combo: data.combo,
+        comboCS: data.comboCS,
         service: data.service,
-        other: data.other,
-        total: data.combo + data.service + data.other,
+        addedon: data.addedon,
+        gifts: data.gifts,
+        total:
+          data.combo + data.comboCS + data.service + data.addedon + data.gifts,
       }))
       .sort((a, b) => b.total - a.total);
   }, [regionData]);
@@ -650,15 +634,19 @@ export default function CustomerReportPage() {
         return Object.entries(shopGroups)
           .map(([shopName, services]) => {
             const combo = services["Combo"] || 0;
+            const comboCS = services["Combo CS"] || 0;
             const service = services["Dịch vụ"] || 0;
-            const other = services["Khác"] || 0;
-            const total = combo + service + other;
+            const addedon = services["Added on"] || 0;
+            const gifts = services["Gift"] || 0;
+            const total = combo + comboCS + service + addedon + gifts;
 
             return {
               store: shopName,
               combo,
+              comboCS,
               service,
-              other,
+              addedon,
+              gifts,
               total,
             };
           })
@@ -916,7 +904,7 @@ export default function CustomerReportPage() {
           />
         </div>
 
-        {/* Tổng dịch vụ thực hiện trong tuần */}
+        {/* Tổng dịch vụ thực hiện */}
         <WeeklyServiceChartData
           weeklyServiceChartData={weeklyServiceChartData}
           isMobile={isMobile}
@@ -975,22 +963,6 @@ export default function CustomerReportPage() {
           serviceTableError={serviceTableError}
           serviceData={serviceData}
         />
-
-        <div className="flex gap-2">
-          {/* Top 10 khách hàng sử dụng dịch vụ */}
-          <ServiceTopCustomer
-            topCustomerData={topCustomerData}
-            loading={topCustomerLoading}
-            error={topCustomerError}
-          />
-
-          {/* Tỉ lệ trạng thái đặt lịch */}
-          <ServiceBookingStatusData
-            bookingStatusData={bookingStatusData}
-            loading={bookingStatusLoading}
-            error={bookingStatusError}
-          />
-        </div>
 
         {/* Tỉ lệ khách hàng mới và cũ sử dụng dịch vụ */}
         <ServiceNewOldCustomer

@@ -10,18 +10,22 @@ import {
   Line,
 } from "recharts";
 
-interface StoreTypeSalesByDayData {
+interface ShopTypeRevenueData {
   date: string;
-  Mall: number;
-  Shophouse: number;
-  NhaPho: number;
-  DaDongCua: number;
-  Khac: number;
+  shopType: string;
+  revenue: number;
+}
+
+interface ProcessedShopTypeData {
+  date: string;
+  "Nhà phố": number;
+  "Shophouse": number;
+  "Trong Mall": number;
   total?: number;
 }
 
 interface OrderTotalByStoreProps {
-  data: StoreTypeSalesByDayData[];
+  data: ShopTypeRevenueData[] | null;
   formatAxisDate: (date: string) => string;
 }
 
@@ -43,6 +47,53 @@ const OrderTotalByStore: React.FC<OrderTotalByStoreProps> = ({ data, formatAxisD
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Xử lý dữ liệu từ API để phù hợp với chart
+  const processedData = React.useMemo(() => {
+    if (!data || data.length === 0) return [];
+
+    const dateMap: Record<string, ProcessedShopTypeData> = {};
+    
+    data.forEach(item => {
+      const date = item.date.split('T')[0]; // Lấy ngày từ ISO string
+      
+      if (!dateMap[date]) {
+        dateMap[date] = {
+          date,
+          "Nhà phố": 0,
+          "Shophouse": 0,
+          "Trong Mall": 0,
+        };
+      }
+      
+      if (item.shopType === "Nhà phố" || item.shopType === "Shophouse" || item.shopType === "Trong Mall") {
+        dateMap[date][item.shopType] = item.revenue;
+      }
+    });
+
+    // Tính tổng cho mỗi ngày
+    Object.values(dateMap).forEach(item => {
+      item.total = item["Nhà phố"] + item["Shophouse"] + item["Trong Mall"];
+    });
+
+    // Sắp xếp theo ngày
+    return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
+  }, [data]);
+
+  // Loading state
+  if (!data || data.length === 0) {
+    return (
+      <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
+        <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+          Tổng thực thu theo loại cửa hàng
+        </div>
+        <div className="text-center py-8">
+          <div className="text-gray-400 mb-2">📊</div>
+          <p className="text-gray-600">Không có dữ liệu</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
 <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
           <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
@@ -51,7 +102,7 @@ const OrderTotalByStore: React.FC<OrderTotalByStoreProps> = ({ data, formatAxisD
           <div className="w-full overflow-x-auto">
             <ResponsiveContainer width="100%" height={400} minWidth={320}>
               <LineChart
-          data={data}
+                data={processedData}
                 margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
@@ -116,7 +167,7 @@ const OrderTotalByStore: React.FC<OrderTotalByStoreProps> = ({ data, formatAxisD
                 />
                 <Line
                   type="monotone"
-                  dataKey="Mall"
+                  dataKey="Trong Mall"
                   name="Trong Mall"
                   stroke="#8d6e63"
                   strokeWidth={3}
@@ -132,25 +183,9 @@ const OrderTotalByStore: React.FC<OrderTotalByStoreProps> = ({ data, formatAxisD
                 />
                 <Line
                   type="monotone"
-                  dataKey="NhaPho"
+                  dataKey="Nhà phố"
                   name="Nhà phố"
                   stroke="#ff7f7f"
-                  strokeWidth={3}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="DaDongCua"
-                  name="Đã đóng cửa"
-                  stroke="#f0bf4c"
-                  strokeWidth={3}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Khac"
-                  name="Khác"
-                  stroke="#81d4fa"
                   strokeWidth={3}
                   dot={false}
                 />

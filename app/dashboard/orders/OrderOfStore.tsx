@@ -183,7 +183,7 @@ export default function OrderOfStore({
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
       <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
-        Số đơn tại các cửa hàng
+        KPI cửa hàng
       </div>
       <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
         <table className="min-w-[700px] w-full text-xs sm:text-sm">

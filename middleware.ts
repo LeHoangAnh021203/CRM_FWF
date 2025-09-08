@@ -201,18 +201,17 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
     "camera=(), microphone=(), geolocation=()",
   );
 
-  // Content Security Policy
-  response.headers.set(
-    "Content-Security-Policy",
-    "default-src 'self'; " +
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'; " +
-      "style-src 'self' 'unsafe-inline'; " +
-      "img-src 'self' data: https:; " +
-      "media-src 'self' data: blob:; " +
-      "font-src 'self' data:; " +
-      "connect-src 'self' https:; " +
-      "frame-ancestors 'none';",
-  );
+  // Disable COEP temporarily to fix tile loading issues
+  response.headers.set("Cross-Origin-Embedder-Policy", "unsafe-none");
+  response.headers.set("Cross-Origin-Opener-Policy", "unsafe-none");
+
+  // Content Security Policy - Fixed wildcard issues
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const cspConfig = isDevelopment 
+    ? "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdnjs.cloudflare.com https://api.mapbox.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://api.mapbox.com; img-src 'self' data: https: blob: https://tile.openstreetmap.org https://a.basemaps.cartocdn.com https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com https://d.basemaps.cartocdn.com https://a.tile.openstreetmap.fr https://b.tile.openstreetmap.fr https://c.tile.openstreetmap.fr; media-src 'self' data: blob:; font-src 'self' data: https:; connect-src 'self' https: wss:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';"
+    : "default-src 'self'; script-src 'self' 'unsafe-eval' https://cdnjs.cloudflare.com https://api.mapbox.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://api.mapbox.com; img-src 'self' data: https: blob: https://tile.openstreetmap.org https://a.basemaps.cartocdn.com https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com https://d.basemaps.cartocdn.com https://a.tile.openstreetmap.fr https://b.tile.openstreetmap.fr https://c.tile.openstreetmap.fr; media-src 'self' data: blob:; font-src 'self' data: https:; connect-src 'self' https: wss:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';";
+  
+  response.headers.set("Content-Security-Policy", cspConfig);
 
   // CORS headers for API routes
   if (response.headers.get("content-type")?.includes("application/json")) {

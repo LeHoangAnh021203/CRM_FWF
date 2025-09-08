@@ -17,6 +17,7 @@ import CustomerAppDownloadBarChart from "./CustomerAppDownloadBarChart";
 import CustomerAppDownloadPieChart from "./CustomerAppDownloadPieChart";
 import CustomerOldTypeTrendChart from "./CustomerOldTypeTrendChart";
 import CustomerFacilityBookingTable from "./CustomerFacilityBookingHour";
+import CustomerOldStatCard from "./CustomerOldStatCard";
 import { Notification, useNotification } from "@/app/components/notification";
 import {
   useLocalStorageState,
@@ -79,23 +80,7 @@ interface GenderRevenueSummary {
 // If shape is unknown, keep as unknown but not assign to stricter type
 type CustomerSummaryRaw = Record<string, unknown>;
 
-// Utility function để đảm bảo CalendarDate instances
-function ensureCalendarDate(date: unknown): CalendarDate {
-  if (date instanceof CalendarDate) {
-    return date;
-  }
-  if (
-    date &&
-    typeof date === "object" &&
-    "year" in date &&
-    "month" in date &&
-    "day" in date
-  ) {
-    const dateObj = date as { year: number; month: number; day: number };
-    return new CalendarDate(dateObj.year, dateObj.month, dateObj.day);
-  }
-  return today(getLocalTimeZone());
-}
+// Function để clear tất cả filter state
 
 // Function để clear tất cả filter state
 function clearCustomerFilters() {
@@ -110,143 +95,41 @@ function clearCustomerFilters() {
   ]);
 }
 
-// Custom hook dùng chung cho fetch API động với caching và rate limiting
+// Custom hook dùng chung cho fetch API - đơn giản như trang service
 function useApiData<T>(
   url: string,
   fromDate: string,
   toDate: string,
-  delay: number = 0,
-  extraBody?: Record<string, unknown>,
-  forceMethod?: "GET" | "POST"
+  extraBody?: Record<string, unknown>
 ) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const lastRequestTimeRef = useRef<number>(0);
 
   useEffect(() => {
-    // Prevent rapid successive requests
-    const now = Date.now();
-    const timeSinceLastRequest = now - lastRequestTimeRef.current;
-    const minInterval = 2000; // 2 seconds minimum between requests
-
-    if (timeSinceLastRequest < minInterval) {
-      const remainingDelay = minInterval - timeSinceLastRequest;
-      setTimeout(() => {
-        // Continue with the request after delay
-      }, remainingDelay);
-      return;
-    }
-
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
     setLoading(true);
     setError(null);
-    lastRequestTimeRef.current = now;
 
-    const fetchData = async () => {
-      try {
-        // Add delay to prevent rate limiting
-        if (delay > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
+    // Extract endpoint from full URL - remove /api/proxy prefix
+    const endpoint = url
+      .replace(API_BASE_URL, "")
+      .replace("/api", "")
+      .replace(/^\/+/, "");
 
-        // Create new abort controller
-        abortControllerRef.current = new AbortController();
+    console.log("🔍 Debug - Original URL:", url);
+    console.log("🔍 Debug - Extracted Endpoint:", endpoint);
 
-        const hasQuery = url.includes("?");
-        // Extract endpoint from full URL - remove /api/proxy prefix
-        const endpoint = url
-          .replace(API_BASE_URL, "")
-          .replace("/api", "")
-          .replace(/^\/+/, "");
-
-        // Only log in development
-        if (process.env.NODE_ENV === "development") {
-          console.log("🔍 Debug - Original URL:", url);
-          console.log("🔍 Debug - Extracted Endpoint:", endpoint);
-        }
-
-        const finalEndpoint = hasQuery
-          ? `${endpoint}&fromDate=${encodeURIComponent(
-              fromDate
-            )}&toDate=${encodeURIComponent(toDate)}`
-          : endpoint;
-
-        const method: "GET" | "POST" =
-          forceMethod ?? (hasQuery ? "GET" : "POST");
-        const result = await (method === "GET"
-          ? ApiService.get(finalEndpoint)
-          : ApiService.post(endpoint, {
-              fromDate,
-              toDate,
-              ...(extraBody || {}),
-            }));
-
-        if (process.env.NODE_ENV === "development") {
-          console.log(
-            "🔍 Debug - API Response for",
-            hasQuery ? finalEndpoint : endpoint,
-            ":",
-            result
-          );
-        }
-
-        setData(result as T);
+    ApiService.post(endpoint, { fromDate, toDate, ...(extraBody || {}) })
+      .then((data: unknown) => {
+        setData(data as T);
         setLoading(false);
-        setRetryCount(0); // Reset retry count on success
-      } catch (err: unknown) {
-        const error = err as Error;
-
-        // Don't process errors for aborted requests
-        if (error.name === "AbortError") {
-          return;
-        }
-
-        console.error("🔍 Debug - API Error:", error);
-
-        // Check if it's a rate limit error - NO RETRY for 429
-        if (
-          error.message.includes("429") ||
-          error.message.includes("Too Many Requests")
-        ) {
-          console.log(
-            `🔍 Debug - Rate limit hit, skipping retry to prevent spam`
-          );
-          setError("API đang quá tải, vui lòng thử lại sau");
-          setLoading(false);
-          return;
-        }
-
-        // Only retry for non-429 errors, max 1 time
-        if (retryCount < 1) {
-          console.log(`🔍 Debug - Retrying in 5000ms...`);
-          setRetryCount((prev) => prev + 1);
-          setTimeout(() => {
-            fetchData();
-          }, 5000);
-          return;
-        }
-
-        setError(error.message);
+      })
+      .catch((err: Error) => {
+        console.error("🔍 Debug - API Error:", err);
+        setError(err.message);
         setLoading(false);
-      }
-    };
-
-    fetchData();
-
-    // Cleanup function
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [url, fromDate, toDate, delay, retryCount, extraBody, forceMethod]);
+      });
+  }, [url, fromDate, toDate, extraBody]);
 
   return { data, loading, error };
 }
@@ -279,7 +162,7 @@ function useWindowWidth() {
 export default function CustomerReportPage() {
   // CSS để đảm bảo dropdown hiển thị đúng
   useEffect(() => {
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.textContent = `
       .booking-completion-status-dropdown {
         position: relative !important;
@@ -320,6 +203,7 @@ export default function CustomerReportPage() {
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
+  // Sử dụng localStorage để lưu trữ date - đơn giản như trang service
   const [startDate, setStartDate, startDateLoaded] =
     useLocalStorageState<CalendarDate>(
       "customer-startDate",
@@ -345,7 +229,7 @@ export default function CustomerReportPage() {
     bookingCompletionStatusLoaded,
   ] = useLocalStorageState<string | null>(
     "customer-bookingCompletionStatus",
-    "Tất cả"
+    "Khách đến"
   );
   const [
     showBookingCompletionStatusDropdown,
@@ -357,17 +241,17 @@ export default function CustomerReportPage() {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
-      if (!target.closest('.booking-completion-status-dropdown')) {
+      if (!target.closest(".booking-completion-status-dropdown")) {
         setShowBookingCompletionStatusDropdown(false);
       }
     };
 
     if (showBookingCompletionStatusDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showBookingCompletionStatusDropdown]);
 
@@ -376,10 +260,10 @@ export default function CustomerReportPage() {
     if (!dropdownRef.current || !showBookingCompletionStatusDropdown) {
       return {};
     }
-    
+
     const rect = dropdownRef.current.getBoundingClientRect();
     return {
-      position: 'fixed' as const,
+      position: "fixed" as const,
       top: rect.bottom + 4,
       left: rect.left,
       zIndex: 999999,
@@ -412,13 +296,13 @@ export default function CustomerReportPage() {
     ]
   );
 
-  // Kiểm tra xem tất cả localStorage đã được load chưa
+  // Kiểm tra xem tất cả localStorage đã được load chưa - đơn giản như trang service
   const isAllLoaded =
+    startDateLoaded &&
+    endDateLoaded &&
     selectedTypeLoaded &&
     selectedStatusLoaded &&
     bookingCompletionStatusLoaded &&
-    startDateLoaded &&
-    endDateLoaded &&
     selectedRegionsLoaded &&
     selectedBranchesLoaded;
 
@@ -447,27 +331,27 @@ export default function CustomerReportPage() {
   );
   const allBranches = useMemo(() => ["Branch 1", "Branch 2", "Branch 3"], []);
 
-  const safeStartDate = ensureCalendarDate(startDate);
-  const safeEndDate = ensureCalendarDate(endDate);
+  // Format date cho API calls - đơn giản như trang service
+  const fromDate = startDate
+    ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
+        startDate.day
+      ).padStart(2, "0")}T00:00:00`
+    : "";
+  const toDate = endDate
+    ? `${endDate.year}-${String(endDate.month).padStart(2, "0")}-${String(
+        endDate.day
+      ).padStart(2, "0")}T23:59:59`
+    : "";
 
-  const fromDate = `${safeStartDate.year}-${String(
-    safeStartDate.month
-  ).padStart(2, "0")}-${String(safeStartDate.day).padStart(2, "0")}T00:00:00`;
-  const toDate = `${safeEndDate.year}-${String(safeEndDate.month).padStart(
-    2,
-    "0"
-  )}-${String(safeEndDate.day).padStart(2, "0")}T23:59:59`;
-
-  // API calls - sử dụng useApiData hook với delay phân tán để tránh rate limiting
+  
   const {
     data: newCustomerRaw,
     loading: newCustomerLoading,
     error: newCustomerError,
   } = useApiData<LineChartRanges>(
-    "customer-sale/new-customer-lineChart",
+    `${API_BASE_URL}/api/customer-sale/new-customer-lineChart`,
     fromDate,
-    toDate,
-    0
+    toDate
   );
 
   const {
@@ -475,10 +359,9 @@ export default function CustomerReportPage() {
     loading: genderRatioLoading,
     error: genderRatioError,
   } = useApiData<GenderRatio>(
-    "customer-sale/gender-ratio",
+    `${API_BASE_URL}/api/customer-sale/gender-ratio`,
     fromDate,
-    toDate,
-    200
+    toDate
   );
 
   const {
@@ -486,10 +369,9 @@ export default function CustomerReportPage() {
     loading: customerTypeLoading,
     error: customerTypeError,
   } = useApiData<TrendSeriesMap>(
-    "customer-sale/customer-type-trend",
+    `${API_BASE_URL}/api/customer-sale/customer-type-trend`,
     fromDate,
-    toDate,
-    400
+    toDate
   );
 
   const {
@@ -497,10 +379,9 @@ export default function CustomerReportPage() {
     loading: customerOldTypeLoading,
     error: customerOldTypeError,
   } = useApiData<LineChartRanges>(
-    "customer-sale/old-customer-lineChart",
+    `${API_BASE_URL}/api/customer-sale/old-customer-lineChart`,
     fromDate,
-    toDate,
-    600
+    toDate
   );
 
   const {
@@ -508,10 +389,9 @@ export default function CustomerReportPage() {
     loading: customerSourceLoading,
     error: customerSourceError,
   } = useApiData<TrendSeriesMap>(
-    "customer-sale/customer-source-trend",
+    `${API_BASE_URL}/api/customer-sale/customer-source-trend`,
     fromDate,
-    toDate,
-    800
+    toDate
   );
 
   const {
@@ -519,10 +399,9 @@ export default function CustomerReportPage() {
     loading: appDownloadStatusLoading,
     error: appDownloadStatusError,
   } = useApiData<AppDownloadStatusMap>(
-    "customer-sale/app-download-status",
+    `${API_BASE_URL}/api/customer-sale/app-download-status`,
     fromDate,
-    toDate,
-    1000
+    toDate
   );
 
   const {
@@ -530,10 +409,9 @@ export default function CustomerReportPage() {
     loading: appDownloadLoading,
     error: appDownloadError,
   } = useApiData<AppDownloadPie>(
-    "customer-sale/app-download-pieChart",
+    `${API_BASE_URL}/api/customer-sale/app-download-pieChart`,
     fromDate,
-    toDate,
-    1200
+    toDate
   );
 
   const {
@@ -541,10 +419,9 @@ export default function CustomerReportPage() {
     loading: customerSummaryLoading,
     error: customerSummaryError,
   } = useApiData<CustomerSummaryRaw>(
-    "customer-sale/customer-summary",
+    `${API_BASE_URL}/api/customer-sale/customer-summary`,
     fromDate,
-    toDate,
-    1400
+    toDate
   );
 
   const {
@@ -552,10 +429,9 @@ export default function CustomerReportPage() {
     loading: genderRevenueLoading,
     error: genderRevenueError,
   } = useApiData<GenderRevenueSummary>(
-    "customer-sale/gender-revenue",
+    `${API_BASE_URL}/api/customer-sale/gender-revenue`,
     fromDate,
-    toDate,
-    1600
+    toDate
   );
 
   const {
@@ -563,17 +439,20 @@ export default function CustomerReportPage() {
     loading: uniqueCustomersLoading,
     error: uniqueCustomersError,
   } = useApiData<UniqueCustomersComparison>(
-    "customer-sale/unique-customers-comparison",
+    `${API_BASE_URL}/api/customer-sale/unique-customers-comparison`,
     fromDate,
-    toDate,
-    1800
+    toDate
   );
 
   // Memoize extraBody để tránh re-render không cần thiết
   const bookingCompletionExtraBody = useMemo(
-    () => ({
-      status: bookingCompletionStatus || "Khách đến",
-    }),
+    () => {
+      const status = bookingCompletionStatus || "Khách đến";
+      console.log("🔍 Debug - bookingCompletionExtraBody:", { status, bookingCompletionStatus });
+      return {
+        status,
+      };
+    },
     [bookingCompletionStatus]
   );
 
@@ -582,12 +461,10 @@ export default function CustomerReportPage() {
     loading: bookingCompletionLoading,
     error: bookingCompletionError,
   } = useApiData<FacilityHourService>(
-    "booking/facility-booking-hour",
+    `${API_BASE_URL}/api/booking/facility-booking-hour`,
     fromDate,
     toDate,
-    1000,
-    bookingCompletionExtraBody,
-    "POST"
+    bookingCompletionExtraBody
   );
 
   // Debug log cho booking completion API
@@ -611,6 +488,9 @@ export default function CustomerReportPage() {
       typeof window !== "undefined" ? window.navigator.userAgent : "server",
     environment: process.env.NODE_ENV,
     apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
+    isAllLoaded,
+    startDateLoaded,
+    endDateLoaded,
   });
 
   const {
@@ -618,17 +498,15 @@ export default function CustomerReportPage() {
     loading: facilityHourServiceLoading,
     error: facilityHourServiceError,
   } = useApiData<FacilityHourService>(
-    "customer-sale/facility-hour-service",
+    `${API_BASE_URL}/api/customer-sale/facility-hour-service`,
     fromDate,
-    toDate,
-    2200
+    toDate
   );
 
   // Reset data khi thay đổi date range để tránh hiển thị data cũ
   const [currentDateRange, setCurrentDateRange] = useState(
     `${fromDate}-${toDate}`
   );
-  const [isDataReady, setIsDataReady] = useState(false);
   const dataReadyRef = useRef(false);
 
   // Cập nhật loading states - sử dụng tất cả loading states
@@ -678,39 +556,12 @@ export default function CustomerReportPage() {
     ]
   );
 
-  // Cập nhật useEffect cho data ready
-  useEffect(() => {
-    console.log("🔍 Debug - Data ready check:", {
-      uniqueCustomersLoading,
-      uniqueCustomersComparisonRaw: !!uniqueCustomersComparisonRaw,
-      bookingCompletionLoading,
-      bookingCompletionRaw: !!bookingCompletionRaw,
-      dataReadyRef: dataReadyRef.current,
-    });
-
-    if (
-      !uniqueCustomersLoading &&
-      uniqueCustomersComparisonRaw &&
-      !bookingCompletionLoading &&
-      bookingCompletionRaw &&
-      !dataReadyRef.current
-    ) {
-      setIsDataReady(true);
-      dataReadyRef.current = true;
-      console.log("🔍 Debug - Data is ready to display");
-    }
-  }, [
-    uniqueCustomersLoading,
-    uniqueCustomersComparisonRaw,
-    bookingCompletionLoading,
-    bookingCompletionRaw,
-  ]);
+  // Đơn giản hóa logic như trang service - không cần data ready check
 
   useEffect(() => {
     const newDateRange = `${fromDate}-${toDate}`;
     if (newDateRange !== currentDateRange) {
       setCurrentDateRange(newDateRange);
-      setIsDataReady(false);
       dataReadyRef.current = false;
     }
   }, [fromDate, toDate, currentDateRange]);
@@ -834,7 +685,18 @@ export default function CustomerReportPage() {
   // Data processing from API
   // 1. Số khách tạo mới
   const newCustomerChartData = React.useMemo(() => {
-    if (!newCustomerRaw) return [];
+    console.log("🔍 Debug - Processing newCustomerChartData:", {
+      newCustomerRaw: !!newCustomerRaw,
+      newCustomerRawType: typeof newCustomerRaw,
+      newCustomerRawKeys: newCustomerRaw ? Object.keys(newCustomerRaw) : [],
+      newCustomerRawValue: newCustomerRaw,
+    });
+    
+    if (!newCustomerRaw) {
+      console.log("🔍 Debug - newCustomerRaw is null/undefined, returning empty array");
+      return [];
+    }
+    
     const current = Array.isArray(
       (
         newCustomerRaw as {
@@ -861,27 +723,69 @@ export default function CustomerReportPage() {
           }
         ).previousRange || []
       : [];
-    return current.map(
+      
+    console.log("🔍 Debug - newCustomerChartData processing:", {
+      currentLength: current.length,
+      previousLength: previous.length,
+      currentSample: current.slice(0, 2),
+      previousSample: previous.slice(0, 2),
+    });
+    
+    const result = current.map(
       (item: { date: string; count: number }, idx: number) => ({
         date: item.date || "",
         value: item.count,
         value2: previous[idx]?.count ?? 0,
       })
     );
+    
+    console.log("🔍 Debug - newCustomerChartData result:", {
+      resultLength: result.length,
+      resultSample: result.slice(0, 2),
+    });
+    
+    return result;
   }, [newCustomerRaw]);
 
   // 2. Tỷ lệ nam/nữ
   const genderRatioData = React.useMemo(() => {
+    console.log("🔍 Debug - Processing genderRatioData:", {
+      genderRatioRaw: !!genderRatioRaw,
+      genderRatioRawType: typeof genderRatioRaw,
+      genderRatioRawKeys: genderRatioRaw ? Object.keys(genderRatioRaw) : [],
+      male: genderRatioRaw?.male,
+      female: genderRatioRaw?.female,
+    });
+    
     if (!genderRatioRaw) return [];
-    return [
+    
+    const result = [
       { gender: "Nam", count: genderRatioRaw.male || 0 },
       { gender: "Nữ", count: genderRatioRaw.female || 0 },
     ];
+    
+    console.log("🔍 Debug - genderRatioData result:", {
+      resultLength: result.length,
+      result,
+    });
+    
+    return result;
   }, [genderRatioRaw]);
 
   // 3. Số khách tới chia theo loại
   const customerTypeTrendData = React.useMemo(() => {
-    if (!customerTypeRaw) return [];
+    console.log("🔍 Debug - Processing customerTypeTrendData:", {
+      customerTypeRaw: !!customerTypeRaw,
+      customerTypeRawType: typeof customerTypeRaw,
+      customerTypeRawKeys: customerTypeRaw ? Object.keys(customerTypeRaw) : [],
+      customerTypeRawValue: customerTypeRaw,
+    });
+    
+    if (!customerTypeRaw) {
+      console.log("🔍 Debug - customerTypeRaw is null/undefined, returning empty array");
+      return [];
+    }
+    
     const allDatesSet = new Set();
     Object.values(customerTypeRaw).forEach((arr) => {
       (arr as Array<{ date: string; count: number }>).forEach((item) => {
@@ -890,7 +794,15 @@ export default function CustomerReportPage() {
     });
     const allDates = Array.from(allDatesSet).sort();
     const allTypes = Object.keys(customerTypeRaw);
-    return allDates.map((date) => {
+    
+    console.log("🔍 Debug - customerTypeTrendData processing:", {
+      allDatesLength: allDates.length,
+      allTypesLength: allTypes.length,
+      allDates: allDates.slice(0, 5),
+      allTypes: allTypes,
+    });
+    
+    const result = allDates.map((date) => {
       const row: Record<string, string | number> = { date: String(date) };
       allTypes.forEach((type) => {
         const arr = customerTypeRaw[type] as Array<{
@@ -902,29 +814,73 @@ export default function CustomerReportPage() {
       });
       return row;
     });
+    
+    console.log("🔍 Debug - customerTypeTrendData result:", {
+      resultLength: result.length,
+      resultSample: result.slice(0, 2),
+    });
+    
+    return result;
   }, [customerTypeRaw]);
 
   // 3.1. Số khách cũ chia theo loại
   const customerOldTypeTrendData = React.useMemo(() => {
-    if (!customerOldTypeRaw) return [];
+    console.log("🔍 Debug - Processing customerOldTypeTrendData:", {
+      customerOldTypeRaw: !!customerOldTypeRaw,
+      customerOldTypeRawType: typeof customerOldTypeRaw,
+      customerOldTypeRawKeys: customerOldTypeRaw ? Object.keys(customerOldTypeRaw) : [],
+      customerOldTypeRawValue: customerOldTypeRaw,
+    });
+    
+    if (!customerOldTypeRaw) {
+      console.log("🔍 Debug - customerOldTypeRaw is null/undefined, returning empty array");
+      return [];
+    }
+    
     const current = Array.isArray(customerOldTypeRaw.currentRange)
       ? customerOldTypeRaw.currentRange
       : [];
     const previous = Array.isArray(customerOldTypeRaw.previousRange)
       ? customerOldTypeRaw.previousRange
       : [];
-    return current.map(
+      
+    console.log("🔍 Debug - customerOldTypeTrendData processing:", {
+      currentLength: current.length,
+      previousLength: previous.length,
+      currentSample: current.slice(0, 2),
+      previousSample: previous.slice(0, 2),
+    });
+    
+    const result = current.map(
       (item: { date: string; count: number }, idx: number) => ({
         date: item.date || "",
         "Khách cũ hiện tại": item.count,
         "Khách cũ tháng trước": previous[idx]?.count ?? 0,
       })
     );
+    
+    console.log("🔍 Debug - customerOldTypeTrendData result:", {
+      resultLength: result.length,
+      resultSample: result.slice(0, 2),
+    });
+    
+    return result;
   }, [customerOldTypeRaw]);
 
-  // 4. Nguồn của đơn hàng
+  // 4. Nguồn của đơn hàng - gộp theo yêu cầu
   const customerSourceTrendData = React.useMemo(() => {
-    if (!customerSourceRaw) return [];
+    console.log("🔍 Debug - Processing customerSourceTrendData:", {
+      customerSourceRaw: !!customerSourceRaw,
+      customerSourceRawType: typeof customerSourceRaw,
+      customerSourceRawKeys: customerSourceRaw ? Object.keys(customerSourceRaw) : [],
+      customerSourceRawValue: customerSourceRaw,
+    });
+    
+    if (!customerSourceRaw) {
+      console.log("🔍 Debug - customerSourceRaw is null/undefined, returning empty array");
+      return [];
+    }
+    
     const allDatesSet = new Set();
     Object.values(customerSourceRaw).forEach((arr) => {
       (arr as Array<{ date: string; count: number }>).forEach((item) => {
@@ -932,32 +888,122 @@ export default function CustomerReportPage() {
       });
     });
     const allDates = Array.from(allDatesSet).sort();
-    const allTypes = Object.keys(customerSourceRaw);
-    return allDates.map((date) => {
-      const row: Record<string, string | number> = { date: String(date) };
-      allTypes.forEach((type) => {
-        const found = (
-          customerSourceRaw[type] as Array<{ date: string; count: number }>
-        ).find((item) => item.date.slice(0, 10) === date);
-        row[type] = found ? found.count : 0;
+    
+    // Mapping để gộp các nguồn theo yêu cầu - dựa trên dữ liệu API thực tế
+    const sourceMapping: Record<string, string> = {
+      'Fanpage': 'Fanpage',
+      'Facebook': 'Fanpage',
+      'app': 'App',
+      'web': 'App',
+      'Shoppe': 'Ecommerce',
+      'TT Shop': 'Ecommerce',
+      'Không có': 'Vãng lai',
+      'Vãng lai': 'Vãng lai'
+    };
+    
+    // Tạo map để gộp dữ liệu
+    const groupedData = new Map<string, Record<string, number>>();
+    
+    allDates.forEach((date) => {
+      groupedData.set(date as string, {
+        'Fanpage': 0,
+        'App': 0,
+        'Ecommerce': 0,
+        'Vãng lai': 0
       });
-      return row;
     });
+    
+    // Gộp dữ liệu theo mapping
+    Object.entries(customerSourceRaw).forEach(([sourceType, data]) => {
+      const mappedType = sourceMapping[sourceType as string] || sourceType as string;
+      console.log(`🔍 Debug - Mapping: ${sourceType} → ${mappedType}`);
+      (data as Array<{ date: string; count: number }>).forEach((item) => {
+        const date = item.date.slice(0, 10);
+        const existing = groupedData.get(date as string);
+        if (existing && mappedType in existing) {
+          const oldValue = existing[mappedType as keyof typeof existing];
+          existing[mappedType as keyof typeof existing] += item.count;
+          console.log(`🔍 Debug - ${date}: ${sourceType}(${item.count}) → ${mappedType}: ${oldValue} + ${item.count} = ${existing[mappedType as keyof typeof existing]}`);
+        }
+      });
+    });
+    
+    console.log("🔍 Debug - customerSourceTrendData processing:", {
+      allDatesLength: allDates.length,
+      groupedDataSize: groupedData.size,
+      sampleGroupedData: Array.from(groupedData.entries()).slice(0, 2),
+    });
+    
+    const result = allDates.map((date) => {
+      const data = groupedData.get(date as string) || {
+        'Fanpage': 0,
+        'App': 0,
+        'Ecommerce': 0,
+        'Vãng lai': 0
+      };
+      return {
+        date: String(date),
+        ...data
+      };
+    });
+    
+    console.log("🔍 Debug - customerSourceTrendData result:", {
+      resultLength: result.length,
+      resultSample: result.slice(0, 2),
+    });
+    
+    return result;
   }, [customerSourceRaw]);
 
   // 5. Khách tải app/không tải
   const appDownloadStatusData = React.useMemo(() => {
-    if (!appDownloadStatusRaw) return [];
-    return Object.values(appDownloadStatusRaw).flat();
+    console.log("🔍 Debug - Processing appDownloadStatusData:", {
+      appDownloadStatusRaw: !!appDownloadStatusRaw,
+      appDownloadStatusRawType: typeof appDownloadStatusRaw,
+      appDownloadStatusRawKeys: appDownloadStatusRaw ? Object.keys(appDownloadStatusRaw) : [],
+      appDownloadStatusRawValue: appDownloadStatusRaw,
+    });
+    
+    if (!appDownloadStatusRaw) {
+      console.log("🔍 Debug - appDownloadStatusRaw is null/undefined, returning empty array");
+      return [];
+    }
+    
+    const result = Object.values(appDownloadStatusRaw).flat();
+    
+    console.log("🔍 Debug - appDownloadStatusData result:", {
+      resultLength: result.length,
+      resultSample: result.slice(0, 2),
+    });
+    
+    return result;
   }, [appDownloadStatusRaw]);
 
   // 6. Tỷ lệ tải app
   const appDownloadPieData = React.useMemo(() => {
-    if (!appDownloadRaw) return [];
-    return [
+    console.log("🔍 Debug - Processing appDownloadPieData:", {
+      appDownloadRaw: !!appDownloadRaw,
+      appDownloadRawType: typeof appDownloadRaw,
+      appDownloadRawKeys: appDownloadRaw ? Object.keys(appDownloadRaw) : [],
+      appDownloadRawValue: appDownloadRaw,
+    });
+    
+    if (!appDownloadRaw) {
+      console.log("🔍 Debug - appDownloadRaw is null/undefined, returning empty array");
+      return [];
+    }
+    
+    const result = [
       { name: "Đã tải app", value: appDownloadRaw.totalNew || 0 },
       { name: "Chưa tải app", value: appDownloadRaw.totalOld || 0 },
     ];
+    
+    console.log("🔍 Debug - appDownloadPieData result:", {
+      resultLength: result.length,
+      result,
+    });
+    
+    return result;
   }, [appDownloadRaw]);
 
   const customerTypes = useMemo(
@@ -987,15 +1033,34 @@ export default function CustomerReportPage() {
   const isMobile = windowWidth < 640;
 
   const allHourRanges = React.useMemo(() => {
-    if (!facilityHourServiceRaw) return [];
+    console.log("🔍 Debug - Processing allHourRanges:", {
+      facilityHourServiceRaw: !!facilityHourServiceRaw,
+      facilityHourServiceRawType: typeof facilityHourServiceRaw,
+      facilityHourServiceRawLength: facilityHourServiceRaw ? facilityHourServiceRaw.length : 0,
+      facilityHourServiceRawValue: facilityHourServiceRaw,
+    });
+    
+    if (!facilityHourServiceRaw) {
+      console.log("🔍 Debug - facilityHourServiceRaw is null/undefined, returning empty array");
+      return [];
+    }
+    
     const set = new Set<string>();
     facilityHourServiceRaw.forEach((item) => {
       Object.keys(item.hourlyCounts).forEach((hour) => set.add(hour));
     });
-    return Array.from(set).sort((a, b) => {
+    
+    const result = Array.from(set).sort((a, b) => {
       const getStart = (s: string) => parseInt(s.split("-")[0], 10);
       return getStart(a) - getStart(b);
     });
+    
+    console.log("🔍 Debug - allHourRanges result:", {
+      resultLength: result.length,
+      resultSample: result.slice(0, 5),
+    });
+    
+    return result;
   }, [facilityHourServiceRaw]);
 
   // Hour ranges cho bảng "Thời gian đơn hàng hoàn thành"
@@ -1127,11 +1192,9 @@ export default function CustomerReportPage() {
   );
 
   const customerSourceKeys = React.useMemo(() => {
-    if (customerSourceTrendData.length === 0) return [];
-    return Object.keys(customerSourceTrendData[0]).filter(
-      (key) => key !== "date"
-    );
-  }, [customerSourceTrendData]);
+    // Sử dụng các nhóm cố định theo yêu cầu
+    return ['Fanpage', 'App', 'Ecommerce', 'Vãng lai'];
+  }, []);
 
   // Helper for cell color scale - memoized
   const getCellBg = useMemo(
@@ -1173,9 +1236,8 @@ export default function CustomerReportPage() {
     return normalized.sort((a, b) => getDate(a) - getDate(b));
   }, [appDownloadStatusData]);
 
-  // Hiển thị loading nếu chưa load xong localStorage
+  // Hiển thị loading nếu chưa load xong localStorage - đơn giản như trang service
   if (!isAllLoaded) {
-    console.log("🔍 Debug - isAllLoaded is false, showing loading");
     return (
       <div className="p-2 sm:p-4 md:p-6 max-w-full">
         <div className="flex items-center justify-center h-64">
@@ -1184,8 +1246,6 @@ export default function CustomerReportPage() {
       </div>
     );
   }
-
-  console.log("🔍 Debug - isAllLoaded is true, proceeding to render");
 
   // Thêm retry button nếu có lỗi
   const renderRetryButton = () => {
@@ -1229,8 +1289,8 @@ export default function CustomerReportPage() {
 
           {/* Filter */}
           <CustomerFilters
-            startDate={safeStartDate}
-            endDate={safeEndDate}
+                            startDate={startDate}
+                endDate={endDate}
             setStartDate={setStartDate}
             setEndDate={setEndDate}
             today={today}
@@ -1273,49 +1333,31 @@ export default function CustomerReportPage() {
               </div>
             }
           >
-            {uniqueCustomersLoading || !isDataReady ? (
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden p-6">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">
-                    {hasRateLimitError
-                      ? "Đang thử lại kết nối API..."
-                      : "Đang tải dữ liệu dashboard..."}
-                  </p>
-                  {hasRateLimitError && (
-                    <p className="mt-2 text-sm text-orange-600">
-                      API đang bị quá tải, vui lòng chờ...
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <CustomerAccordionCard
-                key={`${fromDate}-${toDate}-${Date.now()}`}
-                mainValue={
-                  uniqueCustomersComparisonRaw?.currentTotal?.toLocaleString() ??
-                  "Chưa có dữ liệu"
-                }
-                mainLabel="Tổng số lượt khách sử dụng dịch vụ trong khoảng ngày đã chọn"
-                mainPercentChange={
-                  uniqueCustomersComparisonRaw?.changePercentTotal
-                }
-                maleValue={uniqueCustomersComparisonRaw?.currentMale}
-                malePercentChange={
-                  uniqueCustomersComparisonRaw?.changePercentMale
-                }
-                femaleValue={uniqueCustomersComparisonRaw?.currentFemale}
-                femalePercentChange={
-                  uniqueCustomersComparisonRaw?.changePercentFemale
-                }
-                avgRevenueMale={genderRevenueRaw?.avgActualRevenueMale}
-                avgServiceMale={genderRevenueRaw?.avgFoxieRevenueMale}
-                avgRevenueFemale={genderRevenueRaw?.avgActualRevenueFemale}
-                avgServiceFemale={genderRevenueRaw?.avgFoxieRevenueFemale}
-                loading={false}
-                error={uniqueCustomersError}
-              />
-            )}
+            <CustomerAccordionCard
+              key={`${fromDate}-${toDate}-${Date.now()}`}
+              mainValue={
+                uniqueCustomersComparisonRaw?.currentTotal?.toLocaleString() ??
+                "Chưa có dữ liệu"
+              }
+              mainLabel="Tổng số lượt khách sử dụng dịch vụ trong khoảng ngày đã chọn"
+              mainPercentChange={
+                uniqueCustomersComparisonRaw?.changePercentTotal
+              }
+              maleValue={uniqueCustomersComparisonRaw?.currentMale}
+              malePercentChange={
+                uniqueCustomersComparisonRaw?.changePercentMale
+              }
+              femaleValue={uniqueCustomersComparisonRaw?.currentFemale}
+              femalePercentChange={
+                uniqueCustomersComparisonRaw?.changePercentFemale
+              }
+              avgRevenueMale={genderRevenueRaw?.avgActualRevenueMale}
+              avgServiceMale={genderRevenueRaw?.avgFoxieRevenueMale}
+              avgRevenueFemale={genderRevenueRaw?.avgActualRevenueFemale}
+              avgServiceFemale={genderRevenueRaw?.avgFoxieRevenueFemale}
+              loading={uniqueCustomersLoading}
+              error={uniqueCustomersError}
+            />
           </Suspense>
 
           {/* Số khách tạo mới và tỷ lệ nam nữ/khách mới tạo */}
@@ -1346,6 +1388,57 @@ export default function CustomerReportPage() {
             errorCustomerSummary={customerSummaryError}
             customerSummaryRaw={customerSummaryRaw}
           />
+
+          {/* Tổng số khách cũ */}
+          <div className="mt-5">
+            {(() => {
+              console.log("🔍 Debug - CustomerOldStatCard props:", {
+                data: !!customerOldTypeRaw,
+                loading: customerOldTypeLoading,
+                error: customerOldTypeError,
+                dataKeys: customerOldTypeRaw ? Object.keys(customerOldTypeRaw) : [],
+              });
+              
+              if (customerOldTypeLoading) {
+                return (
+                  <div className="bg-white rounded-xl shadow p-6">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                      <p className="mt-2 text-gray-600">Đang tải dữ liệu khách cũ...</p>
+                    </div>
+                  </div>
+                );
+              }
+              
+              if (customerOldTypeError) {
+                return (
+                  <div className="bg-white rounded-xl shadow p-6">
+                    <div className="text-center text-red-500">
+                      <p>Lỗi tải dữ liệu khách cũ: {customerOldTypeError}</p>
+                    </div>
+                  </div>
+                );
+              }
+              
+              if (!customerOldTypeRaw) {
+                return (
+                  <div className="bg-white rounded-xl shadow p-6">
+                    <div className="text-center text-gray-500">
+                      <p>Chưa có dữ liệu khách cũ</p>
+                    </div>
+                  </div>
+                );
+              }
+              
+              return (
+                <CustomerOldStatCard
+                  data={customerOldTypeRaw}
+                  loading={customerOldTypeLoading}
+                  error={customerOldTypeError}
+                />
+              );
+            })()}
+          </div>
 
           {/* Số khách tới chia theo phân loại */}
           <CustomerTypeTrendChart
@@ -1395,7 +1488,11 @@ export default function CustomerReportPage() {
               <span className="text-sm font-medium text-gray-700">
                 Trạng thái đơn hàng:
               </span>
-              <div className="relative booking-completion-status-dropdown" ref={dropdownRef} style={{ zIndex: 99999 }}>
+              <div
+                className="relative booking-completion-status-dropdown"
+                ref={dropdownRef}
+                style={{ zIndex: 99999 }}
+              >
                 <button
                   onClick={() =>
                     setShowBookingCompletionStatusDropdown(
@@ -1407,7 +1504,7 @@ export default function CustomerReportPage() {
                   {bookingCompletionStatus || "Khách đến"} ▼
                 </button>
                 {showBookingCompletionStatusDropdown && (
-                  <div 
+                  <div
                     className="dropdown-menu w-48 bg-white border border-gray-300 rounded-md shadow-lg"
                     style={getDropdownStyle()}
                   >
@@ -1439,31 +1536,14 @@ export default function CustomerReportPage() {
               </div>
             </div>
 
-            {(() => {
-              console.log("🔍 Debug - CustomerFacilityBookingTable props:", {
-                allHourRanges: bookingHourRanges,
-                facilityHourTableData: bookingCompletionTableData,
-                loadingFacilityHour: bookingCompletionLoading,
-                errorFacilityHour: bookingCompletionError,
-                hasHourRanges: bookingHourRanges.length > 0,
-                hasTableData: bookingCompletionTableData.length > 0,
-                bookingCompletionStatus,
-              });
-              console.log(
-                "🔍 Debug - About to render CustomerFacilityBookingTable with status:",
-                bookingCompletionStatus || "Khách đến"
-              );
-              return (
-                <CustomerFacilityBookingTable
-                  allHourRanges={bookingHourRanges}
-                  facilityHourTableData={bookingCompletionTableData}
-                  getCellBg={getCellBg}
-                  isMobile={isMobile}
-                  loadingFacilityHour={bookingCompletionLoading}
-                  errorFacilityHour={bookingCompletionError}
-                />
-              );
-            })()}
+            <CustomerFacilityBookingTable
+              allHourRanges={bookingHourRanges}
+              facilityHourTableData={bookingCompletionTableData}
+              getCellBg={getCellBg}
+              isMobile={isMobile}
+              loadingFacilityHour={bookingCompletionLoading}
+              errorFacilityHour={bookingCompletionError}
+            />
           </div>
         </div>
       </div>

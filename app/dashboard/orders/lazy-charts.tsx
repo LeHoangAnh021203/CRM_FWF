@@ -20,3 +20,4 @@ export const LazyOrderPiePaymentData = lazy(() => import('./OrderPiePaymentData'
 export const LazyOrderPaymentRegionData = lazy(() => import('./OrderPaymentRegionData')); 
 export const LazyOrderDailyBreakdown = lazy(() => import('./OrderDailyBreakdown'));
 export const LazyOrderStatCardsWithAPI = lazy(() => import('./OrderStatCardsWithAPI'));
+export const LazyShopTypeRevenueChart = lazy(() => import('./ShopTypeRevenueChart'));

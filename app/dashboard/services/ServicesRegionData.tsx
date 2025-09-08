@@ -11,7 +11,73 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+// Custom Tooltip component
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    value: number;
+    name: string;
+    color: string;
+    combo: number;
+    comboCS: number;
+    service: number;
+    addedon: number;
+    gifts: number;
+    total: number;
+  }>;
+  label?: string;
+}
 
+const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
+  if (active && payload && payload.length) {
+    const data = payload[0];
+    return (
+      <div className="bg-white p-4 border border-gray-300 rounded-lg shadow-lg">
+        <p className="font-semibold text-gray-800 mb-2">{label}</p>
+        <div className="space-y-1">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-[#795548]">Combo:</span>
+            <span className="font-medium text-[#795548]">
+              {(data.combo || 0).toLocaleString()}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-[#8D6E63]">Combo CS:</span>
+            <span className="font-medium text-[#8D6E63]">
+              {(data.comboCS || 0).toLocaleString()}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-[#689F38]">Dịch vụ:</span>
+            <span className="font-medium text-[#689F38]">
+              {(data.service || 0).toLocaleString()}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-[#f16a3f]">Cộng thêm:</span>
+            <span className="font-medium text-[#f16a3f]">
+              {(data.addedon || 0).toLocaleString()}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-[#8fd1fc]">Quà tặng:</span>
+            <span className="font-medium text-[#8fd1fc]">
+              {(data.gifts || 0).toLocaleString()}
+            </span>
+          </div>
+          <hr className="my-2" />
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-semibold">Tổng:</span>
+            <span className="font-bold text-blue-600">
+              {(data.total || 0).toLocaleString()}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
 
 interface ServicesRegionDataProps {
   regionLoading: boolean;
@@ -20,8 +86,10 @@ interface ServicesRegionDataProps {
   regionChartData: Array<{
     region: string;
     combo: number;
+    comboCS: number;
     service: number;
-    other: number;
+    addedon: number;
+    gifts: number;
     total: number;
   }>;
 }
@@ -32,10 +100,42 @@ export default function ServicesRegionData({
   isMobile,
   regionChartData,
 }: ServicesRegionDataProps) {
+  // Tính tổng số dịch vụ
+  const totalServices = regionChartData.reduce(
+    (sum, region) => sum + region.total,
+    0
+  );
+  const totalRegions = regionChartData.length;
+  const topRegion = regionChartData[0];
+
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
       <div className="text-xl font-medium text-gray-700 text-center mb-4">
         Tổng dịch vụ thực hiện theo khu vực
+      </div>
+
+      {/* Thống kê tổng quan */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-blue-600">
+            {(totalServices || 0).toLocaleString()}
+          </div>
+          <div className="text-sm text-gray-600">Tổng dịch vụ</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-green-600">
+            {totalRegions}
+          </div>
+          <div className="text-sm text-gray-600">Số khu vực</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-purple-600">
+            {topRegion ? (topRegion.total || 0).toLocaleString() : 0}
+          </div>
+          <div className="text-sm text-gray-600">
+            Top: {topRegion ? topRegion.region : "Chưa có dữ liệu"}
+          </div>
+        </div>
       </div>
       {regionLoading && (
         <div className="text-blue-600 text-sm text-center mb-4">
@@ -66,7 +166,9 @@ export default function ServicesRegionData({
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 type="number"
-                tickFormatter={(v: number) => (v >= 1000 ? `${v / 1000}k` : v.toString())}
+                tickFormatter={(v: number) =>
+                  v >= 1000 ? `${v / 1000}k` : v.toString()
+                }
                 tick={{ fontSize: isMobile ? 10 : 14 }}
               />
               <YAxis
@@ -75,25 +177,32 @@ export default function ServicesRegionData({
                 tick={{ fontSize: isMobile ? 10 : 12 }}
                 width={isMobile ? 120 : 150}
               />
-              <Tooltip />
+              <Tooltip content={<CustomTooltip />} />
               <Legend
                 wrapperStyle={{
                   fontSize: isMobile ? 10 : 14,
                 }}
               />
+              <Bar dataKey="combo" name="Combo" stackId="a" fill="#795548" />
               <Bar
-                dataKey="combo"
-                name="Combo"
+                dataKey="comboCS"
+                name="Combo CS"
                 stackId="a"
-                fill="#795548"
+                fill="#8D6E63"
               />
               <Bar
                 dataKey="service"
                 name="Dịch vụ"
                 stackId="a"
-                fill="#c5e1a5"
+                fill="#689F38"
               />
-              <Bar dataKey="other" name="Khác" stackId="a" fill="#f16a3f" />
+              <Bar
+                dataKey="addedon"
+                name="Cộng thêm"
+                stackId="a"
+                fill="#f16a3f"
+              />
+              <Bar dataKey="gifts" name="Quà tặng" stackId="a" fill="#8fd1fc" />
             </BarChart>
           </ResponsiveContainer>
         </div>
