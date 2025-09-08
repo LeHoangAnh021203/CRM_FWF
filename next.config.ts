@@ -9,11 +9,11 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Cross-Origin-Embedder-Policy',
-            value: 'require-corp',
+            value: 'unsafe-none',
           },
           {
             key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin',
+            value: 'unsafe-none',
           },
         ],
       },
@@ -34,6 +34,14 @@ const nextConfig: NextConfig = {
     });
     return config;
   },
+  
+  // Cấu hình để fix white screen issues
+  experimental: {
+    // optimizeCss: true, // Disabled due to critters dependency issue
+  },
+  
+  // Cấu hình để fix hydration issues
+  reactStrictMode: false,
 };
 
 export default nextConfig;
