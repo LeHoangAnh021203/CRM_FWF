@@ -1,25 +1,9 @@
 {
-  "/api/ai/generate/route": "app/api/ai/generate/route.js",
-  "/api/dashboard/quick-actions/route": "app/api/dashboard/quick-actions/route.js",
   "/api/notifications/route": "app/api/notifications/route.js",
-  "/api/proxy/[...path]/route": "app/api/proxy/[...path]/route.js",
   "/api/proxy/auth/login/route": "app/api/proxy/auth/login/route.js",
-  "/api/proxy/auth/logout/route": "app/api/proxy/auth/logout/route.js",
-  "/api/proxy/auth/refresh/route": "app/api/proxy/auth/refresh/route.js",
-  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/api/proxy/[...path]/route": "app/api/proxy/[...path]/route.js",
   "/_not-found/page": "app/_not-found/page.js",
-  "/page": "app/page.js",
-  "/test-customers/page": "app/test-customers/page.js",
-  "/dashboard/calendar/page": "app/dashboard/calendar/page.js",
-  "/dashboard/generateAI/page": "app/dashboard/generateAI/page.js",
-  "/dashboard/customers/page": "app/dashboard/customers/page.js",
-  "/dashboard/map/page": "app/dashboard/map/page.js",
-  "/dashboard/services/page": "app/dashboard/services/page.js",
-  "/dashboard/profile/page": "app/dashboard/profile/page.js",
-  "/dashboard/accounting/page": "app/dashboard/accounting/page.js",
-  "/dashboard/orders/page": "app/dashboard/orders/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/(auth)/forgotPassword/page": "app/(auth)/forgotPassword/page.js",
   "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/(auth)/signup/page": "app/(auth)/signup/page.js"
+  "/dashboard/map/page": "app/dashboard/map/page.js"
 }

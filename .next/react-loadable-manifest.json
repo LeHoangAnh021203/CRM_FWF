@@ -1,206 +1,50 @@
 {
   "app/dashboard/lazy-components.tsx -> ./TopSaleChart": {
-    "id": 88120,
+    "id": "app/dashboard/lazy-components.tsx -> ./TopSaleChart",
     "files": [
-      "static/chunks/8120.f91cd86afbb8cdcd.js"
+      "static/chunks/_app-pages-browser_app_dashboard_TopSaleChart_tsx.js"
     ]
   },
   "app/dashboard/lazy-components.tsx -> @/app/components/customer-insights": {
-    "id": 51788,
+    "id": "app/dashboard/lazy-components.tsx -> @/app/components/customer-insights",
     "files": [
-      "static/chunks/4277-c844ed74ed67748b.js",
-      "static/chunks/1788.05208788296f7543.js"
+      "static/chunks/_app-pages-browser_app_components_customer-insights_tsx.js"
     ]
   },
   "app/dashboard/lazy-components.tsx -> @/app/components/quick-actions": {
-    "id": 48434,
+    "id": "app/dashboard/lazy-components.tsx -> @/app/components/quick-actions",
     "files": [
-      "static/chunks/4277-c844ed74ed67748b.js",
-      "static/chunks/8434.f92328d12a02f04e.js"
+      "static/chunks/_app-pages-browser_app_components_quick-actions_tsx.js"
     ]
   },
   "app/dashboard/lazy-components.tsx -> @/app/components/recent-activity": {
-    "id": 97652,
+    "id": "app/dashboard/lazy-components.tsx -> @/app/components/recent-activity",
     "files": [
-      "static/chunks/4277-c844ed74ed67748b.js",
-      "static/chunks/7652.1d9b288887a41a9a.js"
+      "static/chunks/_app-pages-browser_app_components_recent-activity_tsx.js"
     ]
   },
   "app/dashboard/lazy-components.tsx -> @/app/components/revenue-chart": {
-    "id": 98958,
+    "id": "app/dashboard/lazy-components.tsx -> @/app/components/revenue-chart",
     "files": [
-      "static/chunks/4277-c844ed74ed67748b.js",
-      "static/chunks/8958.59b0081bc192865d.js"
+      "static/chunks/_app-pages-browser_app_components_revenue-chart_tsx.js"
     ]
   },
   "app/dashboard/lazy-components.tsx -> @/app/components/stats-cards": {
-    "id": 7345,
+    "id": "app/dashboard/lazy-components.tsx -> @/app/components/stats-cards",
     "files": [
-      "static/chunks/4277-c844ed74ed67748b.js",
-      "static/chunks/7345.8410b131f68c970a.js"
+      "static/chunks/_app-pages-browser_app_components_stats-cards_tsx.js"
     ]
   },
   "app/dashboard/lazy-components.tsx -> @/app/components/tasks-widget": {
-    "id": 85364,
+    "id": "app/dashboard/lazy-components.tsx -> @/app/components/tasks-widget",
     "files": [
-      "static/chunks/4277-c844ed74ed67748b.js",
-      "static/chunks/9358.50a45d9f586c6b3e.js",
-      "static/chunks/5364.4f335915d68e50aa.js"
+      "static/chunks/_app-pages-browser_app_components_tasks-widget_tsx.js"
     ]
   },
   "app/dashboard/map/branchMap.tsx -> leaflet": {
-    "id": 85752,
+    "id": "app/dashboard/map/branchMap.tsx -> leaflet",
     "files": [
-      "static/chunks/d0deef33.a586094e67e92d1c.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderActualCollection": {
-    "id": 21763,
-    "files": [
-      "static/chunks/5381-7399020f78b97e91.js",
-      "static/chunks/5464-81016f3d40ffef46.js",
-      "static/chunks/4364.1130a47e9118273e.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderActualStoreSale": {
-    "id": 62215,
-    "files": [
-      "static/chunks/2215.b1e29eb87199e1a9.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderCustomerTypeSaleaByDay": {
-    "id": 112,
-    "files": [
-      "static/chunks/5381-7399020f78b97e91.js",
-      "static/chunks/1217-6be7a51e511d04c0.js",
-      "static/chunks/6957-832c88af92642013.js",
-      "static/chunks/112.3b669f88a7ac4cff.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderDailyBreakdown": {
-    "id": 14565,
-    "files": [
-      "static/chunks/5381-7399020f78b97e91.js",
-      "static/chunks/1217-6be7a51e511d04c0.js",
-      "static/chunks/6957-832c88af92642013.js",
-      "static/chunks/4565.26386a5ac6751955.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderFilter": {
-    "id": 78819,
-    "files": [
-      "static/chunks/8819.23aff0627dca6abe.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderOfStore": {
-    "id": 7065,
-    "files": [
-      "static/chunks/7065.44c85897a83982d1.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderPaymentRegionData": {
-    "id": 65761,
-    "files": [
-      "static/chunks/5381-7399020f78b97e91.js",
-      "static/chunks/1217-6be7a51e511d04c0.js",
-      "static/chunks/6957-832c88af92642013.js",
-      "static/chunks/5761.d59920464221de2c.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderPiePaymentData": {
-    "id": 60169,
-    "files": [
-      "static/chunks/5381-7399020f78b97e91.js",
-      "static/chunks/5464-81016f3d40ffef46.js",
-      "static/chunks/766.f04ab5c4fd775cbe.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderRegionalSalesByDay": {
-    "id": 19597,
-    "files": [
-      "static/chunks/5381-7399020f78b97e91.js",
-      "static/chunks/1217-6be7a51e511d04c0.js",
-      "static/chunks/6957-832c88af92642013.js",
-      "static/chunks/9597.cb2db55545f05972.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderStatCards": {
-    "id": 36260,
-    "files": [
-      "static/chunks/6260.8879d70dee795e79.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderStatCardsWithAPI": {
-    "id": 33228,
-    "files": [
-      "static/chunks/3228.0d56b815a2a3ebef.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderStoreTypeSalesByDay": {
-    "id": 75763,
-    "files": [
-      "static/chunks/5381-7399020f78b97e91.js",
-      "static/chunks/1217-6be7a51e511d04c0.js",
-      "static/chunks/6957-832c88af92642013.js",
-      "static/chunks/5763.6fe56ab0701b756e.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderTop10LocationChartData": {
-    "id": 20480,
-    "files": [
-      "static/chunks/5381-7399020f78b97e91.js",
-      "static/chunks/1217-6be7a51e511d04c0.js",
-      "static/chunks/6957-832c88af92642013.js",
-      "static/chunks/480.3ec1ee37e4a641d2.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderTop10StoreOfOrder": {
-    "id": 95321,
-    "files": [
-      "static/chunks/5381-7399020f78b97e91.js",
-      "static/chunks/1217-6be7a51e511d04c0.js",
-      "static/chunks/6957-832c88af92642013.js",
-      "static/chunks/5321.148d734880150731.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderTotalByDay": {
-    "id": 60076,
-    "files": [
-      "static/chunks/5381-7399020f78b97e91.js",
-      "static/chunks/1217-6be7a51e511d04c0.js",
-      "static/chunks/6957-832c88af92642013.js",
-      "static/chunks/76.5ace83e262c5374d.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderTotalByStore": {
-    "id": 34749,
-    "files": [
-      "static/chunks/5381-7399020f78b97e91.js",
-      "static/chunks/1217-6be7a51e511d04c0.js",
-      "static/chunks/2366-6d1117621912382c.js",
-      "static/chunks/4749.b3fb322e6c83d0e2.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrderTotalSales": {
-    "id": 17035,
-    "files": [
-      "static/chunks/7035.2b3f9b4ac7014df8.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./OrdersChartData": {
-    "id": 41948,
-    "files": [
-      "static/chunks/5381-7399020f78b97e91.js",
-      "static/chunks/1217-6be7a51e511d04c0.js",
-      "static/chunks/6957-832c88af92642013.js",
-      "static/chunks/2366-6d1117621912382c.js",
-      "static/chunks/1948.cb2988c74d70419e.js"
-    ]
-  },
-  "app/dashboard/orders/lazy-charts.tsx -> ./ShopTypeRevenueChart": {
-    "id": 45687,
-    "files": [
-      "static/chunks/5687.7f62970c28ac28e7.js"
+      "static/chunks/_app-pages-browser_node_modules_leaflet_dist_leaflet-src_js.js"
     ]
   }
 }

@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-// import { mockLogin, isMockModeEnabled } from '@/app/lib/mock-auth'
+import { mockLogin, isMockModeEnabled } from '@/app/lib/mock-auth'
 
 // API endpoint configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 
-  (process.env.NODE_ENV === 'production' 
-    ? "https://your-backend-api.com" // Replace with your actual backend URL
-    : "http://localhost:3001");
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const LOGIN_ENDPOINT = `${API_BASE_URL}/api/auth/login`;
 
 export async function POST(request: NextRequest) {
@@ -16,41 +13,27 @@ export async function POST(request: NextRequest) {
     console.log("🔍 Login attempt:", {
       username,
       password: password ? "***" : "empty",
-      API_BASE_URL,
-      LOGIN_ENDPOINT,
     });
 
-    // Check if we should use mock mode (when no backend API is configured)
-    const isMockMode = API_BASE_URL === "https://your-backend-api.com" || !process.env.NEXT_PUBLIC_API_BASE_URL;
-    
-    if (isMockMode) {
-      console.log('🎭 Using mock authentication (no backend API configured)')
-      
-      // Simple mock authentication
-      if (username === 'admin' && password === 'admin') {
-        const mockToken = 'mock-jwt-token-' + Date.now();
-        return NextResponse.json({
-          success: true,
-          user: {
-            id: 1,
-            username: 'admin',
-            email: 'admin@example.com',
-            role: 'ROLE_ADMIN'
-          },
-          access_token: mockToken,
-          refresh_token: mockToken,
-          role: 'ROLE_ADMIN',
-          message: 'Login successful (Mock Mode)'
-        });
-      } else {
-        return NextResponse.json(
-          {
-            error: "Invalid credentials",
-            details: "Please use admin/admin for mock login"
-          },
-          { status: 401 }
-        );
+    // Check if mock mode is enabled
+
+    if (isMockModeEnabled()) {
+      console.log('🎭 Using mock authentication')
+      const mockResult = mockLogin(username, password)
+
+      if (!mockResult.success) {
+
       }
+
+      // Return mock response in the same format as real API
+      return NextResponse.json({
+        success: true,
+        user: mockResult.user,
+        access_token: mockResult.token,
+        refresh_token: mockResult.token, // Same token for simplicity
+        role: mockResult.user?.role,
+        message: 'Login successful (Mock Mode)'
+      })
     }
 
     console.log('🌐 Calling real API:', LOGIN_ENDPOINT)
