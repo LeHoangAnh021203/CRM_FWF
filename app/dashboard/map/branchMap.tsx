@@ -179,7 +179,7 @@ const branches: Branch[] = [
       "Tầng G, Glam Beautique, Lô [COS-03], 547 - 549 Tạ Quang Bửu, P.4, Quận 8",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.741253608950561, 
+    lat: 10.741253608950561,
     lng: 106.67857342861501,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -190,7 +190,7 @@ const branches: Branch[] = [
     address: "720A Điện Biên Phủ, Quận Bình Thạnh, TP.Hồ Chí Minh",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.795439029231291, 
+    lat: 10.795439029231291,
     lng: 106.72178170502013,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -201,7 +201,7 @@ const branches: Branch[] = [
     address: "161 Võ Nguyên Giáp, Phường Thảo Điền, TP.Thủ Đức",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.802632518413802, 
+    lat: 10.802632518413802,
     lng: 106.74095013828043,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -212,7 +212,7 @@ const branches: Branch[] = [
     address: "28 Mai Chí Thọ, Phường An Phú, TP.Thủ Đức",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.785198631528988, 
+    lat: 10.785198631528988,
     lng: 106.74745001162732,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -223,7 +223,7 @@ const branches: Branch[] = [
     address: "Lầu 3, 12 Phan Văn Trị, Phường 5, Quận Gò Vấp, TP.Hồ Chí Minh",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.827201035525615, 
+    lat: 10.827201035525615,
     lng: 106.6891071536249,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -234,7 +234,7 @@ const branches: Branch[] = [
     address: "Lầu 2, 190 Quang Trung, Phường 10, Quận Gò Vấp, TP.Hồ Chí Minh",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.829494495735004, 
+    lat: 10.829494495735004,
     lng: 106.67264283828062,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -245,7 +245,7 @@ const branches: Branch[] = [
     address: "Lầu 3, 50 Lê Văn Việt, Phường Hiệp Phú, TP.Thủ Đức",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.845215045219076, 
+    lat: 10.845215045219076,
     lng: 106.77861459595306,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -256,7 +256,7 @@ const branches: Branch[] = [
     address: "2 Phan Văn Đáng, Phường Thạnh Mỹ Lợi, TP.Thủ Đức",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.777170082958138, 
+    lat: 10.777170082958138,
     lng: 106.75751265680414,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -267,7 +267,7 @@ const branches: Branch[] = [
     address: "101 Tôn Dật Tiên, Phường Tân Phú, Quận 7, TP.Hồ Chí Minh",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.728788180472266, 
+    lat: 10.728788180472266,
     lng: 106.71875752478795,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -278,7 +278,7 @@ const branches: Branch[] = [
     address: "104 Phổ Quang, Phường 2, Quận Tân Bình, TP.Hồ Chí Minh",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.808711090291043, 
+    lat: 10.808711090291043,
     lng: 106.67012015362474,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -289,7 +289,7 @@ const branches: Branch[] = [
     address: "290 An Dương Vương, Phường 4, Quận 5, TP. Hồ Chí Minh",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.761089933719187, 
+    lat: 10.761089933719187,
     lng: 106.68060883828005,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -300,7 +300,7 @@ const branches: Branch[] = [
     address: "140 Hoa Lan, Phường 2, Quận Phú Nhuận, TP. Hồ Chí Minh",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.797869961311404, 
+    lat: 10.797869961311404,
     lng: 106.688768736428,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -311,7 +311,7 @@ const branches: Branch[] = [
     address: "100 đường Võ Thị Sáu, Phường Tân Định, Quận 1",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.788585134216817, 
+    lat: 10.788585134216817,
     lng: 106.69223975362458,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -323,7 +323,7 @@ const branches: Branch[] = [
       "14 Trương Định, Toà nhà M – Village, Phường 6, Quận 3, TP. Hồ Chí Minh",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.776886142014762, 
+    lat: 10.776886142014762,
     lng: 106.69119648060811,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -335,7 +335,7 @@ const branches: Branch[] = [
       "Tầng 2, Lô S14 TTTM Aeon Mall Celadon Tân Phú, Số 30 đường Tân Thắng, phường Sơn Kỳ, quận Tân Phú, TP. Hồ Chí Minh",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.80182428035194, 
+    lat: 10.80182428035194,
     lng: 106.61743256711645,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -347,7 +347,7 @@ const branches: Branch[] = [
       "Toà 3, Đường số 2, Nguyễn Văn Tưởng, P. An Phú, Quận 7, TP. Hồ Chí Minh",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.732190577622115, 
+    lat: 10.732190577622115,
     lng: 106.72922162478802,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -358,7 +358,7 @@ const branches: Branch[] = [
     address: "Tòa M6, Midtown Phú Mỹ Hưng, Đường 16, Tân Phú, Quận 7",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.723910760154066, 
+    lat: 10.723910760154066,
     lng: 106.72666683827975,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -369,7 +369,7 @@ const branches: Branch[] = [
     address: "Tầng 3, Estella Height, 88 Song Hành, An Phú, Thủ Đức",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.802108767472468, 
+    lat: 10.802108767472468,
     lng: 106.74929506077173,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -380,7 +380,7 @@ const branches: Branch[] = [
     address: "Tầng 2, SC VivoCity, 1058 Nguyễn Văn Linh, Tân Phong, Quận 7",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.730474537820713, 
+    lat: 10.730474537820713,
     lng: 106.7034082247881,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -392,7 +392,7 @@ const branches: Branch[] = [
       "Tầng trệt, Aeon Mall Bình Tân, 1 Đ. Số 17A, Bình Trị Đông B, Bình Tân",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.742971046177313, 
+    lat: 10.742971046177313,
     lng: 106.61193089595203,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -404,7 +404,7 @@ const branches: Branch[] = [
       "TTTM Nowzone – Lầu 1-118, 235, Nguyễn Văn Cừ, P.Nguyễn Cư Trinh, Q.1, HCM",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.764384250609973, 
+    lat: 10.764384250609973,
     lng: 106.68252233828012,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -415,7 +415,7 @@ const branches: Branch[] = [
     address: "Tầng 6 – Số 65 Lê Lợi, P. Bến Nghé, Quận 1",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.774007102802113, 
+    lat: 10.774007102802113,
     lng: 106.70107292478845,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -426,7 +426,7 @@ const branches: Branch[] = [
     address: "1B Sương Nguyệt Ánh, P. Bến Thành, Quận 1",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.773119763768271, 
+    lat: 10.773119763768271,
     lng: 106.69027192478833,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -437,7 +437,7 @@ const branches: Branch[] = [
     address: "Số 26 Thi Sách, P. Bến Nghé, Quận 1",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.77925725903514, 
+    lat: 10.77925725903514,
     lng: 106.70407649595244,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -448,7 +448,7 @@ const branches: Branch[] = [
     address: "43A – 43B Xuân Thủy, P. Thảo Điền, Thủ Đức",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.803487601638913, 
+    lat: 10.803487601638913,
     lng: 106.73156009595256,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -459,7 +459,7 @@ const branches: Branch[] = [
     address: "149 - 151 Nguyễn Du, P. Bến Thành, Quận 1",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.773245083067525, 
+    lat: 10.773245083067525,
     lng: 106.69294779022876,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -470,7 +470,7 @@ const branches: Branch[] = [
     address: "L4-03, 3C Đường 3/2, P. 10, Quận 10",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.77631244239704, 
+    lat: 10.77631244239704,
     lng: 106.68069656711633,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -482,7 +482,7 @@ const branches: Branch[] = [
       "Tầng 2 - L2.03, 2 Tôn Đức Thắng, Phường Sài Gòn, Quận 1, Hồ Chí Minh 700000",
     phone: "+84 889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.785952155643384, 
+    lat: 10.785952155643384,
     lng: 106.70759799754397,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -493,7 +493,7 @@ const branches: Branch[] = [
     address: "275 Võ Nguyên Giáp, An Phú, Thủ Đức, Hồ Chí Minh 700000",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.803316082905022, 
+    lat: 10.803316082905022,
     lng: 106.74077718464842,
     hours: "9:30 - 21:30",
     city: "Hồ Chí Minh",
@@ -506,7 +506,7 @@ const branches: Branch[] = [
     address: "177 Trần Phú, P. Hải Châu, TP. Đà Nẵng",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 16.066648799732953, 
+    lat: 16.066648799732953,
     lng: 108.2238566960181,
     hours: "9:30 - 21:30",
     city: "Đà Nẵng",
@@ -519,7 +519,7 @@ const branches: Branch[] = [
     address: "Số 04 Thống Nhất, Phường 1, TP Vũng Tàu",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.345896186694704, 
+    lat: 10.345896186694704,
     lng: 107.07705076711247,
     hours: "9:30 - 21:30",
     city: "Vũng Tàu",
@@ -530,7 +530,7 @@ const branches: Branch[] = [
     address: "Số 136 Hạ Long, Phường 2, TP Vũng Tàu",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 10.340194172518181, 
+    lat: 10.340194172518181,
     lng: 107.07251275176809,
     hours: "9:30 - 21:30",
     city: "Vũng Tàu",
@@ -544,7 +544,7 @@ const branches: Branch[] = [
       "Tầng 04, Số 01 Trần Hưng Đạo, P. Lộc Thọ, TP Nha Trang, Khánh Hòa",
     phone: "0889 866 666",
     services: ["Tư vấn", "Rửa mặt", "Mỹ phẩm"],
-    lat: 12.249104719976115, 
+    lat: 12.249104719976115,
     lng: 109.19479219157415,
     hours: "9:30 - 21:30",
     city: "Nha Trang",
@@ -684,14 +684,35 @@ export default function BranchMap() {
     }
   }, []);
 
+  // Create custom fox icon function
+  const createFoxIcon = useCallback((L: typeof import("leaflet")) => {
+    return L.divIcon({
+      html: `
+        <div style="
+          width: 30px; 
+          height: 30px; 
+        
+          border: 3px solid orange; 
+          border-radius: 50%; 
+          
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+        "> <img src="/logo.png" alt="Fox Logo" style="width: 30px; height: 30px; object-fit: contain;" /></div>
+      `,
+      className: "fox-marker",
+      iconSize: [40, 40],
+      iconAnchor: [15, 15],
+    });
+  }, []);
+
   const updateMarkers = useCallback(
     async (branches: Branch[]) => {
       if (!mapInstanceRef.current || !isMapLoaded) return;
 
       const { map, markers, popup } = mapInstanceRef.current;
       const L = await import("leaflet");
-
-      // Removed createIcon function as it's not being used
 
       const currentIds = new Set(branches.map((b) => b.id.toString()));
       for (const [id, marker] of markers.entries()) {
@@ -706,7 +727,9 @@ export default function BranchMap() {
         let marker = markers.get(id);
 
         if (!marker) {
-          marker = L.marker([branch.lat, branch.lng], {});
+          marker = L.marker([branch.lat, branch.lng], {
+            icon: createFoxIcon(L),
+          });
 
           marker.on("click", () => {
             const content = `
@@ -761,7 +784,7 @@ export default function BranchMap() {
 
       console.log("[v0] Updated markers:", branches.length);
     },
-    [isMapLoaded]
+    [isMapLoaded, createFoxIcon]
   );
 
   const fitBoundsToMarkers = useCallback(
@@ -774,7 +797,11 @@ export default function BranchMap() {
       const L = await import("leaflet");
 
       const group = L.featureGroup(
-        branches.map((branch) => L.marker([branch.lat, branch.lng]))
+        branches.map((branch) =>
+          L.marker([branch.lat, branch.lng], {
+            icon: createFoxIcon(L),
+          })
+        )
       );
 
       map.fitBounds(group.getBounds(), {
@@ -784,7 +811,7 @@ export default function BranchMap() {
 
       console.log("[v0] Fitted bounds to", branches.length, "branches");
     },
-    [isMapLoaded, userInteracted]
+    [isMapLoaded, userInteracted, createFoxIcon]
   );
 
   useEffect(() => {
@@ -914,7 +941,7 @@ export default function BranchMap() {
                   "></div>
                 `,
                 className: "user-location-marker",
-                iconSize: [30, 30],
+                iconSize: [20, 20],
                 iconAnchor: [10, 10],
               }),
             }).addTo(map);
@@ -1095,11 +1122,7 @@ export default function BranchMap() {
           {Object.entries(groupedBranches).map(([city, cityBranches]) => (
             <div key={city} className="border-b">
               <div className="p-4 bg-gray-50 flex items-center gap-2">
-                <div className="w-4 h-4 bg-gray-400 rounded-sm flex items-center justify-center">
-                  <span className="text-xs text-white font-bold">
-                    {cityBranches.length}
-                  </span>
-                </div>
+                
                 <h3 className="font-semibold text-gray-800">
                   {city} - {cityBranches.length} Chi Nhánh
                 </h3>
@@ -1443,9 +1466,11 @@ function BookingForm({
 }) {
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedService, setSelectedService] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const timeSlots = [
@@ -1476,25 +1501,71 @@ function BookingForm({
     "21:30",
   ];
 
+  const numberCustomer = [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+  ];
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      // Gửi email xác nhận đặt lịch
+      const emailResponse = await fetch('/api/booking/confirm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerName,
+          customerEmail: customerEmail || 'chưa-cung-cấp@example.com',
+          customerPhone,
+          service: selectedService || 'Dịch vụ chăm sóc da',
+          branchName: branch.name,
+          branchAddress: branch.address || 'Chưa cung cấp',
+          bookingDate: selectedDate,
+          bookingTime: selectedTime,
+          bookingCustomer: setSelectedCustomer
+        }),
+      });
 
-    alert(
-      `Đặt lịch thành công!\nChi nhánh: ${branch.name}\nNgày: ${selectedDate}\nGiờ: ${selectedTime}\nDịch vụ: ${selectedService}\nKhách hàng: ${customerName}\nSĐT: ${customerPhone}`
-    );
+      const emailResult = await emailResponse.json();
+
+      if (emailResult.success) {
+        // const customerSuccess = emailResult.emailDetails?.customer?.success;
+        // const businessSuccess = emailResult.emailDetails?.business?.success;
+        
+        // Email status logic removed as it's not used
+
+        alert(
+          `🎉 Xác nhận lịch thành công!\nNhà Cáo sẽ liên hệ để hỗ trợ khách iu trong thời gian sớm nhất!!! `
+        );
+      } else {
+        alert(
+          `✅ Đặt lịch thành công!\n\n⚠️ Không thể gửi email xác nhận: ${emailResult.error}\n`
+        );
+      }
+    } catch (error) {
+      console.error('❌ Booking error:', error);
+      alert(
+        `✅ Đặt lịch thành công!\n\n⚠️ Lỗi gửi email: ${error instanceof Error ? error.message : 'Unknown error'}\n`
+      );
+    }
 
     setIsSubmitting(false);
 
     // Reset form
     setSelectedDate("");
     setSelectedTime("");
+    setSelectedCustomer("");
     setSelectedService("");
     setCustomerName("");
     setCustomerPhone("");
+    setCustomerEmail("");
 
     // Close dialog
     onClose();
@@ -1527,19 +1598,18 @@ function BookingForm({
       </div>
 
       <div>
-        <label className="text-sm font-medium mb-2 block">Dịch vụ</label>
-        <select
-          value={selectedService}
-          onChange={(e) => setSelectedService(e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Chọn dịch vụ</option>
-          {branch.services.map((service) => (
-            <option key={service} value={service}>
-              {service}
-            </option>
-          ))}
-        </select>
+        <label className="text-sm font-medium mb-2 block">Email (tùy chọn)</label>
+        <Input
+          type="email"
+          value={customerEmail}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setCustomerEmail(e.target.value)
+          }
+          placeholder="Nhập email để nhận xác nhận"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          📧 Email xác nhận sẽ được gửi đến địa chỉ này
+        </p>
       </div>
 
       <div>
@@ -1570,6 +1640,24 @@ function BookingForm({
           ))}
         </select>
       </div>
+
+      <div>
+        <label className="text-sm font-medium mb-2 block">Số khách</label>
+        <select
+          value={selectedCustomer}
+          onChange={(e) => setSelectedCustomer(e.target.value)}
+          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Chọn số lượng</option>
+          {numberCustomer.map((customer) => (
+            <option key={customer} value={customer}>
+              {customer}
+            </option>
+          ))}
+        </select>
+      </div>
+
+    
 
       <Button
         type="submit"

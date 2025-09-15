@@ -1,17 +1,8 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import {
-  CalendarDate,
-  parseDate,
-} from "@internationalized/date";
+import { useDateRange } from "@/app/contexts/DateContext";
 
 interface ServicesFilterProps {
-  startDate: CalendarDate;
-  endDate: CalendarDate;
-  setStartDate: (date: CalendarDate) => void;
-  setEndDate: (date: CalendarDate) => void;
-  today: (tz: string) => CalendarDate;
-  getLocalTimeZone: () => string;
   selectedRegions: string[];
   setSelectedRegions: (regions: string[] | ((prev: string[]) => string[])) => void;
   selectedBranches: string[];
@@ -32,12 +23,6 @@ interface ServicesFilterProps {
 }
 
 export default function ServicesFilter({
-  startDate,
-  endDate,
-  setStartDate,
-  setEndDate,
-  today,
-  getLocalTimeZone,
   selectedRegions,
   setSelectedRegions,
   selectedBranches,
@@ -56,17 +41,8 @@ export default function ServicesFilter({
   genderActualPrice,
   formatMoneyShort,
 }: ServicesFilterProps) {
-  // Use state to prevent hydration mismatch
-  const [todayString, setTodayString] = React.useState<string>("");
-  const [minEndDate, setMinEndDate] = React.useState<string>("");
-
-  // Set dates after hydration to prevent mismatch
-  React.useEffect(() => {
-    const tz = getLocalTimeZone();
-    const current = today(tz);
-    setTodayString(current.toString());
-    setMinEndDate(startDate ? startDate.toString() : "");
-  }, [startDate, getLocalTimeZone, today]);
+  // Use global date context
+  const { } = useDateRange();
   
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
@@ -116,40 +92,6 @@ export default function ServicesFilter({
 
   return (
     <div className="w-full flex flex-col gap-4 md:flex-row md:gap-10">
-      {/* Date Picker */}
-      <div className="w-full max-w-xl flex flex-col gap-4 md:flex-row md:gap-4 bg-white p-2 rounded">
-        {/* Start Date */}
-        <div className="w-full flex flex-col gap-1">
-          <h3>Start date</h3>
-          <input
-            type="date"
-            className="border rounded p-2 bg-white"
-            value={startDate.toString()}
-            onChange={(e) => {
-              const date = parseDate(e.target.value);
-              setStartDate(date);
-            }}
-            max={today(getLocalTimeZone()).toString()}
-          />
-        </div>
-
-        {/* End Date */}
-        <div className="w-full flex flex-col gap-1">
-          <h3>End date</h3>
-          <input
-            type="date"
-            className="border rounded p-2 bg-white"
-            value={endDate.toString()}
-            onChange={(e) => {
-              const date = parseDate(e.target.value);
-              setEndDate(date);
-            }}
-            min={minEndDate}
-            max={todayString}
-          />
-        </div>
-      </div>
-
       {/* Filter */}
       <div className="w-full flex flex-col gap-2">
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full">

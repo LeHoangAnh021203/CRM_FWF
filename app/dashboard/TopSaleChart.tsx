@@ -1,21 +1,11 @@
 "use client";
 import React from "react";
 import { useTopSaleData } from "../hooks/useTopSaleData";
-import { CalendarDate } from "@internationalized/date";
+import { useDateRange } from "@/app/contexts/DateContext";
 
-interface TopSaleChartProps {
-  startDate: CalendarDate | null;
-  endDate: CalendarDate | null;
-  fromDate: string;
-  toDate: string;
-}
-
-export default function TopSaleChart({ 
-  startDate, 
-  endDate, 
-  fromDate, 
-  toDate 
-}: TopSaleChartProps) {
+export default function TopSaleChart() {
+  // Use global date context
+  const { startDate, endDate, fromDate, toDate } = useDateRange();
 
   // Fetch data
   const { data, loading, error } = useTopSaleData(fromDate, toDate);

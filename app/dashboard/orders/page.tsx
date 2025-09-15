@@ -8,14 +8,11 @@ import React, {
 } from "react";
 import {
   CalendarDate,
-  today,
-  getLocalTimeZone,
   parseDate,
 } from "@internationalized/date";
 
 import {
   LazyOrderFilter,
-  LazyOrderTotalSales,
   LazyOrderActualCollection,
   LazyOrderTotalByDay,
   LazyOrderTotalByStore,
@@ -34,6 +31,7 @@ import {
 } from "@/app/hooks/useLocalStorageState";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
 import { ApiService } from "../../lib/api-service";
+import { useDateRange } from "@/app/contexts/DateContext";
 
 interface DataPoint {
   date: string;
@@ -90,7 +88,7 @@ interface RegionStatData {
   region: string;
   orders: number;
   delta: number;
-  revenue: number;
+revenue: number;
   previousRevenue: number;
   growthPercent: number;
   percentage?: number;
@@ -104,34 +102,63 @@ const INVALID_DATES = [
   "SỐ ĐIỆN THOẠI",
 ];
 const API_BASE_URL = "/api/proxy";
-function useApiData<T>(url: string, fromDate: string, toDate: string) {
+
+// Debounce function để tránh gọi API quá nhiều
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+function useApiData<T>(url: string, fromDate: string, toDate: string, priority: number = 0) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Debounce dates để tránh gọi API quá nhiều khi user thay đổi date
+  const debouncedFromDate = useDebounce(fromDate, 300);
+  const debouncedToDate = useDebounce(toDate, 300);
+
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    // Thêm delay dựa trên priority để tránh rate limiting
+    const delay = priority * 100; // 0ms, 100ms, 200ms, etc.
+    
+    const timeoutId = setTimeout(() => {
+      setLoading(true);
+      setError(null);
 
-    // Extract endpoint from full URL - remove /api/proxy prefix
-    const endpoint = url
-      .replace(API_BASE_URL, "")
-      .replace("/api", "")
-      .replace(/^\/+/, "");
-    console.log("🔍 Debug - Original URL:", url);
-    console.log("🔍 Debug - Extracted Endpoint:", endpoint);
+      // Extract endpoint from full URL - remove /api/proxy prefix
+      const endpoint = url
+        .replace(API_BASE_URL, "")
+        .replace("/api", "")
+        .replace(/^\/+/, "");
+      console.log("🔍 Debug - Original URL:", url);
+      console.log("🔍 Debug - Extracted Endpoint:", endpoint);
 
-    ApiService.post(endpoint, { fromDate, toDate })
-      .then((data: unknown) => {
-        setData(data as T);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        console.error("🔍 Debug - API Error:", err);
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [url, fromDate, toDate]);
+      ApiService.post(endpoint, { fromDate: debouncedFromDate, toDate: debouncedToDate })
+        .then((data: unknown) => {
+          setData(data as T);
+          setLoading(false);
+        })
+        .catch((err: Error) => {
+          console.error("🔍 Debug - API Error:", err);
+          setError(err.message);
+          setLoading(false);
+        });
+    }, delay);
+
+    return () => clearTimeout(timeoutId);
+  }, [url, debouncedFromDate, debouncedToDate, priority]);
 
   return { data, loading, error };
 }
@@ -209,29 +236,17 @@ export default function CustomerReportPage() {
   // Function để reset tất cả filter về mặc định
   const resetFilters = () => {
     clearLocalStorageKeys([
-      "orders-startDate",
-      "orders-endDate",
       "orders-selectedBranches",
       "orders-selectedRegions",
     ]);
-    setStartDate(today(getLocalTimeZone()).subtract({ days: 7 }));
-    setEndDate(today(getLocalTimeZone()));
     setSelectedBranches([]);
     setSelectedRegions([]);
     showSuccess("Đã reset tất cả filter về mặc định!");
     reportResetFilters();
   };
 
-  const [startDate, setStartDate, startDateLoaded] =
-    useLocalStorageState<CalendarDate>(
-      "orders-startDate",
-      today(getLocalTimeZone()).subtract({ days: 7 })
-    );
-  const [endDate, setEndDate, endDateLoaded] =
-    useLocalStorageState<CalendarDate>(
-      "orders-endDate",
-      today(getLocalTimeZone())
-    );
+  // Use global date context instead of local state
+  const { startDate, endDate, fromDate, toDate, isLoaded: dateLoaded } = useDateRange();
   const [selectedBranches, setSelectedBranches, selectedBranchesLoaded] =
     useLocalStorageState<string[]>("orders-selectedBranches", []);
 
@@ -241,8 +256,7 @@ export default function CustomerReportPage() {
 
   // Kiểm tra xem tất cả localStorage đã được load chưa
   const isAllLoaded =
-    startDateLoaded &&
-    endDateLoaded &&
+    dateLoaded &&
     selectedBranchesLoaded &&
     selectedRegionsLoaded;
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
@@ -288,16 +302,7 @@ export default function CustomerReportPage() {
     []
   );
 
-  const fromDate = startDate
-    ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
-        startDate.day
-      ).padStart(2, "0")}T00:00:00`
-    : "";
-  const toDate = endDate
-    ? `${endDate.year}-${String(endDate.month).padStart(2, "0")}-${String(
-        endDate.day
-      ).padStart(2, "0")}T23:59:59`
-    : "";
+  // fromDate and toDate are now provided by the global date context
 
   // XỬ LÍ API
 
@@ -308,7 +313,7 @@ export default function CustomerReportPage() {
   } = useApiData<{
     currentRange: { region: string; date: string; totalRevenue: number }[];
     previousRange: { region: string; date: string; totalRevenue: number }[];
-  }>(`${API_BASE_URL}/api/sales/region-revenue`, fromDate, toDate);
+  }>(`${API_BASE_URL}/api/sales/region-revenue`, fromDate, toDate, 0);
 
   const {
     data: shopTyperegionRevenueRaw,
@@ -317,7 +322,7 @@ export default function CustomerReportPage() {
   } = useApiData<{
     currentRange: { shopType: string; date: string; actualRevenue: number }[];
     previousRange: { shopType: string; date: string; actualRevenue: number }[];
-  }>(`${API_BASE_URL}/api/sales/shop-type-revenue`, fromDate, toDate);
+  }>(`${API_BASE_URL}/api/sales/shop-type-revenue`, fromDate, toDate, 3);
 
   const {
     data: revenueSummaryRaw,
@@ -330,7 +335,7 @@ export default function CustomerReportPage() {
     actualRevenue: number;
     revenueGrowth: number;
     actualGrowth: number;
-  }>(`${API_BASE_URL}/api/sales/revenue-summary`, fromDate, toDate);
+  }>(`${API_BASE_URL}/api/sales/revenue-summary`, fromDate, toDate, 1);
 
   const {
     data: regionStatRaw,
@@ -339,10 +344,15 @@ export default function CustomerReportPage() {
   } = useApiData<RegionStatData[]>(
     `${API_BASE_URL}/api/sales/region-stat`,
     fromDate,
-    toDate
+    toDate,
+    4
   );
 
-  const { data: overallSummary } = useApiData<{
+  const {
+    data: overallSummary,
+    loading: overallSummaryLoading,
+    error: overallSummaryError,
+  } = useApiData<{
     totalRevenue: number;
     serviceRevenue: number;
     foxieCardRevenue: number;
@@ -361,7 +371,7 @@ export default function CustomerReportPage() {
     percentProductRevenue: number;
     percentCardPurchaseRevenue: number;
     percentAvgActualRevenue: number;
-  }>(`${API_BASE_URL}/api/sales/overall-summary`, fromDate, toDate);
+  }>(`${API_BASE_URL}/api/sales/overall-summary`, fromDate, toDate, 2);
 
   // Report page load success when data loads
   useEffect(() => {
@@ -424,7 +434,7 @@ export default function CustomerReportPage() {
     actualRevenue: number;
     revenueGrowth: number;
     actualGrowth: number;
-  }>(`${API_BASE_URL}/api/sales/region-actual-pie`, fromDate, toDate);
+  }>(`${API_BASE_URL}/api/sales/region-actual-pie`, fromDate, toDate, 5);
 
   const {
     data: dailyRegionRevenue,
@@ -437,7 +447,7 @@ export default function CustomerReportPage() {
     actualRevenue: number;
     revenueGrowth: number;
     actualGrowth: number;
-  }>(`${API_BASE_URL}/api/sales/daily-region-revenue`, fromDate, toDate);
+  }>(`${API_BASE_URL}/api/sales/daily-region-revenue`, fromDate, toDate, 6);
 
   const {
     data: dailyByShopType,
@@ -449,7 +459,7 @@ export default function CustomerReportPage() {
       shopType: string;
       revenue: number;
     }[]
-  >(`${API_BASE_URL}/api/sales/daily-by-shop-type`, fromDate, toDate);
+  >(`${API_BASE_URL}/api/sales/daily-by-shop-type`, fromDate, toDate, 7);
 
   const {
     data: dailyByCustomerType,
@@ -461,7 +471,7 @@ export default function CustomerReportPage() {
       customerType: string;
       revenue: number;
     }[]
-  >(`${API_BASE_URL}/api/sales/daily-by-customer-type`, fromDate, toDate);
+  >(`${API_BASE_URL}/api/sales/daily-by-customer-type`, fromDate, toDate, 8);
 
   const {
     data: dailyOrderStats,
@@ -475,7 +485,7 @@ export default function CustomerReportPage() {
       totalOrders: number;
       avgOrdersPerShop: number;
     }[]
-  >(`${API_BASE_URL}/api/sales/daily-order-stats`, fromDate, toDate);
+  >(`${API_BASE_URL}/api/sales/daily-order-stats`, fromDate, toDate, 9);
 
   const {
     data: fullStoreRevenue,
@@ -486,14 +496,14 @@ export default function CustomerReportPage() {
       storeName: string;
       currentOrders: number;
       deltaOrders: number;
-      actualRevenue: number;
-      foxieRevenue: number;
+      cashTransfer: number;
+      prepaidCard: number;
       revenueGrowth: number;
-      revenuePercent: number;
-      foxiePercent: number;
+      cashPercent: number;
+      prepaidPercent: number;
       orderPercent: number;
     }[]
-  >(`${API_BASE_URL}/api/sales/full-store-revenue`, fromDate, toDate);
+  >(`${API_BASE_URL}/api/sales/full-store-revenue`, fromDate, toDate, 10);
 
   const {
     data: regionOrderBreakdownTable,
@@ -513,7 +523,7 @@ export default function CustomerReportPage() {
       deltaComboOrders: number;
       deltaCardPurchaseOrders: number;
     }[]
-  >(`${API_BASE_URL}/api/sales/region-order-breakdown-table`, fromDate, toDate);
+  >(`${API_BASE_URL}/api/sales/region-order-breakdown-table`, fromDate, toDate, 11);
 
   const {
     data: regionOrderBreakdown,
@@ -528,7 +538,7 @@ export default function CustomerReportPage() {
       productOrders: number;
       cardPurchaseOrders: number;
     }[]
-  >(`${API_BASE_URL}/api/sales/region-order-breakdown`, fromDate, toDate);
+  >(`${API_BASE_URL}/api/sales/region-order-breakdown`, fromDate, toDate, 12);
 
   const {
     data: overallOrderSummary,
@@ -545,7 +555,7 @@ export default function CustomerReportPage() {
     deltaFoxieCardOrders: number;
     deltaProductOrders: number;
     deltaCardPurchaseOrders: number;
-  }>(`${API_BASE_URL}/api/sales/overall-order-summary`, fromDate, toDate);
+  }>(`${API_BASE_URL}/api/sales/overall-order-summary`, fromDate, toDate, 13);
 
   // Track overall loading and error states for notifications
   const allLoadingStates = [
@@ -561,6 +571,7 @@ export default function CustomerReportPage() {
     regionOrderBreakdownTableLoading,
     regionOrderBreakdownLoading,
     overallOrderSummaryLoading,
+    overallSummaryLoading,
     dailyShopTypeLoading,
   ];
 
@@ -577,6 +588,7 @@ export default function CustomerReportPage() {
     regionOrderBreakdownTableError,
     regionOrderBreakdownError,
     overallOrderSummaryError,
+    overallSummaryError,
     dailyShopTypeError,
   ];
 
@@ -1098,9 +1110,9 @@ export default function CustomerReportPage() {
       }));
     }
 
-    // Use API data - lấy tất cả stores và sắp xếp theo doanh thu
+    // Use API data - lấy tất cả stores và sắp xếp theo thực thu (cashTransfer)
     const sortedStores = [...fullStoreRevenue].sort(
-      (a, b) => b.actualRevenue - a.actualRevenue
+      (a, b) => b.cashTransfer - a.cashTransfer
     );
 
     // Lấy top 10 cho chart
@@ -1112,8 +1124,8 @@ export default function CustomerReportPage() {
 
     return top10.map((store, idx) => ({
       name: store.storeName,
-      revenue: store.actualRevenue,
-      foxie: store.foxieRevenue,
+      revenue: store.cashTransfer, // Thực thu = cashTransfer
+      foxie: store.prepaidCard, // prepaidCard tương đương với foxie
       rank: idx + 1,
     }));
   }, [fullStoreRevenue, realData, weekStart, weekEnd, locationOptions]);
@@ -1188,14 +1200,14 @@ export default function CustomerReportPage() {
     // Use API data
     return fullStoreRevenue.map((store) => ({
       location: store.storeName,
-      revenue: store.actualRevenue,
+      revenue: store.cashTransfer, // Thực thu = cashTransfer
       revenueDelta: store.revenueGrowth,
-      foxie: store.foxieRevenue,
+      foxie: store.prepaidCard, // prepaidCard tương đương với foxie
       foxieDelta: null, // API doesn't provide foxie growth percentage
       orders: store.currentOrders,
       ordersDelta: store.deltaOrders,
-      revenuePercent: store.revenuePercent,
-      foxiePercent: store.foxiePercent,
+      revenuePercent: store.cashPercent, // Sử dụng cashPercent thay vì revenuePercent
+      foxiePercent: store.prepaidPercent, // Sử dụng prepaidPercent thay vì foxiePercent
       orderPercent: store.orderPercent,
     }));
   }, [
@@ -1591,12 +1603,6 @@ export default function CustomerReportPage() {
             }
           >
             <LazyOrderFilter
-              startDate={startDate}
-              setStartDate={setStartDate}
-              endDate={endDate}
-              setEndDate={setEndDate}
-              today={() => today(getLocalTimeZone())}
-              parseDate={parseDate}
               selectedRegions={selectedRegions}
               setSelectedRegions={setSelectedRegions}
               regionOptions={regionOptions}
@@ -1619,7 +1625,7 @@ export default function CustomerReportPage() {
           </Suspense>
         </div>
 
-        {/* Tổng doanh số và Tổng thực thu */}
+
         <Suspense
           fallback={
             <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
@@ -1627,14 +1633,159 @@ export default function CustomerReportPage() {
             </div>
           }
         >
-          <LazyOrderTotalSales
-            totalWeekSales={revenueSummaryRaw?.totalRevenue ?? 0}
-            weekSalesChange={revenueSummaryRaw?.revenueGrowth ?? 0}
-            totalRevenueThisWeek={revenueSummaryRaw?.actualRevenue ?? 0}
-            weekRevenueChange={revenueSummaryRaw?.actualGrowth ?? 0}
-            foxieDebtChange={0}
-            fullStoreRevenueData={fullStoreRevenue || undefined}
-          />
+          {/* Revenue Summary Cards */}
+          {revenueSummaryLoading ? (
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-gray-100 rounded-xl p-6 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div className="h-8 bg-gray-200 rounded w-1/2 mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+              </div>
+              <div className="bg-gray-100 rounded-xl p-6 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div className="h-8 bg-gray-200 rounded w-1/2 mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+              </div>
+            </div>
+          ) : revenueSummaryError ? (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-6">
+              <div className="text-red-600 text-center">
+                <p className="font-semibold">Lỗi tải dữ liệu Revenue Summary</p>
+                <p className="text-sm mt-1">{revenueSummaryError}</p>
+              </div>
+            </div>
+          ) : revenueSummaryRaw ? (
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Tổng trả thẻ Foxie */}
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-6 shadow-lg">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-orange-800">Tổng trả thẻ Foxie</h3>
+                    <p className="text-sm text-orange-600">Tổng giá trị thẻ Foxie đã thanh toán</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="text-3xl font-bold text-orange-900">
+                    {revenueSummaryRaw.totalRevenue !== null && revenueSummaryRaw.totalRevenue !== undefined
+                      ? `${(revenueSummaryRaw.totalRevenue / 1000000000).toFixed(1)} tỷ VND`
+                      : '0.0 tỷ VND'}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      revenueSummaryRaw.revenueGrowth !== null && revenueSummaryRaw.revenueGrowth !== undefined && revenueSummaryRaw.revenueGrowth >= 0 
+                        ? 'bg-green-100 text-green-700' 
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {revenueSummaryRaw.revenueGrowth !== null && revenueSummaryRaw.revenueGrowth !== undefined && revenueSummaryRaw.revenueGrowth >= 0 ? '↗' : '↘'} {revenueSummaryRaw.revenueGrowth !== null && revenueSummaryRaw.revenueGrowth !== undefined ? Math.abs(revenueSummaryRaw.revenueGrowth).toFixed(1) : '0.0'}%
+                    </span>
+                    <span className="text-sm text-orange-600">so với kỳ trước</span>
+                  </div>
+                  <div className="text-sm text-orange-700">
+                    💳 {revenueSummaryRaw.totalRevenue !== null && revenueSummaryRaw.totalRevenue !== undefined 
+                      ? revenueSummaryRaw.totalRevenue.toLocaleString('vi-VN') 
+                      : '0'} VND
+                  </div>
+                </div>
+              </div>
+
+              {/* Tổng thực thu */}
+              <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-6 shadow-lg">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-green-800">Tổng thực thu</h3>
+                    <p className="text-sm text-green-600">Tổng doanh thu thực tế đã thu về</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="text-3xl font-bold text-green-900">
+                    {revenueSummaryRaw.actualRevenue !== null && revenueSummaryRaw.actualRevenue !== undefined
+                      ? `${(revenueSummaryRaw.actualRevenue / 1000000000).toFixed(1)} tỷ VND`
+                      : '0.0 tỷ VND'}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      revenueSummaryRaw.actualGrowth !== null && revenueSummaryRaw.actualGrowth !== undefined && revenueSummaryRaw.actualGrowth >= 0 
+                        ? 'bg-green-100 text-green-700' 
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {revenueSummaryRaw.actualGrowth !== null && revenueSummaryRaw.actualGrowth !== undefined && revenueSummaryRaw.actualGrowth >= 0 ? '↗' : '↘'} {revenueSummaryRaw.actualGrowth !== null && revenueSummaryRaw.actualGrowth !== undefined ? Math.abs(revenueSummaryRaw.actualGrowth).toFixed(1) : '0.0'}%
+                    </span>
+                    <span className="text-sm text-green-600">so với kỳ trước</span>
+                  </div>
+                  <div className="text-sm text-green-700">
+                    💰 {revenueSummaryRaw.actualRevenue !== null && revenueSummaryRaw.actualRevenue !== undefined 
+                      ? revenueSummaryRaw.actualRevenue.toLocaleString('vi-VN') 
+                      : '0'} VND
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Card so sánh và phân tích */}
+          {!revenueSummaryLoading && !revenueSummaryError && revenueSummaryRaw && (
+            <div className="mt-6 bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-6 shadow-lg">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-800">Phân tích hiệu quả</h3>
+                  <p className="text-sm text-blue-600">So sánh tỷ lệ thu thực tế và chênh lệch</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-900 mb-1">
+                    {revenueSummaryRaw && revenueSummaryRaw.totalRevenue !== null && revenueSummaryRaw.totalRevenue !== undefined && revenueSummaryRaw.totalRevenue > 0 && revenueSummaryRaw.actualRevenue !== null && revenueSummaryRaw.actualRevenue !== undefined
+                      ? ((revenueSummaryRaw.actualRevenue / revenueSummaryRaw.totalRevenue) * 100).toFixed(1)
+                      : '0.0'}%
+                  </div>
+                  <div className="text-sm text-blue-700">Tỷ lệ thu thực tế</div>
+                  <div className="text-xs text-blue-600 mt-1">
+                    Thực thu / Tổng Foxie
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-900 mb-1">
+                    {revenueSummaryRaw && revenueSummaryRaw.actualRevenue !== null && revenueSummaryRaw.actualRevenue !== undefined && revenueSummaryRaw.totalRevenue !== null && revenueSummaryRaw.totalRevenue !== undefined
+                      ? ((revenueSummaryRaw.actualRevenue - revenueSummaryRaw.totalRevenue) / 1000000000).toFixed(1)
+                      : '0.0'} tỷ
+                  </div>
+                  <div className="text-sm text-blue-700">Chênh lệch thu thực tế</div>
+                  <div className="text-xs text-blue-600 mt-1">
+                    Thực thu - Tổng Foxie
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-900 mb-1">
+                    {revenueSummaryRaw && revenueSummaryRaw.actualGrowth !== null && revenueSummaryRaw.actualGrowth !== undefined
+                      ? Math.abs(revenueSummaryRaw.actualGrowth).toFixed(1)
+                      : '0.0'}%
+                  </div>
+                  <div className="text-sm text-blue-700">Tăng trưởng thực thu</div>
+                  <div className="text-xs text-blue-600 mt-1">
+                    So với kỳ trước
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+
+         
         </Suspense>
 
         {/* KPI cửa hàng */}
@@ -1753,8 +1904,8 @@ export default function CustomerReportPage() {
             fullStoreRevenueData={fullStoreRevenue || undefined}
             formatMoneyShort={formatMoneyShort}
             overallOrderSummary={overallSummary}
-            overallOrderSummaryLoading={false}
-            overallOrderSummaryError={null}
+            overallOrderSummaryLoading={overallSummaryLoading}
+            overallOrderSummaryError={overallSummaryError}
           />
         </Suspense>
 

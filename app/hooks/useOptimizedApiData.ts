@@ -17,7 +17,7 @@ const DEBOUNCE_DELAY = 300; // 300ms
 const RETRY_DELAYS = [1000, 2000, 5000]; // Exponential backoff
 const MAX_RETRIES = 3;
 
-interface UseOptimizedApiDataOptions<T> {
+interface UseOptimizedApiDataOptions {
   url: string;
   fromDate: string;
   toDate: string;
@@ -52,7 +52,7 @@ export function useOptimizedApiData<T>({
   debounceDelay = DEBOUNCE_DELAY,
   retryCount = MAX_RETRIES,
   staleWhileRevalidate = true,
-}: UseOptimizedApiDataOptions<T>): UseOptimizedApiDataReturn<T> {
+}: UseOptimizedApiDataOptions): UseOptimizedApiDataReturn<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

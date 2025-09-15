@@ -6,7 +6,7 @@ interface StoreTableRow {
   revenueDelta: number | null;
   foxie: number;
   foxieDelta: number | null;
-  orders: number;
+  orders: number | null;
   ordersDelta: number | null;
   revenuePercent: number | null;
   foxiePercent: number | null;
@@ -66,8 +66,8 @@ const OrderActualStoreSale: React.FC<Props> = ({
           bValue = b.foxie;
           break;
         case 'orders':
-          aValue = a.orders;
-          bValue = b.orders;
+          aValue = a.orders || 0;
+          bValue = b.orders || 0;
           break;
         default:
           aValue = a.revenue;
@@ -95,7 +95,10 @@ const OrderActualStoreSale: React.FC<Props> = ({
   };
 
   // Use consistent number formatting to prevent hydration mismatch
-  const formatNumber = (num: number) => {
+  const formatNumber = (num: number | undefined | null) => {
+    if (num === undefined || num === null || isNaN(num)) {
+      return "0";
+    }
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   };
 
@@ -105,7 +108,7 @@ const OrderActualStoreSale: React.FC<Props> = ({
     0
   );
   const totalFoxie = sortedData.reduce((sum, store) => sum + store.foxie, 0);
-  const totalOrders = sortedData.reduce((sum, store) => sum + store.orders, 0);
+  const totalOrders = sortedData.reduce((sum, store) => sum + (store.orders || 0), 0);
 
   // Tính tổng tháng trước để so sánh với tổng tháng này
   const totalRevenueLastMonth = sortedData.reduce((sum, store) => {
@@ -140,12 +143,12 @@ const OrderActualStoreSale: React.FC<Props> = ({
 
   const totalOrdersLastMonth = sortedData.reduce((sum, store) => {
     if (store.ordersDelta !== null) {
-      const currentOrders = store.orders;
+      const currentOrders = store.orders || 0;
       const percentChange = store.ordersDelta / 100;
       const lastMonthOrders = currentOrders / (1 + percentChange);
       return sum + lastMonthOrders;
     }
-    return sum + store.orders;
+    return sum + (store.orders || 0);
   }, 0);
 
   // Tính phần trăm thay đổi tổng thể
@@ -291,7 +294,7 @@ const OrderActualStoreSale: React.FC<Props> = ({
                 </td>
                 <td
                   className={`px-3 py-2 text-right ${
-                    row.revenueDelta !== null
+                    row.revenueDelta !== null && row.revenueDelta !== undefined
                       ? row.revenueDelta > 0
                         ? "text-green-600"
                         : row.revenueDelta < 0
@@ -300,20 +303,20 @@ const OrderActualStoreSale: React.FC<Props> = ({
                       : ""
                   }`}
                 >
-                  {row.revenueDelta === null
+                  {row.revenueDelta === null || row.revenueDelta === undefined
                     ? "N/A"
                     : `${row.revenueDelta.toFixed(1)}%`}
                 </td>
                 <td
                   className={`px-3 py-2 text-right  ${
-                    row.revenuePercent !== null
+                    row.revenuePercent !== null && row.revenuePercent !== undefined
                       ? row.revenuePercent >= avgRevenuePercent
                         ? "text-green-600 font-bold"
                         : "text-red-500 font-bold"
                       : ""
                   }`}
                 >
-                  {row.revenuePercent !== null
+                  {row.revenuePercent !== null && row.revenuePercent !== undefined
                     ? `${row.revenuePercent.toFixed(2)}%`
                     : "N/A"}
                 </td>
@@ -322,23 +325,25 @@ const OrderActualStoreSale: React.FC<Props> = ({
                 </td>
                 <td
                   className={`px-3 py-2 text-right  ${
-                    row.foxiePercent !== null
+                    row.foxiePercent !== null && row.foxiePercent !== undefined
                       ? row.foxiePercent >= avgFoxiePercent
                         ? "text-green-600 font-bold"
                         : "text-red-500 font-bold"
                       : ""
                   }`}
                 >
-                  {row.foxiePercent !== null
+                  {row.foxiePercent !== null && row.foxiePercent !== undefined
                     ? `${row.foxiePercent.toFixed(2)}%`
                     : "N/A"}
                 </td>
                 <td className="px-3 py-2 text-right bg-[#a9b8c3]">
-                  {row.orders.toLocaleString()}
+                  {row.orders !== null && row.orders !== undefined 
+                    ? row.orders.toLocaleString() 
+                    : "0"}
                 </td>
                 <td
                   className={`px-3 py-2 text-right ${
-                    row.ordersDelta !== null
+                    row.ordersDelta !== null && row.ordersDelta !== undefined
                       ? row.ordersDelta > 0
                         ? "text-green-600"
                         : row.ordersDelta < 0
@@ -347,7 +352,7 @@ const OrderActualStoreSale: React.FC<Props> = ({
                       : ""
                   }`}
                 >
-                  {row.ordersDelta === null
+                  {row.ordersDelta === null || row.ordersDelta === undefined
                     ? "N/A"
                     : `${row.ordersDelta.toFixed(1)}%`}
                 </td>

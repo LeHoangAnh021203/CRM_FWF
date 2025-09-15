@@ -14,6 +14,7 @@ import {
   Radical,
   Sparkles,
 } from "lucide-react";
+import { getQuickActionsUrl } from "@/app/lib/api-config";
 
 interface QuickAction {
   id: string;
@@ -26,10 +27,7 @@ interface QuickAction {
   href?: string;
 }
 
-const API_BASE_URL =
-  typeof window !== "undefined" && window.location.hostname === "localhost"
-    ? "http://localhost:3000"
-    : "https://fb-network-demo.vercel.app";
+// API URL được quản lý bởi utility function
 
 export function QuickActions() {
   const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
@@ -46,7 +44,7 @@ export function QuickActions() {
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
         const response = await fetch(
-          `${API_BASE_URL}/api/dashboard/quick-actions`,
+          getQuickActionsUrl(),
           {
             method: "GET",
             headers: { "Content-Type": "application/json" },

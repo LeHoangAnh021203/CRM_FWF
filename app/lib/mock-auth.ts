@@ -140,5 +140,9 @@ export function mockValidateToken(token: string): { valid: boolean; user?: MockU
 
 // Check if mock mode is enabled
 export function isMockModeEnabled(): boolean {
-  return process.env.NODE_ENV === 'development' && process.env.USE_MOCK_AUTH === 'true'
+  // Enable mock mode if:
+  // 1. In development and USE_MOCK_AUTH is true, OR
+  // 2. No backend API URL is configured (production fallback)
+  return (process.env.NODE_ENV === 'development' && process.env.USE_MOCK_AUTH === 'true') ||
+         !process.env.NEXT_PUBLIC_API_BASE_URL
 }

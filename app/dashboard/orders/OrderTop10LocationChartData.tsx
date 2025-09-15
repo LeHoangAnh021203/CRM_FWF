@@ -22,11 +22,11 @@ interface StoreRevenueData {
   storeName: string;
   currentOrders: number;
   deltaOrders: number;
-  actualRevenue: number;
-  foxieRevenue: number;
+  cashTransfer: number;
+  prepaidCard: number;
   revenueGrowth: number;
-  revenuePercent: number;
-  foxiePercent: number;
+  cashPercent: number;
+  prepaidPercent: number;
   orderPercent: number;
 }
 
@@ -153,9 +153,9 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
 }) => {
   const [showTop10, setShowTop10] = React.useState(true);
 
-  // Tạo dữ liệu bottom 5 trực tiếp từ API fullStoreRevenue
-  // Lấy 5 stores có doanh thu thấp nhất từ tất cả stores
-  const bottom5LocationChartData = React.useMemo(() => {
+  // Tạo dữ liệu bottom 10 trực tiếp từ API fullStoreRevenue
+  // Lấy 10 stores có doanh thu thấp nhất từ tất cả stores
+  const bottom10LocationChartData = React.useMemo(() => {
     if (!fullStoreRevenueData || fullStoreRevenueData.length === 0) {
       // Fallback data khi API chưa load
       return [
@@ -164,33 +164,38 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
         { name: "Đang tải...", revenue: 0, foxie: 0, rank: 3 },
         { name: "Đang tải...", revenue: 0, foxie: 0, rank: 4 },
         { name: "Đang tải...", revenue: 0, foxie: 0, rank: 5 },
+        { name: "Đang tải...", revenue: 0, foxie: 0, rank: 6 },
+        { name: "Đang tải...", revenue: 0, foxie: 0, rank: 7 },
+        { name: "Đang tải...", revenue: 0, foxie: 0, rank: 8 },
+        { name: "Đang tải...", revenue: 0, foxie: 0, rank: 9 },
+        { name: "Đang tải...", revenue: 0, foxie: 0, rank: 10 },
       ];
     }
 
-    // Sắp xếp tất cả stores theo doanh thu tăng dần (thấp nhất lên đầu)
+    // Sắp xếp tất cả stores theo thực thu tăng dần (thấp nhất lên đầu)
     const sortedStores = [...fullStoreRevenueData].sort(
-      (a, b) => a.actualRevenue - b.actualRevenue
+      (a, b) => a.cashTransfer - b.cashTransfer
     );
 
-    // Lấy 5 stores có doanh thu thấp nhất và giữ nguyên thứ tự tăng dần
-    const bottom5 = sortedStores.slice(0, 5).map((store, index) => ({
+    // Lấy 10 stores có thực thu thấp nhất và giữ nguyên thứ tự tăng dần
+    const bottom10 = sortedStores.slice(0, 10).map((store, index) => ({
       name: store.storeName,
-      revenue: store.actualRevenue,
-      foxie: store.foxieRevenue,
+      revenue: store.cashTransfer, // Thực thu = cashTransfer
+      foxie: store.prepaidCard, // prepaidCard tương đương với foxie
       rank: index + 1,
     }));
 
     // Debug log để kiểm tra dữ liệu
     console.log("Full Store Revenue API Data:", fullStoreRevenueData);
-    console.log("Bottom 5 Location Data (from API):", bottom5);
+    console.log("Bottom 10 Location Data (from API):", bottom10);
 
-    return bottom5;
+    return bottom10;
   }, [fullStoreRevenueData]);
 
   // Dữ liệu hiện tại dựa trên state
   const currentChartData = showTop10
     ? top10LocationChartData
-    : bottom5LocationChartData;
+    : bottom10LocationChartData;
   const currentTitle = showTop10
     ? "Top 10 cửa hàng theo thực thu"
     : "Bottom 10 cửa hàng theo thực thu";
@@ -314,7 +319,7 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
                     </Bar>
                   </>
                 ) : (
-                  // Bottom 5: Foxie ở trên, Thực thu ở dưới - bars to hơn
+                  // Bottom 10: Foxie ở trên, Thực thu ở dưới - bars to hơn
                   <>
                     <Bar
                       dataKey="foxie"
@@ -391,7 +396,10 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
               {overallOrderSummaryLoading ? (
                 // Loading state
                 Array.from({ length: 5 }).map((_, index) => (
-                  <div key={index} className="bg-white rounded-xl shadow p-3 flex flex-col items-center w-full border-2 border-gray-200 animate-pulse">
+                  <div
+                    key={index}
+                    className="bg-white rounded-xl shadow p-3 flex flex-col items-center w-full border-2 border-gray-200 animate-pulse"
+                  >
                     <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
                     <div className="h-6 bg-gray-200 rounded w-16 mb-2"></div>
                     <div className="h-3 bg-gray-200 rounded w-12"></div>
@@ -406,12 +414,6 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
                 // Data state
                 <>
                   <StatCard
-                    title="Tổng thực thu"
-                    value={overallOrderSummary.totalRevenue}
-                    delta={overallOrderSummary.percentTotalRevenue}
-                    valueColor="text-[#fcb900]"
-                  />
-                  <StatCard
                     title="Thực thu dịch vụ"
                     value={overallOrderSummary.serviceRevenue}
                     delta={overallOrderSummary.percentServiceRevenue}
@@ -423,12 +425,12 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
                     delta={overallOrderSummary.percentFoxieCardRevenue}
                     valueColor="text-[#8ed1fc]"
                   />
-                  <StatCard
+                  {/* <StatCard
                     title="Thực thu sản phẩm"
                     value={overallOrderSummary.productRevenue}
                     delta={overallOrderSummary.percentProductRevenue}
                     valueColor="text-[#a9b8c3]"
-                  />
+                  /> */}
                   <StatCard
                     title="Thực thu trung bình mỗi ngày"
                     value={overallOrderSummary.avgActualRevenueDaily}
@@ -446,11 +448,14 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
           </div>
 
           {/* Desktop: Grid layout */}
-          <div className="hidden lg:flex items-center justify-center lg:grid lg:grid-cols-1 gap-3 h-full">
+          <div className="hidden lg:flex items-center justify-center lg:grid lg:grid-cols-1 h-[400px]">
             {overallOrderSummaryLoading ? (
               // Loading state
               Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="bg-white rounded-xl shadow p-3 flex flex-col items-center w-full border-2 border-gray-200 animate-pulse">
+                <div
+                  key={index}
+                  className="bg-white rounded-xl shadow p-3 flex flex-col items-center w-full border-2 border-gray-200 animate-pulse"
+                >
                   <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
                   <div className="h-6 bg-gray-200 rounded w-16 mb-2"></div>
                   <div className="h-3 bg-gray-200 rounded w-12"></div>
@@ -465,12 +470,6 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
               // Data state
               <>
                 <StatCard
-                  title="Tổng thực thu"
-                  value={overallOrderSummary.totalRevenue}
-                  delta={overallOrderSummary.percentTotalRevenue}
-                  valueColor="text-[#fcb900]"
-                />
-                <StatCard
                   title="Thực thu dịch vụ"
                   value={overallOrderSummary.serviceRevenue}
                   delta={overallOrderSummary.percentServiceRevenue}
@@ -482,12 +481,12 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
                   delta={overallOrderSummary.percentFoxieCardRevenue}
                   valueColor="text-[#8ed1fc]"
                 />
-                <StatCard
+                {/* <StatCard
                   title="Thực thu sản phẩm"
                   value={overallOrderSummary.productRevenue}
                   delta={overallOrderSummary.percentProductRevenue}
                   valueColor="text-[#a9b8c3]"
-                />
+                /> */}
                 <StatCard
                   title="Thực thu mỗi ngày"
                   value={overallOrderSummary.avgActualRevenueDaily}

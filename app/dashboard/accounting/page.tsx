@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import {
-  CalendarDate,
   today,
   getLocalTimeZone,
   parseDate,
@@ -17,6 +16,7 @@ import {
 } from "@/app/hooks/useLocalStorageState";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
 import { ApiService } from "../../lib/api-service";
+import { useDateRange } from "@/app/contexts/DateContext";
 
 const API_BASE_URL = "/api/proxy";
 
@@ -91,8 +91,6 @@ export default function AccountingReportPage() {
     clearCustomerFilters();
     setSelectedType([]);
     setSelectedStatus(null);
-    setStartDate(today(getLocalTimeZone()).subtract({ days: 7 }));
-    setEndDate(today(getLocalTimeZone()));
     setSelectedRegions([]);
     setSelectedBranches([]);
     showSuccess("Đã reset tất cả filter về mặc định!");
@@ -107,16 +105,8 @@ export default function AccountingReportPage() {
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
-  const [startDate, setStartDate, startDateLoaded] =
-    useLocalStorageState<CalendarDate>(
-      "customer-startDate",
-      today(getLocalTimeZone()).subtract({ days: 7 }),
-    );
-  const [endDate, setEndDate, endDateLoaded] =
-    useLocalStorageState<CalendarDate>(
-      "customer-endDate",
-      today(getLocalTimeZone()),
-    );
+  // Use global date context instead of local state
+  const { startDate, endDate, setStartDate, setEndDate, fromDate, toDate, isLoaded: dateLoaded } = useDateRange();
 
   const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] =
     useLocalStorageState<string[]>("customer-selectedRegions", []);
@@ -129,24 +119,14 @@ export default function AccountingReportPage() {
   const isAllLoaded =
     selectedTypeLoaded &&
     selectedStatusLoaded &&
-    startDateLoaded &&
-    endDateLoaded &&
+    dateLoaded &&
     selectedRegionsLoaded &&
     selectedBranchesLoaded;
 
   const allRegions = ["Đã đóng cửa", "Đà Nẵng", "Nha Trang", "Hà Nội", "HCM"];
   const allBranches = ["Branch 1", "Branch 2", "Branch 3"];
 
-  const fromDate = startDate
-    ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
-        startDate.day,
-      ).padStart(2, "0")}T00:00:00`
-    : "";
-  const toDate = endDate
-    ? `${endDate.year}-${String(endDate.month).padStart(2, "0")}-${String(
-        endDate.day,
-      ).padStart(2, "0")}T23:59:59`
-    : "";
+  // fromDate and toDate are now provided by the global date context
 
   // API calls
   const {

@@ -85,14 +85,14 @@ export const MAP_CSP_CONFIG = {
  * Generate map-specific CSP
  */
 export function generateMapCSP(mapType: 'leaflet' | 'mapbox'): string {
-  const baseConfig = getCSPConfig();
-  const mapConfig = MAP_CSP_CONFIG[mapType];
+  // const baseConfig = getCSPConfig();
+  // const mapConfig = MAP_CSP_CONFIG[mapType];
   
   // Merge base config with map-specific config
-  const mergedConfig = {
-    ...CSP_CONFIG[process.env.NODE_ENV === 'development' ? 'development' : 'production'],
-    ...mapConfig
-  };
+  // const mergedConfig = {
+  //   ...CSP_CONFIG[process.env.NODE_ENV === 'development' ? 'development' : 'production'],
+  //   ...mapConfig
+  // };
   
   return generateCSPHeader(process.env.NODE_ENV === 'development' ? 'development' : 'production');
 }

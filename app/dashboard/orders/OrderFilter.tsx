@@ -1,13 +1,7 @@
 import React from "react";
-import { CalendarDate } from "@internationalized/date";
+import { useDateRange } from "@/app/contexts/DateContext";
 
 interface OrderFilterProps {
-  startDate: CalendarDate;
-  setStartDate: (date: CalendarDate) => void;
-  endDate: CalendarDate;
-  setEndDate: (date: CalendarDate) => void;
-  today: () => CalendarDate;
-  parseDate: (str: string) => CalendarDate;
   selectedRegions: string[];
   setSelectedRegions: (regions: string[]) => void;
   regionOptions: { name: string; total: number }[];
@@ -31,12 +25,6 @@ interface OrderFilterProps {
 
 
 const OrderFilter = React.memo(function OrderFilter({
-  startDate,
-  setStartDate,
-  endDate,
-  setEndDate,
-  today,
-  parseDate,
   selectedRegions,
   setSelectedRegions,
   regionOptions,
@@ -56,49 +44,13 @@ const OrderFilter = React.memo(function OrderFilter({
   setShowLocationDropdown,
   locationDropdownRef,
 }: OrderFilterProps) {
-  // Use state to prevent hydration mismatch
-  const [todayString, setTodayString] = React.useState<string>("");
-  const [minEndDate, setMinEndDate] = React.useState<string>("");
-
-  // Set dates after hydration to prevent mismatch
-  React.useEffect(() => {
-    setTodayString(today().toString());
-    setMinEndDate(startDate.add({ days: 1 }).toString());
-  }, [today, startDate]);
+  // Get date range from global context
+  const { } = useDateRange();
 
     
   return (
-<div className="flex flex-col md:flex-row gap-2 md:gap-4">
-            {/* ...DatePicker code... */}
-            <div className="w-full max-w-xl flex flex-col md:flex-row gap-2 md:gap-4 bg-white p-2 rounded">
-              <div className="w-full bg-white flex flex-col gap-1">
-                <h3 className="text-sm sm:text-base">Start date</h3>
-                <input
-                  type="date"
-                  className="border rounded p-2 bg-white text-sm"
-                  value={startDate.toString()}
-                  onChange={(e) => {
-                    const date = parseDate(e.target.value);
-                    setStartDate(date);
-                  }}
-                  max={todayString}
-                />
-              </div>
-              <div className="w-full bg-white flex flex-col gap-1">
-                <h3 className="text-sm sm:text-base">End date</h3>
-                <input
-                  type="date"
-                  className="border rounded p-2 bg-white text-sm"
-                  value={endDate.toString()}
-                  onChange={(e) => {
-                    const date = parseDate(e.target.value);
-                    setEndDate(date);
-                  }}
-                  min={minEndDate}
-                  max={todayString}
-                />
-              </div>
-            </div>
+    <div className="flex flex-col md:flex-row gap-2 md:gap-4">
+      {/* Date picker is now handled by global header component */}
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
               {/* Region Dropdown */}
               <div className="relative" ref={regionDropdownRef}>

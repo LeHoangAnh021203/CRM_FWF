@@ -75,13 +75,14 @@ const CONFIG = {
     "/forgotPassword",
     "/reset-password",
     "/dashboard",
-
     "/test-customers",
     "/api/proxy/auth/login",
     "/api/proxy/auth/refresh",
     "/api/proxy/auth/signup",
+    "/api/proxy/",
     "/api/ai/generate",
     "/api/health",
+    "/api/dashboard/quick-actions",
   ],
 
   // Admin-only routes
@@ -205,11 +206,11 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("Cross-Origin-Embedder-Policy", "unsafe-none");
   response.headers.set("Cross-Origin-Opener-Policy", "unsafe-none");
 
-  // Content Security Policy - Fixed wildcard issues and added unsafe-inline for production
+  // Content Security Policy - Allow localhost API calls
   const isDevelopment = process.env.NODE_ENV === 'development';
   const cspConfig = isDevelopment 
-    ? "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdnjs.cloudflare.com https://api.mapbox.com https://vercel.live; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://api.mapbox.com https://fonts.googleapis.com; img-src 'self' data: https: blob: https://tile.openstreetmap.org https://a.basemaps.cartocdn.com https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com https://d.basemaps.cartocdn.com https://a.tile.openstreetmap.fr https://b.tile.openstreetmap.fr https://c.tile.openstreetmap.fr; media-src 'self' data: blob:; font-src 'self' data: https: https://fonts.gstatic.com; connect-src 'self' https: wss: https://vercel.live; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';"
-    : "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdnjs.cloudflare.com https://api.mapbox.com https://vercel.live; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://api.mapbox.com https://fonts.googleapis.com; img-src 'self' data: https: blob: https://tile.openstreetmap.org https://a.basemaps.cartocdn.com https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com https://d.basemaps.cartocdn.com https://a.tile.openstreetmap.fr https://b.tile.openstreetmap.fr https://c.tile.openstreetmap.fr; media-src 'self' data: blob:; font-src 'self' data: https: https://fonts.gstatic.com; connect-src 'self' https: wss: https://vercel.live; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';";
+    ? "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdnjs.cloudflare.com https://api.mapbox.com https://vercel.live; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://api.mapbox.com https://fonts.googleapis.com; img-src 'self' data: https: blob: https://tile.openstreetmap.org https://a.basemaps.cartocdn.com https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com https://d.basemaps.cartocdn.com https://a.tile.openstreetmap.fr https://b.tile.openstreetmap.fr https://c.tile.openstreetmap.fr; media-src 'self' data: blob:; font-src 'self' data: https: https://fonts.gstatic.com; connect-src 'self' http://localhost:3000 http://192.168.1.69:8080 https: wss: https://vercel.live; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';"
+    : "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdnjs.cloudflare.com https://api.mapbox.com https://vercel.live; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://api.mapbox.com https://fonts.googleapis.com; img-src 'self' data: https: blob: https://tile.openstreetmap.org https://a.basemaps.cartocdn.com https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com https://d.basemaps.cartocdn.com https://a.tile.openstreetmap.fr https://b.tile.openstreetmap.fr https://c.tile.openstreetmap.fr; media-src 'self' data: blob:; font-src 'self' data: https: https://fonts.gstatic.com; connect-src 'self' http://localhost:3000 http://192.168.1.69:8080 https: wss: https://vercel.live; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';";
   
   response.headers.set("Content-Security-Policy", cspConfig);
 

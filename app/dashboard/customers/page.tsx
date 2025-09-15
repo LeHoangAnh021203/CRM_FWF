@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import {
-  CalendarDate,
   today,
   getLocalTimeZone,
   parseDate,
@@ -25,6 +24,7 @@ import {
 } from "@/app/hooks/useLocalStorageState";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
 import { ApiService } from "../../lib/api-service";
+import { useDateRange } from "@/app/contexts/DateContext";
 const API_BASE_URL = "/api/proxy";
 
 // ==== Types for API responses to ensure type-safety across the component ====
@@ -203,17 +203,8 @@ export default function CustomerReportPage() {
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
-  // Sử dụng localStorage để lưu trữ date - đơn giản như trang service
-  const [startDate, setStartDate, startDateLoaded] =
-    useLocalStorageState<CalendarDate>(
-      "customer-startDate",
-      today(getLocalTimeZone()).subtract({ days: 7 })
-    );
-  const [endDate, setEndDate, endDateLoaded] =
-    useLocalStorageState<CalendarDate>(
-      "customer-endDate",
-      today(getLocalTimeZone())
-    );
+  // Use global date context instead of local state
+  const { startDate, endDate, setStartDate, setEndDate, fromDate, toDate, isLoaded: dateLoaded } = useDateRange();
 
   const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] =
     useLocalStorageState<string[]>("customer-selectedRegions", []);
@@ -276,8 +267,6 @@ export default function CustomerReportPage() {
       setSelectedType([]);
       setSelectedStatus(null);
       setBookingCompletionStatus("Khách đến");
-      setStartDate(today(getLocalTimeZone()).subtract({ days: 7 }));
-      setEndDate(today(getLocalTimeZone()));
       setSelectedRegions([]);
       setSelectedBranches([]);
       showSuccess("Đã reset tất cả filter về mặc định!");
@@ -289,8 +278,6 @@ export default function CustomerReportPage() {
       setSelectedType,
       setSelectedStatus,
       setBookingCompletionStatus,
-      setStartDate,
-      setEndDate,
       setSelectedRegions,
       setSelectedBranches,
     ]
@@ -298,8 +285,7 @@ export default function CustomerReportPage() {
 
   // Kiểm tra xem tất cả localStorage đã được load chưa - đơn giản như trang service
   const isAllLoaded =
-    startDateLoaded &&
-    endDateLoaded &&
+    dateLoaded &&
     selectedTypeLoaded &&
     selectedStatusLoaded &&
     bookingCompletionStatusLoaded &&
@@ -332,16 +318,7 @@ export default function CustomerReportPage() {
   const allBranches = useMemo(() => ["Branch 1", "Branch 2", "Branch 3"], []);
 
   // Format date cho API calls - đơn giản như trang service
-  const fromDate = startDate
-    ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
-        startDate.day
-      ).padStart(2, "0")}T00:00:00`
-    : "";
-  const toDate = endDate
-    ? `${endDate.year}-${String(endDate.month).padStart(2, "0")}-${String(
-        endDate.day
-      ).padStart(2, "0")}T23:59:59`
-    : "";
+  // fromDate and toDate are now provided by the global date context
 
   
   const {
@@ -489,8 +466,7 @@ export default function CustomerReportPage() {
     environment: process.env.NODE_ENV,
     apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
     isAllLoaded,
-    startDateLoaded,
-    endDateLoaded,
+    dateLoaded,
   });
 
   const {

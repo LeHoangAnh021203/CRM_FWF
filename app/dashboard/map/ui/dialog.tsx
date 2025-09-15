@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { X } from "lucide-react"
 
 interface DialogProps {
   open?: boolean
@@ -27,18 +26,18 @@ interface DialogTriggerProps extends React.HTMLAttributes<HTMLButtonElement> {
 }
 
 const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
-  const [isOpen, setIsOpen] = React.useState(open || false)
+  // const [isOpen] = React.useState(open || false)
   
   React.useEffect(() => {
     if (open !== undefined) {
-      setIsOpen(open)
+      // setIsOpen(open)
     }
   }, [open])
   
-  const handleOpenChange = (newOpen: boolean) => {
-    setIsOpen(newOpen)
-    onOpenChange?.(newOpen)
-  }
+  // const handleOpenChange = (newOpen: boolean) => {
+  //   // setIsOpen(newOpen)
+  //   onOpenChange?.(newOpen)
+  // }
   
   return (
     <div className="dialog-root">

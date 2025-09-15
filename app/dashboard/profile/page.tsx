@@ -5,7 +5,7 @@ import { UserPermissions } from "@/app/components/UserPermissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
 import { useAuth } from "@/app/contexts/AuthContext";
-import { User, Mail, Phone, Calendar, MapPin, Shield } from "lucide-react";
+import { User, Mail, Phone, Calendar, Shield } from "lucide-react";
 
 export default function ProfilePage() {
   const { user, permissions, isAdmin } = useAuth();

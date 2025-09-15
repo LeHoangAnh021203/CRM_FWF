@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronDown, ChevronUp } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 
 interface SelectProps {
   value?: string
@@ -49,7 +49,7 @@ const Select = ({ value, onValueChange, children }: SelectProps) => {
               setIsOpen, 
               selectedValue, 
               onValueChange: handleValueChange 
-            } as any)
+            } as Record<string, unknown>)
           : child
       )}
     </div>
@@ -88,7 +88,7 @@ const SelectContent = React.forwardRef<HTMLDivElement, SelectContentProps>(
 SelectContent.displayName = "SelectContent"
 
 const SelectItem = React.forwardRef<HTMLDivElement, SelectItemProps>(
-  ({ className = "", value, children, ...props }, ref) => {
+  ({ className = "", children, ...props }, ref) => {
     return (
       <div
         ref={ref}

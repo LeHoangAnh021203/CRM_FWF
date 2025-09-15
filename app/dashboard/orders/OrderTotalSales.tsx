@@ -11,11 +11,11 @@ interface OrderTotalSalesProps {
     storeName: string;
     currentOrders: number;
     deltaOrders: number;
-    actualRevenue: number;
-    foxieRevenue: number;
+    cashTransfer: number;
+    prepaidCard: number;
     revenueGrowth: number;
-    revenuePercent: number;
-    foxiePercent: number;
+    cashPercent: number;
+    prepaidPercent: number;
     orderPercent: number;
   }>;
 }
@@ -55,7 +55,7 @@ const OrderTotalSales: React.FC<OrderTotalSalesProps> = ({
     if (!fullStoreRevenueData || !Array.isArray(fullStoreRevenueData)) {
       return totalWeekSales; // Fallback to totalWeekSales if no API data
     }
-    return fullStoreRevenueData.reduce((sum, store) => sum + (store.foxieRevenue || 0), 0);
+    return fullStoreRevenueData.reduce((sum, store) => sum + (store.prepaidCard || 0), 0);
   }, [fullStoreRevenueData, totalWeekSales]);
 
   // Tính phần trăm thay đổi foxie revenue
@@ -65,10 +65,10 @@ const OrderTotalSales: React.FC<OrderTotalSalesProps> = ({
     }
     
     // Tính tổng foxie revenue hiện tại và trước đó (giả lập từ delta)
-    const currentFoxieTotal = fullStoreRevenueData.reduce((sum, store) => sum + (store.foxieRevenue || 0), 0);
+    const currentFoxieTotal = fullStoreRevenueData.reduce((sum, store) => sum + (store.prepaidCard || 0), 0);
     const previousFoxieTotal = fullStoreRevenueData.reduce((sum, store) => {
-      // Ước tính foxie revenue trước đó dựa trên foxiePercent
-      const estimatedPreviousFoxie = store.foxieRevenue / (1 + (store.foxiePercent / 100));
+      // Ước tính foxie revenue trước đó dựa trên prepaidPercent
+      const estimatedPreviousFoxie = store.prepaidCard / (1 + (store.prepaidPercent / 100));
       return sum + estimatedPreviousFoxie;
     }, 0);
     

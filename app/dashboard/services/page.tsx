@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { useState, useEffect, useRef } from "react";
-import { CalendarDate, today, getLocalTimeZone } from "@internationalized/date";
+import { CalendarDate } from "@internationalized/date";
 
 import ServicesFilter from "./ServicesFilter";
 import WeeklyServiceChartData from "./ServiceWeeklyChartData";
@@ -19,6 +19,7 @@ import {
 } from "@/app/hooks/useLocalStorageState";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
 import { ApiService } from "../../lib/api-service";
+import { useDateRange } from "@/app/contexts/DateContext";
 
 // Interface cho dữ liệu API
 interface ServiceTypeData {
@@ -145,15 +146,11 @@ export default function CustomerReportPage() {
   // Function để reset tất cả filter về mặc định
   const resetFilters = () => {
     clearLocalStorageKeys([
-      "services-startDate",
-      "services-endDate",
       "services-selectedBranches",
       "services-selectedRegions",
       "services-selectedServiceTypes",
       "services-selectedGenders",
     ]);
-    setStartDate(today(getLocalTimeZone()).subtract({ days: 7 }));
-    setEndDate(today(getLocalTimeZone()));
     setSelectedBranches([]);
     setSelectedRegions([]);
     setSelectedServiceTypes([
@@ -167,16 +164,8 @@ export default function CustomerReportPage() {
     reportResetFilters();
   };
 
-  const [startDate, setStartDate, startDateLoaded] =
-    useLocalStorageState<CalendarDate>(
-      "services-startDate",
-      today(getLocalTimeZone()).subtract({ days: 7 })
-    );
-  const [endDate, setEndDate, endDateLoaded] =
-    useLocalStorageState<CalendarDate>(
-      "services-endDate",
-      today(getLocalTimeZone())
-    );
+  // Use global date context instead of local state
+  const { startDate, endDate, fromDate, toDate, isLoaded: dateLoaded } = useDateRange();
   const [selectedBranches, setSelectedBranches, selectedBranchesLoaded] =
     useLocalStorageState<string[]>("services-selectedBranches", []);
   const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] =
@@ -200,23 +189,13 @@ export default function CustomerReportPage() {
 
   // Kiểm tra xem tất cả localStorage đã được load chưa
   const isAllLoaded =
-    startDateLoaded &&
-    endDateLoaded &&
+    dateLoaded &&
     selectedBranchesLoaded &&
     selectedRegionsLoaded &&
     selectedServiceTypesLoaded &&
     selectedGendersLoaded;
 
-  const fromDate = startDate
-    ? `${startDate.year}-${String(startDate.month).padStart(2, "0")}-${String(
-        startDate.day
-      ).padStart(2, "0")}T00:00:00`
-    : "";
-  const toDate = endDate
-    ? `${endDate.year}-${String(endDate.month).padStart(2, "0")}-${String(
-        endDate.day
-      ).padStart(2, "0")}T23:59:59`
-    : "";
+  // fromDate and toDate are now provided by the global date context
 
   // API calls - chỉ sử dụng dữ liệu thật từ API
   const { data: serviceTypeData } = useApiData<ServiceTypeData[]>(
@@ -878,12 +857,6 @@ export default function CustomerReportPage() {
             </button>
           </div>
           <ServicesFilter
-            startDate={startDate}
-            endDate={endDate}
-            setStartDate={setStartDate}
-            setEndDate={setEndDate}
-            today={today}
-            getLocalTimeZone={getLocalTimeZone}
             selectedRegions={selectedRegions}
             setSelectedRegions={setSelectedRegions}
             selectedBranches={selectedBranches}

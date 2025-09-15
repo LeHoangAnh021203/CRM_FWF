@@ -16,6 +16,7 @@ import {
 import { SmartNotifications } from "./smart-notifications";
 import { useAuth } from "../contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { GlobalDatePicker } from "./global-date-picker";
 
 export function Header() {
   const [showMobileSearch, setShowMobileSearch] = useState(false);
@@ -75,6 +76,11 @@ export function Header() {
               className="pl-10 w-full sm:w-64 text-sm border-orange-500"
             />
           </div>
+        </div>
+
+        {/* Global Date Picker */}
+        <div className="flex items-center">
+          <GlobalDatePicker compact={true} />
         </div>
 
         <div className="flex items-center space-x-2 sm:space-x-4 justify-end w-full sm:w-auto">

@@ -9,7 +9,7 @@ import {
   Sparkles,
   Radical,
   CalendarCheck2,
-  Map
+  Map,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import Link from "next/link";
