@@ -145,24 +145,7 @@ export default function ServiceStoreChartData({
       </div>
       
       {/* Thống kê tổng quan */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-blue-600">{totalServices.toLocaleString()}</div>
-          <div className="text-sm text-gray-600">Tổng dịch vụ</div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-green-600">{totalStores}</div>
-          <div className="text-sm text-gray-600">Số cửa hàng</div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-purple-600">
-            {topStore ? topStore.total.toLocaleString() : 0}
-          </div>
-          <div className="text-sm text-gray-600">
-            {topStore ? `Top: ${topStore.store}` : "Chưa có dữ liệu"}
-          </div>
-        </div>
-      </div>
+     
       {shopLoading && (
         <div className="text-blue-600 text-sm text-center mb-4">
           🔄 Đang tải dữ liệu cửa hàng...

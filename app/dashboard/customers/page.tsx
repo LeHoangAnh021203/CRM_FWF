@@ -17,6 +17,7 @@ import CustomerAppDownloadPieChart from "./CustomerAppDownloadPieChart";
 import CustomerOldTypeTrendChart from "./CustomerOldTypeTrendChart";
 import CustomerFacilityBookingTable from "./CustomerFacilityBookingHour";
 import CustomerOldStatCard from "./CustomerOldStatCard";
+import CustomerNewOldSummaryTable from "./CustomerNewOldSummaryTable";
 import { Notification, useNotification } from "@/app/components/notification";
 import {
   useLocalStorageState,
@@ -1319,25 +1320,34 @@ export default function CustomerReportPage() {
               mainPercentChange={
                 uniqueCustomersComparisonRaw?.changePercentTotal
               }
-              maleValue={uniqueCustomersComparisonRaw?.currentMale}
-              malePercentChange={
-                uniqueCustomersComparisonRaw?.changePercentMale
-              }
-              femaleValue={uniqueCustomersComparisonRaw?.currentFemale}
-              femalePercentChange={
-                uniqueCustomersComparisonRaw?.changePercentFemale
-              }
-              avgRevenueMale={genderRevenueRaw?.avgActualRevenueMale}
-              avgServiceMale={genderRevenueRaw?.avgFoxieRevenueMale}
-              avgRevenueFemale={genderRevenueRaw?.avgActualRevenueFemale}
-              avgServiceFemale={genderRevenueRaw?.avgFoxieRevenueFemale}
+              // maleValue={uniqueCustomersComparisonRaw?.currentMale}
+              // malePercentChange={
+              //   uniqueCustomersComparisonRaw?.changePercentMale
+              // }
+              // femaleValue={uniqueCustomersComparisonRaw?.currentFemale}
+              // femalePercentChange={
+              //   uniqueCustomersComparisonRaw?.changePercentFemale
+              // }
+              // avgRevenueMale={genderRevenueRaw?.avgActualRevenueMale}
+              // avgServiceMale={genderRevenueRaw?.avgFoxieRevenueMale}
+              // avgRevenueFemale={genderRevenueRaw?.avgActualRevenueFemale}
+              // avgServiceFemale={genderRevenueRaw?.avgFoxieRevenueFemale}
               loading={uniqueCustomersLoading}
               error={uniqueCustomersError}
             />
           </Suspense>
 
+          {/* Bảng tổng hợp khách mới/cũ: tổng số và thực đi */}
+          <div className="mt-5">
+            <CustomerNewOldSummaryTable
+              data={customerSummaryRaw}
+              loading={customerSummaryLoading}
+              error={customerSummaryError}
+            />
+          </div>
+
           {/* Số khách tạo mới và tỷ lệ nam nữ/khách mới tạo */}
-          <div className="mt-5 ">
+          {/* <div className="mt-5 ">
             <CustomerGenderPie
               isMobile={isMobile}
               loadingNewCustomer={newCustomerLoading}
@@ -1348,7 +1358,7 @@ export default function CustomerReportPage() {
               genderRatioData={genderRatioData}
               COLORS={COLORS}
             />
-          </div>
+          </div> */}
 
           {/* Khách cũ */}
           <CustomerOldTypeTrendChart

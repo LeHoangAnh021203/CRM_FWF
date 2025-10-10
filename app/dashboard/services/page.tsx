@@ -615,8 +615,8 @@ export default function CustomerReportPage() {
             const combo = services["Combo"] || 0;
             const comboCS = services["Combo CS"] || 0;
             const service = services["Dịch vụ"] || 0;
-            const addedon = services["Added on"] || 0;
-            const gifts = services["Gift"] || 0;
+            const addedon = services["Cộng thêm"] || 0;
+            const gifts = services["Quà tặng"] || 0;
             const total = combo + comboCS + service + addedon + gifts;
 
             return {

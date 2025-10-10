@@ -266,7 +266,7 @@ export const getCacheStats = () => {
   let expiredEntries = 0;
   let totalSize = 0;
 
-  for (const [key, item] of cache.entries()) {
+  for (const [, item] of cache.entries()) {
     totalSize += JSON.stringify(item.data).length;
     if (now > item.expiresAt) {
       expiredEntries++;
@@ -275,7 +275,7 @@ export const getCacheStats = () => {
     }
   }
 
-  return {
+  return {                                         
     totalEntries: cache.size,
     validEntries,
     expiredEntries,

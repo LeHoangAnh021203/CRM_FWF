@@ -155,7 +155,7 @@ export default function WeeklyServiceChartData({
       </div>
       
       {/* Thống kê tổng quan */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
         <div className="text-center">
           <div className="text-2xl font-bold text-blue-600">{totalServices.toLocaleString()}</div>
           <div className="text-sm text-gray-600">Tổng dịch vụ</div>
@@ -172,7 +172,7 @@ export default function WeeklyServiceChartData({
             Ngày cao nhất: {peakDay.date}
           </div>
         </div>
-      </div>
+      </div> */}
       <div className="w-full overflow-x-auto">
         <ResponsiveContainer width="100%" height={isMobile ? 300 : 400} minWidth={280}>
           <BarChart

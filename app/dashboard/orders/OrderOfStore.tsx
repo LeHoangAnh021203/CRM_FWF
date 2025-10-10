@@ -119,7 +119,7 @@ export default function OrderOfStore({
     return (
       <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
         <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
-          Số đơn tại các cửa hàng
+         Số dịch vụ
         </div>
         <div className="overflow-x-auto rounded-xl border border-gray-200 max-h-[520px] overflow-y-auto">
           <table className="min-w-[700px] w-full text-xs sm:text-sm">
@@ -127,7 +127,7 @@ export default function OrderOfStore({
               <tr className="bg-yellow-200 font-bold text-gray-900">
                 <th className="px-3 py-3 text-left rounded-tl-xl">STT</th>
                 <th className="px-3 py-3 text-left">Locations</th>
-                <th className="px-3 py-3 text-right">Số đơn hàng</th>
+                <th className="px-3 py-3 text-right">Số lượt dịch vụ</th>
                 <th className="px-3 py-3 text-right">Δ</th>
                 <th className="px-3 py-3 text-right">Đơn mua thẻ</th>
                 <th className="px-3 py-3 text-right">Δ</th>

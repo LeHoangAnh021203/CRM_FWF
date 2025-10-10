@@ -1,11 +1,5 @@
 {
-  "/api/proxy/auth/login/route": "app/api/proxy/auth/login/route.js",
   "/api/notifications/route": "app/api/notifications/route.js",
-  "/api/proxy/[...path]/route": "app/api/proxy/[...path]/route.js",
-  "/api/dashboard/quick-actions/route": "app/api/dashboard/quick-actions/route.js",
-  "/_not-found/page": "app/_not-found/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
   "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/dashboard/profile/page": "app/dashboard/profile/page.js",
-  "/dashboard/map/page": "app/dashboard/map/page.js"
+  "/dashboard/page": "app/dashboard/page.js"
 }

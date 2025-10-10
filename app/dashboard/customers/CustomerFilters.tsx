@@ -62,35 +62,7 @@ const CustomerFilters: React.FC<CustomerFiltersProps> = ({
 }) => (
   <div className="flex flex-col gap-4 lg:gap-6 mb-4 lg:mb-6">
     {/* Date filters */}
-    <div className="w-full flex flex-col sm:flex-row gap-4 bg-white p-4 rounded-lg shadow">
-      <div className="flex-1 flex flex-col gap-1">
-        <h3 className="text-sm font-medium text-gray-700">Start date</h3>
-        <input
-          type="date"
-          className="border border-gray-300 rounded p-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#f66035]"
-          value={startDate.toString()}
-          onChange={(e) => {
-            const date = parseDate(e.target.value);
-            setStartDate(date);
-          }}
-          max={today(getLocalTimeZone()).toString()}
-        />
-      </div>
-      <div className="flex-1 flex flex-col gap-1">
-        <h3 className="text-sm font-medium text-gray-700">End date</h3>
-        <input
-          type="date"
-          className="border border-gray-300 rounded p-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#f66035]"
-          value={endDate.toString()}
-          onChange={(e) => {
-            const date = parseDate(e.target.value);
-            setEndDate(date);
-          }}
-          min={startDate.add({ days: 1 }).toString()}
-          max={today(getLocalTimeZone()).toString()}
-        />
-      </div>
-    </div>
+
     {/* Dropdown filters */}
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Filter loại khách */}

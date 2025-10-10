@@ -115,28 +115,7 @@ export default function ServicesRegionData({
       </div>
 
       {/* Thống kê tổng quan */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-blue-600">
-            {(totalServices || 0).toLocaleString()}
-          </div>
-          <div className="text-sm text-gray-600">Tổng dịch vụ</div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-green-600">
-            {totalRegions}
-          </div>
-          <div className="text-sm text-gray-600">Số khu vực</div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-purple-600">
-            {topRegion ? (topRegion.total || 0).toLocaleString() : 0}
-          </div>
-          <div className="text-sm text-gray-600">
-            Top: {topRegion ? topRegion.region : "Chưa có dữ liệu"}
-          </div>
-        </div>
-      </div>
+      
       {regionLoading && (
         <div className="text-blue-600 text-sm text-center mb-4">
           🔄 Đang tải dữ liệu khu vực...

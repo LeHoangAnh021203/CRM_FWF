@@ -127,6 +127,18 @@ export function GlobalDatePicker({
                   size="sm"
                   onClick={() => {
                     const todayDate = today(getLocalTimeZone());
+                    const yesterdayDate = todayDate.subtract({ days: 1 });
+                    setTempStartDate(yesterdayDate);
+                    setTempEndDate(yesterdayDate);
+                  }}
+                >
+                  Hôm qua
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const todayDate = today(getLocalTimeZone());
                     setTempStartDate(todayDate.subtract({ days: 6 }));
                     setTempEndDate(todayDate);
                   }}

@@ -23,7 +23,7 @@ export default function MapLoader({ children, mapType }: MapLoaderProps) {
             } catch (cssError) {
               console.warn('Could not import Leaflet CSS:', cssError);
             }
-            (window as Window & { L?: any }).L = L.default;
+            (window as unknown as Window & Record<string, unknown>).L = L.default;
           }
         } else if (mapType === 'mapbox') {
           // Load Mapbox
@@ -35,7 +35,7 @@ export default function MapLoader({ children, mapType }: MapLoaderProps) {
             } catch (cssError) {
               console.warn('Could not import Mapbox CSS:', cssError);
             }
-            (window as Window & { mapboxgl?: any }).mapboxgl = mapboxgl.default;
+            (window as unknown as Window & Record<string, unknown>).mapboxgl = mapboxgl.default;
           }
         }
         

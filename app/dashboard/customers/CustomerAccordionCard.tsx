@@ -81,7 +81,7 @@ const CustomerAccordionCard: React.FC<CustomerAccordionCardProps> = ({
       {isExpanded && (
         <div className="flex justify-center items-center border-t border-gray-200">
           {/* Male Card */}
-          <div className="w-1/2 p-4 border-r border-gray-100">
+          {/* <div className="w-1/2 p-4 border-r border-gray-100">
             <div
               className="flex justify-between items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
               onClick={() => setExpandedMale(!expandedMale)}
@@ -118,7 +118,7 @@ const CustomerAccordionCard: React.FC<CustomerAccordionCardProps> = ({
               </div>
             </div>
 
-            {/* Male Details */}
+            Male Details
             {expandedMale && (
               <div className="mt-4 pl-4 border-l-2 border-blue-200">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -143,11 +143,11 @@ const CustomerAccordionCard: React.FC<CustomerAccordionCardProps> = ({
                 </div>
               </div>
             )}
-          </div>
+          </div> */}
 
           {/* Female Card */}
           <div className="w-1/2 p-4 border-l border-gray-100">
-            <div
+            {/* <div
               className="flex justify-between items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
               onClick={() => setExpandedFemale(!expandedFemale)}
             >
@@ -181,10 +181,10 @@ const CustomerAccordionCard: React.FC<CustomerAccordionCardProps> = ({
               <div className="flex items-center justify-center text-lg text-pink-600 transition-transform duration-200">
                 {expandedFemale ? "⌃" : "⌄"}
               </div>
-            </div>
+            </div> */}
 
             {/* Female Details */}
-            {expandedFemale && (
+            {/* {expandedFemale && (
               <div className="mt-4 pl-4 border-l-2 border-pink-200">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="bg-pink-50 p-3 rounded-lg">
@@ -207,7 +207,7 @@ const CustomerAccordionCard: React.FC<CustomerAccordionCardProps> = ({
                   </div>
                 </div>
               </div>
-            )}
+            )} */}
           </div>
         </div>
       )}
