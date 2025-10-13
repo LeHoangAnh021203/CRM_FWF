@@ -79,8 +79,8 @@ export function Header() {
         </div>
 
         {/* Global Date Picker */}
-        <div className="flex items-center">
-          <GlobalDatePicker compact={true} />
+        <div className="flex items-center  ">
+          <GlobalDatePicker compact={true}  className="flex "/>
         </div>
 
         <div className="flex items-center space-x-2 sm:space-x-4 justify-end w-full sm:w-auto">

@@ -2,7 +2,7 @@
 
 import type React from "react";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Eye, EyeOff, User, Lock, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -16,6 +16,9 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -23,6 +26,15 @@ export function LoginForm() {
 
   const { login } = useAuth();
   const router = useRouter();
+
+  // Load video after component mounts to avoid blocking initial render
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShouldLoadVideo(true);
+    }, 2000); // Wait 2 seconds before loading video
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,23 +73,35 @@ export function LoginForm() {
     <div className="min-h-screen flex">
       <div className="hidden lg:block lg:w-1/2 relative overflow-hidden min-h-screen">
         <div className="relative w-full h-full">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            className="absolute inset-0 w-full h-full object-cover transform scale-110 animate-slow-pan video-smooth"
-            style={{
-              filter: "brightness(1) contrast(1.1) saturate(1.2)",
-              willChange: "transform",
-              backfaceVisibility: "hidden",
-              transform: "translateZ(0)",
-            }}
-            onLoadedData={(e) => {
+          {shouldLoadVideo && (
+            <video
+              ref={videoRef}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              poster="/fox.png"
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{
+                filter: "brightness(0.9) contrast(1.1) saturate(1.1)",
+                transform: "translateZ(0) scale(1.05)",
+              }}
+              // Optimize for faster loading
+              crossOrigin="anonymous"
+              disablePictureInPicture
+              controlsList="nodownload nofullscreen noremoteplayback"
+            onLoadedMetadata={(e) => {
               const video = e.target as HTMLVideoElement;
               // Bắt đầu từ 1/4 video để tránh phần đầu có thể không mượt
               video.currentTime = video.duration / 4;
+              // Force play
+              video.play().catch((err) => {
+                // Ignore AbortError - it's expected when video is interrupted
+                if (err.name !== 'AbortError') {
+                  console.error('Video play error:', err);
+                }
+              });
             }}
             onTimeUpdate={(e) => {
               const video = e.target as HTMLVideoElement;
@@ -86,15 +110,47 @@ export function LoginForm() {
                 video.currentTime = video.duration / 4;
               }
             }}
-            onCanPlay={(e) => {
+            onCanPlayThrough={(e) => {
               const video = e.target as HTMLVideoElement;
               // Đảm bảo video chạy mượt mà
               video.playbackRate = 1.0;
+              // Smooth transition khi video ready
+              video.style.opacity = "1";
+              setVideoLoaded(true);
+              
+              // Try to play if not already playing
+              if (video.paused) {
+                video.play().catch((err) => {
+                  if (err.name !== 'AbortError') {
+                    console.error('Video play error on canPlayThrough:', err);
+                  }
+                });
+              }
             }}
-          >
-            <source src="/fox.mp4" type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
+            onLoadStart={(e) => {
+              const video = e.target as HTMLVideoElement;
+              // Hide video while loading
+              video.style.opacity = "0";
+              video.style.transition = "opacity 0.5s ease-in-out";
+              setVideoLoaded(false);
+            }}
+            >
+              <source src="/fox.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          )}
+
+          {/* Video Loading Indicator */}
+          {(!videoLoaded || !shouldLoadVideo) && (
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-purple-800 to-slate-800 flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto"></div>
+                <p className="text-white/80 text-sm font-medium">
+                  {!shouldLoadVideo ? "Đang chuẩn bị..." : "Đang tải video..."}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Enhanced gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-black/5 to-purple-500/20"></div>

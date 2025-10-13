@@ -7,6 +7,7 @@ import { Notification, useNotification } from "@/app/components/notification";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
 import { useDashboardData } from "@/app/hooks/useDashboardData";
 import { useDateRange } from "@/app/contexts/DateContext";
+import { ApiService } from "@/app/lib/api-service";
 import {
   Card,
   CardContent,
@@ -14,7 +15,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/app/components/ui/card";
-import { Badge } from "@/app/components/ui/badge";
 import { Progress } from "@/app/components/ui/progress";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -38,6 +38,13 @@ import {
   Wallet,
   Star,
 } from "lucide-react";
+
+interface PaymentMethod {
+  method: string;
+  amount: number;
+  percentage: number;
+  transactions: number;
+}
 
 // Sample data for charts
 const customerSourceData = [
@@ -341,22 +348,20 @@ const foxieRankingData = [
   },
 ];
 
-const allPaymentMethods = [
-  // TM + CK + QT methods
+// Mock data fallback
+const mockPaymentMethods = [
   {
     method: "TM+CK+QT",
     amount: 188000000,
     percentage: 59.2,
     transactions: 1247,
   },
-  // Wallet methods
   {
     method: "Thanh toán ví",
     amount: 85000000,
     percentage: 26.7,
     transactions: 523,
   },
-  // Foxie methods
   {
     method: "Thẻ Foxie",
     amount: 45000000,
@@ -364,11 +369,6 @@ const allPaymentMethods = [
     transactions: 234,
   },
 ];
-
-const totalRevenue = allPaymentMethods.reduce(
-  (sum, method) => sum + method.amount,
-  0
-);
 
 const productDataByDistrict = [
   { name: "Q1", value: 28, color: "#ff6b6b" },
@@ -410,9 +410,148 @@ export default function Dashboard() {
   } = usePageStatus("dashboard");
 
   const { loading, error, apiErrors, apiSuccesses, stats } = useDashboardData();
+  
+  // Use the same date range format as orders page
+  const { fromDate, toDate } = useDateRange();
+  
+  // Fetch sales summary data using direct API call (like the original)
+  const [salesSummaryData, setSalesSummaryData] = useState<{
+    totalRevenue: string;
+    cash: string;
+    transfer: string;
+    card: string;
+    actualRevenue: string;
+    foxieUsageRevenue: string;
+    walletUsageRevenue: string;
+    toPay: string;
+    debt: string;
+  } | null>(null);
+  const [salesLoading, setSalesLoading] = useState(true);
+  const [salesError, setSalesError] = useState<string | null>(null);
+
+        // Use ApiService with authentication like other pages
+        React.useEffect(() => {
+          const fetchSalesSummary = async () => {
+            if (!fromDate || !toDate) return;
+
+            try {
+              setSalesLoading(true);
+              setSalesError(null);
+
+              // Format dates for API (DD/MM/YYYY format like the API expects)
+              const formatDateForAPI = (dateString: string) => {
+                const date = new Date(dateString);
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                return `${day}/${month}/${year}`;
+              };
+
+              const startDate = formatDateForAPI(fromDate);
+              const endDate = formatDateForAPI(toDate);
+
+              console.log('🔄 Fetching sales summary via ApiService with dates:', { startDate, endDate });
+              
+              // Use ApiService with authentication and proxy
+              const data = await ApiService.get(`real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}`) as {
+                totalRevenue: string;
+                cash: string;
+                transfer: string;
+                card: string;
+                actualRevenue: string;
+                foxieUsageRevenue: string;
+                walletUsageRevenue: string;
+                toPay: string;
+                debt: string;
+              };
+              
+              console.log('✅ Sales summary data received:', data);
+              console.log('🔍 Debug - Data structure check:', {
+                hasTotalRevenue: !!data.totalRevenue,
+                hasCash: !!data.cash,
+                hasTransfer: !!data.transfer,
+                hasCard: !!data.card,
+                hasFoxieUsageRevenue: !!data.foxieUsageRevenue,
+                hasWalletUsageRevenue: !!data.walletUsageRevenue
+              });
+              
+              setSalesSummaryData(data);
+
+            } catch (err) {
+              const errorMessage = err instanceof Error ? err.message : "Failed to fetch sales summary";
+              setSalesError(errorMessage);
+              console.error("❌ Sales summary fetch error:", err);
+            } finally {
+              setSalesLoading(false);
+            }
+          };
+
+          fetchSalesSummary();
+        }, [fromDate, toDate]);
 
   const [showTopRanking, setShowTopRanking] = useState(true);
   const [showTopFoxieRanking, setShowTopFoxieRanking] = useState(true);
+
+  // Process sales summary data similar to orders page
+  const paymentMethods = React.useMemo(() => {
+    console.log("🔍 Debug - salesSummaryData:", salesSummaryData);
+    
+    if (!salesSummaryData) {
+      console.log("❌ No salesSummaryData available, returning empty array");
+      return [];
+    }
+    
+    const totalRevenue = parseFloat(salesSummaryData.totalRevenue);
+    const cashAmount = parseFloat(salesSummaryData.cash);
+    const transferAmount = parseFloat(salesSummaryData.transfer);
+    const cardAmount = parseFloat(salesSummaryData.card);
+    const foxieAmount = Math.abs(parseFloat(salesSummaryData.foxieUsageRevenue)); // Make positive
+    const walletAmount = Math.abs(parseFloat(salesSummaryData.walletUsageRevenue)); // Make positive
+
+    console.log("🔍 Debug - Parsed amounts:", {
+      totalRevenue,
+      cashAmount,
+      transferAmount,
+      cardAmount,
+      foxieAmount,
+      walletAmount
+    });
+
+    const methods: PaymentMethod[] = [
+      {
+        method: "TM+CK+QT",
+        amount: cashAmount + transferAmount + cardAmount,
+        percentage: totalRevenue > 0 ? Math.round(((cashAmount + transferAmount + cardAmount) / totalRevenue) * 100) : 0,
+        transactions: Math.floor((cashAmount + transferAmount + cardAmount) / 100000), // Estimate transactions
+      },
+      {
+        method: "Thanh toán ví",
+        amount: walletAmount,
+        percentage: totalRevenue > 0 ? Math.round((walletAmount / totalRevenue) * 100) : 0,
+        transactions: Math.floor(walletAmount / 100000), // Estimate transactions
+      },
+      {
+        method: "Thẻ Foxie",
+        amount: foxieAmount,
+        percentage: totalRevenue > 0 ? Math.round((foxieAmount / totalRevenue) * 100) : 0,
+        transactions: Math.floor(foxieAmount / 100000), // Estimate transactions
+      },
+    ];
+
+    return methods;
+  }, [salesSummaryData]);
+
+  // Use real data from API or fallback to mock data
+  const allPaymentMethods = paymentMethods.length > 0 ? paymentMethods : mockPaymentMethods;
+  
+  console.log("🔍 Debug - paymentMethods:", paymentMethods);
+  console.log("🔍 Debug - allPaymentMethods:", allPaymentMethods);
+  console.log("🔍 Debug - Using real data:", paymentMethods.length > 0);
+  
+  const totalRevenue = allPaymentMethods.reduce(
+    (sum: number, method: PaymentMethod) => sum + method.amount,
+    0
+  );
 
   const monthlyTarget = 500000000; // 500M VND target
   const currentRevenue = stats?.totalRevenue || 0;
@@ -501,6 +640,20 @@ export default function Dashboard() {
     }
   }, [apiSuccesses, showSuccess, reportDataLoadSuccess]);
 
+  // Monitor sales summary success
+  useEffect(() => {
+    if (
+      !salesLoading &&
+      !salesError &&
+      salesSummaryData &&
+      !hasShownSuccess.current
+    ) {
+      showSuccess("Dữ liệu tổng doanh số đã được tải thành công!");
+      hasShownSuccess.current = true;
+      reportDataLoadSuccess("sales-summary", 1);
+    }
+  }, [salesLoading, salesError, salesSummaryData, showSuccess, reportDataLoadSuccess]);
+
   // Monitor API error notifications
   useEffect(() => {
     if (apiErrors.length > 0 && !hasShownError.current) {
@@ -524,6 +677,15 @@ export default function Dashboard() {
     }
   }, [error, showError, reportPageError]);
 
+  // Monitor sales summary error
+  useEffect(() => {
+    if (salesError && !hasShownError.current) {
+      showError(`Sales data error: ${salesError}`);
+      hasShownError.current = true;
+      reportPageError(`Lỗi tải dữ liệu sales summary: ${salesError}`);
+    }
+  }, [salesError, showError, reportPageError]);
+
   // Report page performance
   useEffect(() => {
     if (!loading) {
@@ -531,12 +693,14 @@ export default function Dashboard() {
     }
   }, [loading, reportPagePerformance]);
 
-  // Show loading if date context is not loaded yet
-  if (!dateLoaded) {
+  // Show loading if date context is not loaded yet or sales data is loading
+  if (!dateLoaded || salesLoading) {
     return (
       <div className="p-3 sm:p-6">
         <div className="flex items-center justify-center h-64">
-          <div className="text-lg text-gray-600">Đang tải dữ liệu...</div>
+          <div className="text-lg text-gray-600">
+            {!dateLoaded ? "Đang tải dữ liệu..." : "Đang tải dữ liệu bán hàng..."}
+          </div>
         </div>
       </div>
     );
@@ -591,14 +755,7 @@ export default function Dashboard() {
               Dashboard Quản Lý Kinh Doanh
             </h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className="text-sm border-[#f16a3f] text-[#f16a3f]"
-            >
-              Hôm nay: {new Date().toLocaleDateString("vi-VN")}
-            </Badge>
-          </div>
+          
         </div>
 
         {/* DOANH SỐ SECTION */}
@@ -613,6 +770,11 @@ export default function Dashboard() {
             <CardHeader>
               <CardTitle className="text-orange-500 font-bold text-[25px] pt-2 pl-4">
                 Bảng Tổng Doanh Số
+                {salesSummaryData && (
+                  <span className="ml-2 text-sm font-normal text-green-600">
+                    
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -631,8 +793,8 @@ export default function Dashboard() {
                 </div>
 
                 {allPaymentMethods
-                  .sort((a, b) => b.amount - a.amount)
-                  .map((method, index) => (
+                  .sort((a: PaymentMethod, b: PaymentMethod) => b.amount - a.amount)
+                  .map((method: PaymentMethod, index: number) => (
                     <div
                       key={index}
                       className="grid grid-cols-12 gap-4 p-3 border border-[#f16a3f]/10 rounded-lg hover:bg-gradient-to-r hover:from-[#f8a0ca]/10 hover:to-[#41d1d9]/10 transition-all duration-300"
@@ -678,7 +840,7 @@ export default function Dashboard() {
                   </div>
                   <div className="col-span-2 text-center text-sm text-white font-bold">
                     {allPaymentMethods.reduce(
-                      (sum, method) => sum + method.transactions,
+                      (sum: number, method: PaymentMethod) => sum + method.transactions,
                       0
                     )}
                   </div>

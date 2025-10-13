@@ -32,10 +32,10 @@ export async function GET(
     const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 
       (process.env.NODE_ENV === 'production' 
         ? "https://your-backend-api.com" 
-        : "http://192.168.1.69:8080"))
+        : "http://192.168.1.140:8080"))
     const backendUrl = queryString 
-      ? `${API_BASE_URL}/${path}?${queryString}`
-      : `${API_BASE_URL}/${path}`
+      ? `${API_BASE_URL}/api/${path}?${queryString}`
+      : `${API_BASE_URL}/api/${path}`
     
     console.log(' Proxy GET Debug:', {
       path,
@@ -105,7 +105,7 @@ export async function POST(
     const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 
       (process.env.NODE_ENV === 'production' 
         ? "https://your-backend-api.com" 
-        : "http://192.168.1.69:8080"))
+        : "http://192.168.1.140:8080"))
     const backendUrl = `${API_BASE_URL}/api/${path}`
     
     console.log('🔍 Proxy Debug:', {

@@ -56,7 +56,20 @@ export class AuthAPI {
       console.log('AuthAPI.login response headers:', Object.fromEntries(response.headers.entries()))
 
       if (!response.ok) {
-        const errorData = await response.json()
+        let errorData = {}
+        try {
+          const contentType = response.headers.get('content-type')
+          if (contentType && contentType.includes('application/json')) {
+            errorData = await response.json()
+          } else {
+            const errorText = await response.text()
+            errorData = { error: errorText || 'Unknown error' }
+          }
+        } catch (parseError) {
+          console.warn('Failed to parse error response:', parseError)
+          errorData = { error: `HTTP ${response.status}: ${response.statusText}` }
+        }
+        
         console.error('AuthAPI.login error details:', errorData)
         throw new Error(`Login failed: ${response.status} - ${errorData.error || errorData.details || 'Unknown error'}`)
       }
