@@ -40,6 +40,7 @@ export function LoginForm() {
         );
         // Chuyển hướng ngay lập tức sau khi đăng nhập thành công
         router.push("/dashboard");
+        
       } else {
         console.log("[LoginForm] Login failed, showing error");
         setError("Invalid username or password");
