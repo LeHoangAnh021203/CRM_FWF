@@ -25,7 +25,7 @@ interface Props {
 
 const OrdersChartData: React.FC<Props> = ({ isMobile, ordersChartData }) => (
   <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-    <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+    <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4" data-search-ref="orders_orders_chart">
       Số lượng đơn hàng theo ngày (-đơn mua thẻ)
     </div>
     <div className="w-full overflow-x-auto">

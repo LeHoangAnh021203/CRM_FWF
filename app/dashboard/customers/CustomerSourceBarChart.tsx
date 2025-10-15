@@ -15,7 +15,7 @@ const CustomerSourceBarChart: React.FC<CustomerSourceBarChartProps> = ({
   COLORS,
 }) => (
   <div className="w-full bg-white rounded-xl shadow-lg mt-5">
-    <div className="text-xl font-medium text-gray-700 text-center pt-5">
+    <div className="text-xl font-medium text-gray-700 text-center pt-5" data-search-ref="customers_source_bar">
       Nguồn của đơn hàng
     </div>
     <div className="w-full bg-white rounded-xl shadow-lg">

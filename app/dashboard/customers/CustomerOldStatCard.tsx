@@ -67,7 +67,7 @@ const CustomerOldStatCard: React.FC<CustomerOldStatCardProps> = ({
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-medium text-gray-500">
+            <h3 className="text-sm font-medium text-gray-500"  data-search-ref="customers_old_stat">
               Tổng số khách cũ
             </h3>
             <p className="text-2xl font-bold text-gray-400">--</p>

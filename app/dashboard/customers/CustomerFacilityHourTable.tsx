@@ -26,7 +26,7 @@ const CustomerFacilityHourTable: React.FC<CustomerFacilityHourTableProps> = ({
   return (
     <div className="w-full bg-white rounded-xl shadow-lg p-4 mt-5">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-5 gap-4">
-        <h2 className="text-lg sm:text-xl font-semibold">
+        <h2 className="text-lg sm:text-xl font-semibold"  data-search-ref="customers_facility_hour">
           Thời gian đơn hàng được tạo
         </h2>
         <div className="flex flex-wrap gap-2 text-xs mt-2 sm:mt-0">

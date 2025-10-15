@@ -88,7 +88,7 @@ export default function ServiceBottomPieData({
           font-size: ${isMobile ? '8px' : '12px'} !important;
         }
       `}</style>
-    <div className="flex flex-col lg:flex-row gap-2 justify-center">
+    <div className="flex flex-col lg:flex-row gap-2 justify-center" data-search-ref="services_bottom3">
       {/* PieChart bottom 3 dịch vụ theo số lượng */}
       <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-lg mt-5 p-4">
         <div className="text-lg lg:text-xl font-medium text-gray-700 text-center mb-4">

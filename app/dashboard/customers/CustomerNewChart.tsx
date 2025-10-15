@@ -50,7 +50,7 @@ const CustomerNewChart: React.FC<CustomerNewChartProps> = ({
     </div>
     {/* Tổng số khách mới thực đi */}
     <div className="flex-1 bg-white rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-      <div className="text-xl font-medium text-gray-700 mb-2 text-center">
+      <div className="text-xl font-medium text-gray-700 mb-2 text-center" data-search-ref="customers_new_chart">
         Tổng số khách mới thực đi
       </div>
       <div className="text-5xl font-bold text-black mb-2">

@@ -36,7 +36,7 @@ export default function ServicesTable({
 }: ServicesTableProps) {
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
-      <div className="text-lg lg:text-xl font-medium text-gray-700 text-center mb-4">
+      <div className="text-lg lg:text-xl font-medium text-gray-700 text-center mb-4 " data-search-ref="services_table">
         Bảng dịch vụ
       </div>
       {serviceTableLoading && (

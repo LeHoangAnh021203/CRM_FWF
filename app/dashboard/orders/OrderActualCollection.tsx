@@ -40,7 +40,7 @@ const OrderActualCollection: React.FC<OrderActualCollectionProps> = ({
 }) => (
   <div className="flex flex-col lg:flex-row w-full bg-white rounded-xl shadow-lg gap-4 mt-5 h-fit lg:h-[550px] items-center">
     <div className="overflow-x-auto w-full lg:w-1/2 justify-center items-center rounded-xl ml-0 lg:ml-2">
-      <div className="text-base sm:text-xl font-medium text-gray-700 text-center p-2">
+      <div className="text-base sm:text-xl font-medium text-gray-700 text-center p-2" data-search-ref="orders_region_pie">
         Thực thu tại các khu vực
       </div>
       <div className="rounded-xl border border-gray-200 shadow-sm bg-white overflow-x-auto">

@@ -16,14 +16,8 @@ export function useTokenRefresh() {
 
         // Kiểm tra token có sắp hết hạn không
         if (TokenService.isTokenExpired(token)) {
-          console.log('Token is expiring soon, refreshing...')
-          const refreshToken = localStorage.getItem('refresh_token')
-          if (refreshToken) {
-            await TokenService.refreshAccessToken(refreshToken)
-          } else {
-            // Không có refresh token, logout
-            logout()
-          }
+          // Refresh bị vô hiệu hóa: logout ngay
+          logout()
         }
       } catch (error) {
         console.error('Token refresh failed:', error)

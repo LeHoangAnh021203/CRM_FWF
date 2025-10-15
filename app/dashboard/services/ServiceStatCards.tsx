@@ -164,7 +164,7 @@ export default function ServiceStatCards({
       </div>
 
       {/* Mobile: Vertical scrollable layout */}
-      <div className="md:hidden w-full mb-5 mt-5">
+      <div className="md:hidden w-full mb-5 mt-5" data-search-ref="services_stat_cards">
         <div
           className="max-h-96 overflow-y-auto"
           style={{
@@ -242,11 +242,12 @@ export default function ServiceStatCards({
       </div>
 
       {/* Desktop: Horizontal scrollable with dots navigation */}
-      <div className="hidden md:flex flex-col items-center w-full">
+      <div className="hidden md:flex flex-col items-center w-full" data-search-ref="services_stat_cards">
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
           className="flex overflow-x-auto scrollbar-hide gap-4 mb-5 mt-5 w-[80%]"
+          data-search-ref="services_stat_cards"
           style={{
             scrollbarWidth: 'none',
             scrollbarColor: '#fbbf24 #f3f4f6'
@@ -276,6 +277,7 @@ export default function ServiceStatCards({
                 delta={serviceData.deltaCombo}
                 valueColor="text-black"
                 className="bg-[#33a7b5] flex-shrink-0 w-64"
+                data-search-ref="services_stat_cards"
               />
               <StatCard
                 title="Tổng dịch vụ lẻ"

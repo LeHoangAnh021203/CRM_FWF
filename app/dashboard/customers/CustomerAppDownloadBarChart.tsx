@@ -15,7 +15,7 @@ const CustomerAppDownloadBarChart: React.FC<CustomerAppDownloadBarChartProps> = 
   sortedAppDownloadStatusData,
 }) => (
   <div className="w-full bg-white rounded-xl shadow-lg mt-4 lg:mt-5">
-    <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10">
+    <div className="text-lg lg:text-xl font-medium text-gray-700 text-center pt-6 lg:pt-10"  data-search-ref="customers_app_bar">
       Khách tải app/không tải
     </div>
     <div className="flex justify-center items-center py-4 lg:py-8">

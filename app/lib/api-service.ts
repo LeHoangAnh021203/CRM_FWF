@@ -6,6 +6,9 @@ export class ApiService {
     const validToken = token || await TokenService.getValidAccessToken()
     
     if (!validToken) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth-expired'))
+      }
       throw new Error('No valid token available')
     }
 
@@ -26,14 +29,11 @@ export class ApiService {
       if (!response.ok) {
         if (response.status === 401) {
           // Token expired, try to refresh
-          console.log('Token expired, attempting refresh...')
-          const newToken = await TokenService.getValidAccessToken()
-          if (newToken) {
-            // Retry with new token
-            return this.get(endpoint, newToken)
-          } else {
-            throw new Error('Authentication failed - please login again')
+          console.log('Token expired; refresh disabled -> logout')
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth-expired'))
           }
+          throw new Error('Authentication failed - please login again')
         }
         if (response.status === 429 && attempt < maxRetries) {
           const retryAfter = response.headers.get('Retry-After')
@@ -53,6 +53,9 @@ export class ApiService {
     const validToken = token || await TokenService.getValidAccessToken()
     
     if (!validToken) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth-expired'))
+      }
       throw new Error('No valid token available')
     }
 
@@ -84,16 +87,11 @@ export class ApiService {
           // Get response body for debugging
           const errorText = await response.text()
           console.log('🔍 401 Error Response:', errorText)
-          
-          // Token expired, try to refresh
-          console.log('Token expired, attempting refresh...')
-          const newToken = await TokenService.getValidAccessToken()
-          if (newToken) {
-            // Retry with new token
-            return this.post(endpoint, data, newToken)
-          } else {
-            throw new Error('Authentication failed - please login again')
+          console.log('Token expired; refresh disabled -> logout')
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth-expired'))
           }
+          throw new Error('Authentication failed - please login again')
         }
         if (response.status === 429 && attempt < maxRetries) {
           const retryAfter = response.headers.get('Retry-After')

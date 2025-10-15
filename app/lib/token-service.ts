@@ -50,50 +50,25 @@ export class TokenService {
   // Lấy access token, tự động refresh nếu cần
   static async getValidAccessToken(): Promise<string | null> {
     const accessToken = localStorage.getItem('access_token')
-    const refreshToken = localStorage.getItem('refresh_token')
-    
-    if (!accessToken || !refreshToken) {
+    if (!accessToken) {
       return null
     }
 
     // Debug token expiration
     this.debugTokenExpiration(accessToken)
 
-    // Kiểm tra xem token có hết hạn không
+    // Kiểm tra xem token có hết hạn không; KHÔNG refresh nữa
     if (this.isTokenExpired(accessToken)) {
-      console.log('Access token expired, refreshing...')
-      try {
-        const newToken = await this.refreshAccessToken(refreshToken)
-        return newToken
-      } catch (error) {
-        console.error('Failed to refresh token:', error)
-        // Token refresh failed, user needs to login again
-        this.clearTokens()
-        return null
-      }
+      this.clearTokens()
+      return null
     }
 
     return accessToken
   }
 
-  // Refresh access token
-  static async refreshAccessToken(refreshToken: string): Promise<string> {
-    try {
-      const response = await AuthAPI.refreshToken(refreshToken)
-      const newAccessToken = response.access_token
-      
-      // Lưu token mới
-      localStorage.setItem('access_token', newAccessToken)
-      
-      // Also update cookie
-      document.cookie = `token=${newAccessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict`
-      
-      console.log('Token refreshed successfully')
-      return newAccessToken
-    } catch (error) {
-      console.error('Token refresh failed:', error)
-      throw error
-    }
+  // Refresh access token (đã vô hiệu hóa)
+  static async refreshAccessToken(): Promise<string> {
+    throw new Error('Refresh token flow disabled')
   }
 
   // Xóa tất cả tokens

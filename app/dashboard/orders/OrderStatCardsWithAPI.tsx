@@ -68,7 +68,7 @@ export default function OrderStatCardsWithAPI({
   if (loading) {
     return (
       <div className="w-full mb-5 mt-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" data-search-ref="orders_stat_cards">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="bg-white rounded-xl shadow-lg p-4 animate-pulse">
               <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>

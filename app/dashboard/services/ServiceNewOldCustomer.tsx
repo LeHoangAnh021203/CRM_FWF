@@ -62,7 +62,7 @@ export default function ServiceNewOldCustomer({
 
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-      <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+      <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4" data-search-ref="services_new_old">
         Tỉ lệ khách hàng mới và cũ sử dụng dịch vụ
       </div>
 

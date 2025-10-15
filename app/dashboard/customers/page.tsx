@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, Suspense, useMemo } from "react";
+import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
 import {
   today,
   getLocalTimeZone,
@@ -161,6 +162,53 @@ function useWindowWidth() {
 }
 
 export default function CustomerReportPage() {
+  // Cross-tab search support
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const q = url.searchParams.get('q');
+    const hash = window.location.hash.replace('#','');
+    const scrollToRefWithRetry = (refKey: string, attempts = 25, delayMs = 120) => {
+      const tryOnce = (left: number) => {
+        const el = document.querySelector(`[data-search-ref='${refKey}']`) as HTMLElement | null;
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          el.classList.add('ring-2','ring-[#41d1d9]','rounded-lg');
+          window.setTimeout(() => el.classList.remove('ring-2','ring-[#41d1d9]','rounded-lg'), 1500);
+          return;
+        }
+        if (left > 0) window.setTimeout(() => tryOnce(left - 1), delayMs);
+      };
+      tryOnce(attempts);
+    };
+    if (q) {
+      window.dispatchEvent(new CustomEvent('global-search', { detail: { query: q } }));
+      url.searchParams.delete('q');
+      window.history.replaceState({}, '', url.toString());
+    } else if (hash) {
+      scrollToRefWithRetry(hash);
+    }
+
+    const normalizeKey = (s: string) => normalize(s).replace(/\s+/g, "");
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { query?: string };
+      const query = String(detail?.query || "");
+      const map = SEARCH_TARGETS.filter(t => t.route === 'customers').map(t => ({
+        keys: [normalizeKey(t.label), ...t.keywords.map(k => normalizeKey(k))],
+        refKey: t.refKey,
+      }));
+      const found = map.find(m => m.keys.some(k => normalizeKey(query).includes(k)));
+      if (!found) return;
+      scrollToRefWithRetry(found.refKey);
+    };
+    window.addEventListener('global-search', handler as EventListener);
+    const jumpHandler = (ev: Event) => {
+      const refKey = (ev as CustomEvent).detail?.refKey as string | undefined;
+      if (!refKey) return;
+      scrollToRefWithRetry(refKey);
+    };
+    window.addEventListener('jump-to-ref', jumpHandler as EventListener);
+    return () => window.removeEventListener('global-search', handler as EventListener);
+  }, []);
   // CSS để đảm bảo dropdown hiển thị đúng
   useEffect(() => {
     const style = document.createElement("style");
@@ -1339,7 +1387,8 @@ export default function CustomerReportPage() {
 
           {/* Bảng tổng hợp khách mới/cũ: tổng số và thực đi */}
           <div className="mt-5">
-            <CustomerNewOldSummaryTable
+          <CustomerNewOldSummaryTable
+            data-search-ref="customers_summary"
               data={customerSummaryRaw}
               loading={customerSummaryLoading}
               error={customerSummaryError}
@@ -1362,6 +1411,7 @@ export default function CustomerReportPage() {
 
           {/* Khách cũ */}
           <CustomerOldTypeTrendChart
+            data-search-ref="customers_old_trend"
             isMobile={isMobile}
             customerTypeTrendData={customerOldTypeTrendData}
             customerTypeKeys={["Khách cũ hiện tại", "Khách cũ tháng trước"]}
@@ -1370,6 +1420,7 @@ export default function CustomerReportPage() {
 
           {/* Tổng số khách mới */}
           <CustomerNewChart
+            data-search-ref="customers_new_chart"
             loadingCustomerSummary={customerSummaryLoading}
             errorCustomerSummary={customerSummaryError}
             customerSummaryRaw={customerSummaryRaw}
@@ -1418,6 +1469,7 @@ export default function CustomerReportPage() {
               
               return (
                 <CustomerOldStatCard
+                  data-search-ref="customers_old_stat"
                   data={customerOldTypeRaw}
                   loading={customerOldTypeLoading}
                   error={customerOldTypeError}
@@ -1428,6 +1480,7 @@ export default function CustomerReportPage() {
 
           {/* Số khách tới chia theo phân loại */}
           <CustomerTypeTrendChart
+            data-search-ref="customers_type_trend"
             isMobile={isMobile}
             customerTypeTrendData={customerTypeTrendData}
             customerTypeKeys={customerTypeKeys}
@@ -1436,6 +1489,7 @@ export default function CustomerReportPage() {
 
           {/* Nguồn của đơn hàng */}
           <CustomerSourceBarChart
+            data-search-ref="customers_source_bar"
             isMobile={isMobile}
             customerSourceTrendData={customerSourceTrendData}
             customerSourceKeys={customerSourceKeys}
@@ -1444,6 +1498,7 @@ export default function CustomerReportPage() {
 
           {/* Tỉ lệ khách hàng tải app và tỉ lệ khách mới/cũ*/}
           <CustomerAppDownloadPieChart
+            data-search-ref="customers_app_pie"
             loadingAppDownload={appDownloadLoading}
             errorAppDownload={appDownloadError}
             appDownloadPieData={appDownloadPieData}
@@ -1451,6 +1506,7 @@ export default function CustomerReportPage() {
 
           {/* Khách hàng tải app */}
           <CustomerAppDownloadBarChart
+            data-search-ref="customers_app_bar"
             isMobile={isMobile}
             loading={appDownloadStatusLoading}
             error={appDownloadStatusError}
@@ -1459,6 +1515,7 @@ export default function CustomerReportPage() {
 
           {/* Thời gian đơn hàng được tạo */}
           <CustomerFacilityHourTable
+            data-search-ref="customers_facility_hour"
             allHourRanges={allHourRanges}
             facilityHourTableData={facilityHourTableData}
             getCellBg={getCellBg}
@@ -1523,6 +1580,7 @@ export default function CustomerReportPage() {
             </div>
 
             <CustomerFacilityBookingTable
+              data-search-ref="customers_booking_hour"
               allHourRanges={bookingHourRanges}
               facilityHourTableData={bookingCompletionTableData}
               getCellBg={getCellBg}

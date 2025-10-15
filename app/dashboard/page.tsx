@@ -4,40 +4,14 @@ import React from "react";
 import { useState } from "react";
 import { Suspense, useEffect, useRef } from "react";
 import { Notification, useNotification } from "@/app/components/notification";
+import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
 import { useDashboardData } from "@/app/hooks/useDashboardData";
 import { useDateRange } from "@/app/contexts/DateContext";
 import { ApiService } from "@/app/lib/api-service";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/app/components/ui/card";
-import { Progress } from "@/app/components/ui/progress";
-import { Button } from "@/app/components/ui/button";
-import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+
 import { QuickActions } from "@/app/components/quick-actions";
-import {
-  Users,
-  Calendar,
-  CreditCard,
-  Banknote,
-  Clock,
-  DollarSign,
-  Wallet,
-  Star,
-} from "lucide-react";
+import { DollarSign } from "lucide-react";
 
 interface PaymentMethod {
   method: string;
@@ -45,24 +19,20 @@ interface PaymentMethod {
   percentage: number;
   transactions: number;
 }
+import TotalSaleTable from "./TotalSaleTable";
+import SaleDetail from "./SaleDetail";
+// import RevenueChart from "./RevenueChart";
+// import PercentChart from "./PercentChart";
+import KPIChart from "./KPIChart";
+import CustomerSection from "./CustomerSection";
+import BookingSection from "./BookingSection";
+import ServiceSection from "./ServiceSection";
+import FoxieBalanceTable from "./FoxieBalanceTable";
+import SalesByHourTable from "./SalesByHourTable";
 
-// Sample data for charts
-const customerSourceData = [
-  { name: "Website", value: 35, color: "#f16a3f" },
-  { name: "Social Media", value: 28, color: "#0693e3" },
-  { name: "Giới thiệu", value: 22, color: "#00d084" },
-  { name: "Quảng cáo", value: 15, color: "#fcb900" },
-];
+// Real data only: no mock datasets for dashboard
 
-const topServices = [
-  { name: "Massage thư giãn", revenue: 45000000, growth: 12 },
-  { name: "Chăm sóc da mặt", revenue: 38000000, growth: 8 },
-  { name: "Tắm trắng", revenue: 32000000, growth: 15 },
-  { name: "Nail art", revenue: 28000000, growth: -3 },
-  { name: "Gội đầu dưỡng sinh", revenue: 25000000, growth: 6 },
-];
-
-const revenueRankingData = [
+/* const revenueRankingData = [
   {
     rank: 1,
     name: "Chi nhánh Quận 1",
@@ -203,9 +173,9 @@ const revenueRankingData = [
     growth: -45,
     type: "bottom",
   },
-];
+]; */
 
-const foxieRankingData = [
+/* const foxieRankingData = [
   {
     rank: 1,
     name: "Chi nhánh Quận 1",
@@ -346,56 +316,38 @@ const foxieRankingData = [
     growth: -45,
     type: "bottom",
   },
-];
+]; */
 
-// Mock data fallback
-const mockPaymentMethods = [
-  {
-    method: "TM+CK+QT",
-    amount: 188000000,
-    percentage: 59.2,
-    transactions: 1247,
-  },
-  {
-    method: "Thanh toán ví",
-    amount: 85000000,
-    percentage: 26.7,
-    transactions: 523,
-  },
-  {
-    method: "Thẻ Foxie",
-    amount: 45000000,
-    percentage: 14.1,
-    transactions: 234,
-  },
-];
+// No mock fallback; render skeleton until real data is available
 
-const productDataByDistrict = [
+/* const productDataByDistrict = [
   { name: "Q1", value: 28, color: "#ff6b6b" },
   { name: "Q3", value: 22, color: "#4ecdc4" },
   { name: "Q7", value: 18, color: "#45b7d1" },
   { name: "Thủ Đức", value: 15, color: "#96ceb4" },
   { name: "Q2", value: 12, color: "#feca57" },
   { name: "Khác", value: 5, color: "#ff9ff3" },
-];
+]; */
 
-const foxieCardDataByDistrict = [
+/* const foxieCardDataByDistrict = [
   { name: "Q1", value: 32, color: "#6c5ce7" },
   { name: "Q3", value: 25, color: "#a29bfe" },
   { name: "Q7", value: 20, color: "#fd79a8" },
   { name: "Thủ Đức", value: 13, color: "#fdcb6e" },
   { name: "Q2", value: 8, color: "#e17055" },
   { name: "Khác", value: 2, color: "#74b9ff" },
-];
+]; */
 
-const serviceDataByDistrict = [
+/* const serviceDataByDistrict = [
   { name: "Q1", value: 30, color: "#00b894" },
   { name: "Q3", value: 24, color: "#00cec9" },
   { name: "Q7", value: 19, color: "#55a3ff" },
   { name: "Thủ Đức", value: 16, color: "#fd79a8" },
   { name: "Q2", value: 9, color: "#fdcb6e" },
   { name: "Khác", value: 2, color: "#e84393" },
-];
+]; */
+
+// Daily KPI Growth Data (last 7 days) - will be created inside component
 
 export default function Dashboard() {
   const { notification, showSuccess, showError, hideNotification } =
@@ -410,10 +362,15 @@ export default function Dashboard() {
   } = usePageStatus("dashboard");
 
   const { loading, error, apiErrors, apiSuccesses, stats } = useDashboardData();
-  
+
   // Use the same date range format as orders page
   const { fromDate, toDate } = useDateRange();
-  
+  const searchParamQuery = (() => {
+    if (typeof window === 'undefined') return '';
+    const url = new URL(window.location.href);
+    return url.searchParams.get('q') || '';
+  })();
+
   // Fetch sales summary data using direct API call (like the original)
   const [salesSummaryData, setSalesSummaryData] = useState<{
     totalRevenue: string;
@@ -429,84 +386,783 @@ export default function Dashboard() {
   const [salesLoading, setSalesLoading] = useState(true);
   const [salesError, setSalesError] = useState<string | null>(null);
 
-        // Use ApiService with authentication like other pages
-        React.useEffect(() => {
-          const fetchSalesSummary = async () => {
-            if (!fromDate || !toDate) return;
+  // Use ApiService with authentication like other pages
+  React.useEffect(() => {
+    const fetchSalesSummary = async () => {
+      if (!fromDate || !toDate) return;
 
-            try {
-              setSalesLoading(true);
-              setSalesError(null);
+      try {
+        setSalesLoading(true);
+        setSalesError(null);
 
-              // Format dates for API (DD/MM/YYYY format like the API expects)
-              const formatDateForAPI = (dateString: string) => {
-                const date = new Date(dateString);
-                const day = String(date.getDate()).padStart(2, '0');
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const year = date.getFullYear();
-                return `${day}/${month}/${year}`;
-              };
+        // Format dates for API (DD/MM/YYYY format like the API expects)
+        const formatDateForAPI = (dateString: string) => {
+          const date = new Date(dateString);
+          const day = String(date.getDate()).padStart(2, "0");
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        };
 
-              const startDate = formatDateForAPI(fromDate);
-              const endDate = formatDateForAPI(toDate);
+        const startDate = formatDateForAPI(fromDate);
+        const endDate = formatDateForAPI(toDate);
 
-              console.log('🔄 Fetching sales summary via ApiService with dates:', { startDate, endDate });
-              
-              // Use ApiService with authentication and proxy
-              const data = await ApiService.get(`real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}`) as {
-                totalRevenue: string;
-                cash: string;
-                transfer: string;
-                card: string;
-                actualRevenue: string;
-                foxieUsageRevenue: string;
-                walletUsageRevenue: string;
-                toPay: string;
-                debt: string;
-              };
-              
-              console.log('✅ Sales summary data received:', data);
-              console.log('🔍 Debug - Data structure check:', {
-                hasTotalRevenue: !!data.totalRevenue,
-                hasCash: !!data.cash,
-                hasTransfer: !!data.transfer,
-                hasCard: !!data.card,
-                hasFoxieUsageRevenue: !!data.foxieUsageRevenue,
-                hasWalletUsageRevenue: !!data.walletUsageRevenue
-              });
-              
-              setSalesSummaryData(data);
+        console.log("🔄 Fetching sales summary via ApiService with dates:", {
+          startDate,
+          endDate,
+        });
 
-            } catch (err) {
-              const errorMessage = err instanceof Error ? err.message : "Failed to fetch sales summary";
-              setSalesError(errorMessage);
-              console.error("❌ Sales summary fetch error:", err);
-            } finally {
-              setSalesLoading(false);
-            }
-          };
+        // Use ApiService with authentication and proxy
+        const data = (await ApiService.get(
+          `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}`
+        )) as {
+          totalRevenue: string;
+          cash: string;
+          transfer: string;
+          card: string;
+          actualRevenue: string;
+          foxieUsageRevenue: string;
+          walletUsageRevenue: string;
+          toPay: string;
+          debt: string;
+        };
 
-          fetchSalesSummary();
-        }, [fromDate, toDate]);
+        console.log("✅ Sales summary data received:", data);
+        console.log("🔍 Debug - Data structure check:", {
+          hasTotalRevenue: !!data.totalRevenue,
+          hasCash: !!data.cash,
+          hasTransfer: !!data.transfer,
+          hasCard: !!data.card,
+          hasFoxieUsageRevenue: !!data.foxieUsageRevenue,
+          hasWalletUsageRevenue: !!data.walletUsageRevenue,
+        });
+
+        setSalesSummaryData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch sales summary";
+        setSalesError(errorMessage);
+        console.error("❌ Sales summary fetch error:", err);
+      } finally {
+        setSalesLoading(false);
+      }
+    };
+
+    fetchSalesSummary();
+  }, [fromDate, toDate]);
 
   const [showTopRanking, setShowTopRanking] = useState(true);
   const [showTopFoxieRanking, setShowTopFoxieRanking] = useState(true);
+  const [kpiViewMode, setKpiViewMode] = useState<"monthly" | "daily">(
+    "monthly"
+  );
+
+  // KPI Monthly revenue API state (for Target KPI only - cumulative from start of month)
+  const [kpiMonthlyRevenueData, setKpiMonthlyRevenueData] = useState<{
+    totalRevenue: string;
+    cash: string;
+    transfer: string;
+    card: string;
+    actualRevenue: string;
+    foxieUsageRevenue: string;
+    walletUsageRevenue: string;
+    toPay: string;
+    debt: string;
+  } | null>(null);
+  const [kpiMonthlyRevenueLoading, setKpiMonthlyRevenueLoading] =
+    useState(true);
+  const [kpiMonthlyRevenueError, setKpiMonthlyRevenueError] = useState<
+    string | null
+  >(null);
+
+  // Service summary API state
+  const [serviceSummaryData, setServiceSummaryData] = useState<{
+    totalServices: string;
+    totalServicesServing: string;
+    totalServiceDone: string;
+    items: Array<{
+      serviceName: string;
+      serviceUsageAmount: string;
+      serviceUsagePercentage: string;
+    }>;
+  } | null>(null);
+  const [serviceLoading, setServiceLoading] = useState(true);
+  const [serviceError, setServiceError] = useState<string | null>(null);
+
+  // Auth expiration modal state
+  const [authExpired, setAuthExpired] = useState(false);
+
+  // New customers API state (for current date range)
+  const [newCustomerData, setNewCustomerData] = useState<Array<{
+    count: number;
+    type: string;
+  }> | null>(null);
+  const [newCustomerLoading, setNewCustomerLoading] = useState(true);
+  const [newCustomerError, setNewCustomerError] = useState<string | null>(null);
+
+  // Old customers API state (for current date range)
+  const [oldCustomerData, setOldCustomerData] = useState<Array<{
+    count: number;
+    type: string;
+  }> | null>(null);
+  const [oldCustomerLoading, setOldCustomerLoading] = useState(true);
+  const [oldCustomerError, setOldCustomerError] = useState<string | null>(null);
+
+  // Foxie balance API state
+  const [foxieBalanceData, setFoxieBalanceData] = useState<{
+    the_tien_kha_dung: number;
+  } | null>(null);
+  const [foxieBalanceLoading, setFoxieBalanceLoading] = useState(true);
+  const [foxieBalanceError, setFoxieBalanceError] = useState<string | null>(
+    null
+  );
+
+  // Sales by hour API state
+  const [salesByHourData, setSalesByHourData] = useState<Array<{
+    date: string;
+    totalSales: number;
+    timeRange: string;
+  }> | null>(null);
+  const [salesByHourLoading, setSalesByHourLoading] = useState(true);
+  const [salesByHourError, setSalesByHourError] = useState<string | null>(null);
+
+  // Sales detail API state
+  const [salesDetailData, setSalesDetailData] = useState<Array<{
+    productName: string;
+    productPrice: string;
+    productQuantity: string;
+    productDiscount: string;
+    productCode: string;
+    productUnit: string;
+    formatTable: string;
+    cash: string;
+    transfer: string;
+    card: string;
+    wallet: string;
+    foxie: string;
+  }> | null>(null);
+  const [salesDetailLoading, setSalesDetailLoading] = useState(true);
+  const [salesDetailError, setSalesDetailError] = useState<string | null>(null);
+
+  // Booking API state
+  const [bookingData, setBookingData] = useState<{
+    notConfirmed: string;
+    confirmed: string;
+    denied: string;
+    customerCome: string;
+    customerNotCome: string;
+    cancel: string;
+    autoConfirmed: string;
+  } | null>(null);
+  const [bookingLoading, setBookingLoading] = useState(true);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+
+  // Daily revenue API state (for current day only)
+  const [dailyRevenueData, setDailyRevenueData] = useState<{
+    totalRevenue: string;
+    cash: string;
+    transfer: string;
+    card: string;
+    actualRevenue: string;
+    foxieUsageRevenue: string;
+    walletUsageRevenue: string;
+    toPay: string;
+    debt: string;
+  } | null>(null);
+  const [dailyRevenueLoading, setDailyRevenueLoading] = useState(true);
+  const [dailyRevenueError, setDailyRevenueError] = useState<string | null>(
+    null
+  );
+
+  // KPI daily series (real per-day data from start of month to today)
+  const [kpiDailySeries, setKpiDailySeries] = useState<Array<{
+    dateLabel: string; // DD/MM
+    isoDate: string; // yyyy-MM-dd
+    total: number; // cash+transfer+card
+  }> | null>(null);
+  const [kpiDailySeriesLoading, setKpiDailySeriesLoading] = useState(true);
+  const [kpiDailySeriesError, setKpiDailySeriesError] = useState<string | null>(
+    null
+  );
+
+  // Fetch service summary (real-time) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchServiceSummary = async () => {
+      if (!fromDate || !toDate) return;
+
+      try {
+        setServiceLoading(true);
+        setServiceError(null);
+
+        const formatDateForAPI = (isoDateString: string) => {
+          // isoDateString like yyyy-MM-ddTHH:mm:ss from DateContext
+          const [datePart] = isoDateString.split("T");
+          const [year, month, day] = datePart.split("-");
+          return `${day}/${month}/${year}`;
+        };
+
+        const startDate = formatDateForAPI(fromDate);
+        const endDate = formatDateForAPI(toDate);
+
+        const data = (await ApiService.get(
+          `real-time/service-summary?dateStart=${startDate}&dateEnd=${endDate}`
+        )) as {
+          totalServices: string;
+          totalServicesServing: string;
+          totalServiceDone: string;
+          items: Array<{
+            serviceName: string;
+            serviceUsageAmount: string;
+            serviceUsagePercentage: string;
+          }>;
+        };
+
+        setServiceSummaryData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch service summary";
+        setServiceError(errorMessage);
+        console.error("❌ Service summary fetch error:", err);
+      } finally {
+        setServiceLoading(false);
+      }
+    };
+
+    fetchServiceSummary();
+  }, [fromDate, toDate]);
+
+  // Fetch new customers by source (real-time) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchNewCustomers = async () => {
+      if (!fromDate || !toDate) return;
+
+      try {
+        setNewCustomerLoading(true);
+        setNewCustomerError(null);
+
+        const formatDateForAPI = (dateString: string) => {
+          const date = new Date(dateString);
+          const day = String(date.getDate()).padStart(2, "0");
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        };
+
+        const startDate = formatDateForAPI(fromDate);
+        const endDate = formatDateForAPI(toDate);
+
+        const data = (await ApiService.get(
+          `real-time/get-new-customer?dateStart=${startDate}&dateEnd=${endDate}`
+        )) as Array<{
+          count: number;
+          type: string;
+        }>;
+
+        setNewCustomerData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch new customers";
+        setNewCustomerError(errorMessage);
+        console.error("❌ New customers fetch error:", err);
+      } finally {
+        setNewCustomerLoading(false);
+      }
+    };
+
+    fetchNewCustomers();
+  }, [fromDate, toDate]);
+
+  // Fetch old customers by source (real-time) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchOldCustomers = async () => {
+      if (!fromDate || !toDate) return;
+
+      try {
+        setOldCustomerLoading(true);
+        setOldCustomerError(null);
+
+        const formatDateForAPI = (dateString: string) => {
+          const date = new Date(dateString);
+          const day = String(date.getDate()).padStart(2, "0");
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        };
+
+        const startDate = formatDateForAPI(fromDate);
+        const endDate = formatDateForAPI(toDate);
+
+        const data = (await ApiService.get(
+          `real-time/get-old-customer?dateStart=${startDate}&dateEnd=${endDate}`
+        )) as Array<{
+          count: number;
+          type: string;
+        }>;
+
+        setOldCustomerData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch old customers";
+        setOldCustomerError(errorMessage);
+        console.error("❌ Old customers fetch error:", err);
+      } finally {
+        setOldCustomerLoading(false);
+      }
+    };
+
+    fetchOldCustomers();
+  }, [fromDate, toDate]);
+
+  // Fetch Foxie balance using ApiService via proxy
+  React.useEffect(() => {
+    const fetchFoxieBalance = async () => {
+      try {
+        setFoxieBalanceLoading(true);
+        setFoxieBalanceError(null);
+
+        console.log("🔄 Fetching Foxie balance via direct API call");
+
+        // Use direct API call instead of proxy for this specific endpoint
+        const response = await fetch(
+          "https://app.facewashfox.com/api/ws/fwf@the_tien_kha_dung",
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${
+                typeof window !== "undefined"
+                  ? localStorage.getItem("token") || ""
+                  : ""
+              }`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = (await response.json()) as {
+          the_tien_kha_dung: number;
+        };
+
+        console.log("✅ Foxie balance data received:", data);
+        setFoxieBalanceData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch Foxie balance";
+        setFoxieBalanceError(errorMessage);
+        console.error("❌ Foxie balance fetch error:", err);
+      } finally {
+        setFoxieBalanceLoading(false);
+      }
+    };
+
+    fetchFoxieBalance();
+  }, []); // Empty dependency - fetch once on mount
+
+  // Fetch sales by hour (real-time) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchSalesByHour = async () => {
+      if (!fromDate || !toDate) return;
+
+      try {
+        setSalesByHourLoading(true);
+        setSalesByHourError(null);
+
+        const formatDateForAPI = (dateString: string) => {
+          const date = new Date(dateString);
+          const day = String(date.getDate()).padStart(2, "0");
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        };
+
+        const startDate = formatDateForAPI(fromDate);
+        const endDate = formatDateForAPI(toDate);
+
+        console.log("🔄 Fetching sales by hour via ApiService with dates:", {
+          startDate,
+          endDate,
+        });
+
+        const data = (await ApiService.get(
+          `real-time/get-sales-by-hour?dateStart=${startDate}&dateEnd=${endDate}`
+        )) as Array<{
+          date: string;
+          totalSales: number;
+          timeRange: string;
+        }>;
+
+        console.log("✅ Sales by hour data received:", data);
+        setSalesByHourData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch sales by hour";
+        setSalesByHourError(errorMessage);
+        console.error("❌ Sales by hour fetch error:", err);
+      } finally {
+        setSalesByHourLoading(false);
+      }
+    };
+
+    fetchSalesByHour();
+  }, [fromDate, toDate]);
+
+  const newCustomerTotal = React.useMemo(() => {
+    if (!newCustomerData || newCustomerData.length === 0) return 0;
+    return newCustomerData.reduce(
+      (sum, item) => sum + Number(item.count || 0),
+      0
+    );
+  }, [newCustomerData]);
+
+  const oldCustomerTotal = React.useMemo(() => {
+    if (!oldCustomerData || oldCustomerData.length === 0) return 0;
+    return oldCustomerData.reduce(
+      (sum, item) => sum + Number(item.count || 0),
+      0
+    );
+  }, [oldCustomerData]);
+
+  const colorPalette = [
+    "#f16a3f",
+    "#0693e3",
+    "#00d084",
+    "#fcb900",
+    "#9b51e0",
+    "#41d1d9",
+    "#ff6b6b",
+    "#7bdcb5",
+    "#ff6900",
+    "#4ecdc4",
+  ];
+
+  const newCustomerPieData = React.useMemo(() => {
+    if (!newCustomerData || newCustomerData.length === 0)
+      return [] as Array<{ name: string; value: number; color: string }>;
+    return newCustomerData.map((item, idx) => ({
+      name: item.type,
+      value: Number(item.count || 0),
+      color: colorPalette[idx % colorPalette.length],
+    }));
+  }, [newCustomerData, colorPalette]);
+
+  const oldCustomerPieData = React.useMemo(() => {
+    if (!oldCustomerData || oldCustomerData.length === 0)
+      return [] as Array<{ name: string; value: number; color: string }>;
+    return oldCustomerData.map((item, idx) => ({
+      name: item.type,
+      value: Number(item.count || 0),
+      color: colorPalette[idx % colorPalette.length],
+    }));
+  }, [oldCustomerData, colorPalette]);
+
+  // Fetch sales detail (real-time) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchSalesDetail = async () => {
+      if (!fromDate || !toDate) return;
+
+      try {
+        setSalesDetailLoading(true);
+        setSalesDetailError(null);
+
+        const formatDateForAPI = (dateString: string) => {
+          const date = new Date(dateString);
+          const day = String(date.getDate()).padStart(2, "0");
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        };
+
+        const startDate = formatDateForAPI(fromDate);
+        const endDate = formatDateForAPI(toDate);
+
+        const data = (await ApiService.get(
+          `real-time/sales-detail?dateStart=${startDate}&dateEnd=${endDate}`
+        )) as Array<{
+          productName: string;
+          productPrice: string;
+          productQuantity: string;
+          productDiscount: string;
+          productCode: string;
+          productUnit: string;
+          formatTable: string;
+          cash: string;
+          transfer: string;
+          card: string;
+          wallet: string;
+          foxie: string;
+        }>;
+
+        setSalesDetailData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch sales detail";
+        setSalesDetailError(errorMessage);
+        console.error("❌ Sales detail fetch error:", err);
+      } finally {
+        setSalesDetailLoading(false);
+      }
+    };
+
+    fetchSalesDetail();
+  }, [fromDate, toDate]);
+
+  // Fetch booking data (real-time) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchBookingData = async () => {
+      if (!fromDate || !toDate) return;
+
+      try {
+        setBookingLoading(true);
+        setBookingError(null);
+
+        const formatDateForAPI = (dateString: string) => {
+          const date = new Date(dateString);
+          const day = String(date.getDate()).padStart(2, "0");
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        };
+
+        const startDate = formatDateForAPI(fromDate);
+        const endDate = formatDateForAPI(toDate);
+
+        console.log("🔄 Fetching booking data via ApiService with dates:", {
+          startDate,
+          endDate,
+        });
+
+        const data = (await ApiService.get(
+          `real-time/booking?dateStart=${startDate}&dateEnd=${endDate}`
+        )) as {
+          notConfirmed: string;
+          confirmed: string;
+          denied: string;
+          customerCome: string;
+          customerNotCome: string;
+          cancel: string;
+          autoConfirmed: string;
+        };
+
+        console.log("✅ Booking data received:", data);
+        setBookingData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch booking data";
+        setBookingError(errorMessage);
+        console.error("❌ Booking data fetch error:", err);
+      } finally {
+        setBookingLoading(false);
+      }
+    };
+
+    fetchBookingData();
+  }, [fromDate, toDate]);
+
+  // Fetch daily revenue (current day only) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchDailyRevenue = async () => {
+      try {
+        setDailyRevenueLoading(true);
+        setDailyRevenueError(null);
+
+        // Get current date in DD/MM/YYYY format
+        const today = new Date();
+        const day = String(today.getDate()).padStart(2, "0");
+        const month = String(today.getMonth() + 1).padStart(2, "0");
+        const year = today.getFullYear();
+        const todayStr = `${day}/${month}/${year}`;
+
+        console.log("🔄 Fetching daily revenue for today:", todayStr);
+
+        const data = (await ApiService.get(
+          `real-time/sales-summary?dateStart=${todayStr}&dateEnd=${todayStr}`
+        )) as {
+          totalRevenue: string;
+          cash: string;
+          transfer: string;
+          card: string;
+          actualRevenue: string;
+          foxieUsageRevenue: string;
+          walletUsageRevenue: string;
+          toPay: string;
+          debt: string;
+        };
+
+        console.log("✅ Daily revenue data received:", data);
+        setDailyRevenueData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch daily revenue";
+        setDailyRevenueError(errorMessage);
+        console.error("❌ Daily revenue fetch error:", err);
+      } finally {
+        setDailyRevenueLoading(false);
+      }
+    };
+
+    fetchDailyRevenue();
+  }, []); // Empty dependency array - only fetch once on mount
+
+  // Fetch KPI monthly revenue (for Target KPI only - cumulative from start of month)
+  React.useEffect(() => {
+    const fetchKpiMonthlyRevenue = async () => {
+      try {
+        setKpiMonthlyRevenueLoading(true);
+        setKpiMonthlyRevenueError(null);
+
+        // Get start of current month and current date
+        const today = new Date();
+        const firstDayOfMonth = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          1
+        );
+
+        const formatDateForAPI = (date: Date) => {
+          const day = String(date.getDate()).padStart(2, "0");
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        };
+
+        const startDate = formatDateForAPI(firstDayOfMonth);
+        const endDate = formatDateForAPI(today);
+
+        console.log(
+          "🔄 Fetching KPI monthly revenue (cumulative from start of month):",
+          { startDate, endDate }
+        );
+
+        const data = (await ApiService.get(
+          `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}`
+        )) as {
+          totalRevenue: string;
+          cash: string;
+          transfer: string;
+          card: string;
+          actualRevenue: string;
+          foxieUsageRevenue: string;
+          walletUsageRevenue: string;
+          toPay: string;
+          debt: string;
+        };
+
+        console.log("✅ KPI monthly revenue data received:", data);
+        setKpiMonthlyRevenueData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch KPI monthly revenue";
+        setKpiMonthlyRevenueError(errorMessage);
+        console.error("❌ KPI monthly revenue fetch error:", err);
+      } finally {
+        setKpiMonthlyRevenueLoading(false);
+      }
+    };
+
+    fetchKpiMonthlyRevenue();
+  }, []); // Empty dependency - fetch once on mount
+
+  // Fetch daily KPI series (TM+CK+QT per day) from start of month to today
+  React.useEffect(() => {
+    const fetchDailySeries = async () => {
+      try {
+        setKpiDailySeriesLoading(true);
+        setKpiDailySeriesError(null);
+
+        const today = new Date();
+        const firstDayOfMonth = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          1
+        );
+
+        const toDdMmYyyy = (date: Date) => {
+          const dd = String(date.getDate()).padStart(2, "0");
+          const mm = String(date.getMonth() + 1).padStart(2, "0");
+          const yyyy = date.getFullYear();
+          return `${dd}/${mm}/${yyyy}`;
+        };
+        const toIsoYyyyMmDd = (date: Date) => {
+          const dd = String(date.getDate()).padStart(2, "0");
+          const mm = String(date.getMonth() + 1).padStart(2, "0");
+          const yyyy = date.getFullYear();
+          return `${yyyy}-${mm}-${dd}`;
+        };
+
+        const results: Array<{
+          dateLabel: string;
+          isoDate: string;
+          total: number;
+        }> = [];
+        // Loop day by day to fetch real totals
+        for (
+          let d = new Date(firstDayOfMonth);
+          d <= today;
+          d.setDate(d.getDate() + 1)
+        ) {
+          const ddmmyyyy = toDdMmYyyy(d);
+          const data = (await ApiService.get(
+            `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}`
+          )) as {
+            cash: string;
+            transfer: string;
+            card: string;
+          };
+          const total =
+            (parseFloat(data.cash) || 0) +
+            (parseFloat(data.transfer) || 0) +
+            (parseFloat(data.card) || 0);
+          results.push({
+            dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
+              d.getMonth() + 1
+            ).padStart(2, "0")}`,
+            isoDate: toIsoYyyyMmDd(d),
+            total,
+          });
+        }
+
+        setKpiDailySeries(results);
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch daily KPI series";
+        setKpiDailySeriesError(message);
+        console.error("❌ Daily KPI series fetch error:", err);
+      } finally {
+        setKpiDailySeriesLoading(false);
+      }
+    };
+
+    fetchDailySeries();
+  }, []);
 
   // Process sales summary data similar to orders page
   const paymentMethods = React.useMemo(() => {
     console.log("🔍 Debug - salesSummaryData:", salesSummaryData);
-    
+
     if (!salesSummaryData) {
       console.log("❌ No salesSummaryData available, returning empty array");
       return [];
     }
-    
+
     const totalRevenue = parseFloat(salesSummaryData.totalRevenue);
     const cashAmount = parseFloat(salesSummaryData.cash);
     const transferAmount = parseFloat(salesSummaryData.transfer);
     const cardAmount = parseFloat(salesSummaryData.card);
-    const foxieAmount = Math.abs(parseFloat(salesSummaryData.foxieUsageRevenue)); // Make positive
-    const walletAmount = Math.abs(parseFloat(salesSummaryData.walletUsageRevenue)); // Make positive
+    const foxieAmount = Math.abs(
+      parseFloat(salesSummaryData.foxieUsageRevenue)
+    ); // Make positive
+    const walletAmount = Math.abs(
+      parseFloat(salesSummaryData.walletUsageRevenue)
+    ); // Make positive
 
     console.log("🔍 Debug - Parsed amounts:", {
       totalRevenue,
@@ -514,26 +1170,38 @@ export default function Dashboard() {
       transferAmount,
       cardAmount,
       foxieAmount,
-      walletAmount
+      walletAmount,
     });
 
     const methods: PaymentMethod[] = [
       {
         method: "TM+CK+QT",
         amount: cashAmount + transferAmount + cardAmount,
-        percentage: totalRevenue > 0 ? Math.round(((cashAmount + transferAmount + cardAmount) / totalRevenue) * 100) : 0,
-        transactions: Math.floor((cashAmount + transferAmount + cardAmount) / 100000), // Estimate transactions
+        percentage:
+          totalRevenue > 0
+            ? Math.round(
+                ((cashAmount + transferAmount + cardAmount) / totalRevenue) *
+                  100
+              )
+            : 0,
+        transactions: Math.floor(
+          (cashAmount + transferAmount + cardAmount) / 100000
+        ), // Estimate transactions
       },
       {
         method: "Thanh toán ví",
         amount: walletAmount,
-        percentage: totalRevenue > 0 ? Math.round((walletAmount / totalRevenue) * 100) : 0,
+        percentage:
+          totalRevenue > 0
+            ? Math.round((walletAmount / totalRevenue) * 100)
+            : 0,
         transactions: Math.floor(walletAmount / 100000), // Estimate transactions
       },
       {
         method: "Thẻ Foxie",
         amount: foxieAmount,
-        percentage: totalRevenue > 0 ? Math.round((foxieAmount / totalRevenue) * 100) : 0,
+        percentage:
+          totalRevenue > 0 ? Math.round((foxieAmount / totalRevenue) * 100) : 0,
         transactions: Math.floor(foxieAmount / 100000), // Estimate transactions
       },
     ];
@@ -541,39 +1209,202 @@ export default function Dashboard() {
     return methods;
   }, [salesSummaryData]);
 
-  // Use real data from API or fallback to mock data
-  const allPaymentMethods = paymentMethods.length > 0 ? paymentMethods : mockPaymentMethods;
-  
   console.log("🔍 Debug - paymentMethods:", paymentMethods);
-  console.log("🔍 Debug - allPaymentMethods:", allPaymentMethods);
   console.log("🔍 Debug - Using real data:", paymentMethods.length > 0);
-  
-  const totalRevenue = allPaymentMethods.reduce(
+
+  const totalRevenue = paymentMethods.reduce(
     (sum: number, method: PaymentMethod) => sum + method.amount,
     0
   );
 
-  const monthlyTarget = 500000000; // 500M VND target
-  const currentRevenue = stats?.totalRevenue || 0;
+  const monthlyTarget = 9750000000; // 9.75B VND target
+
+  // Calculate days in current month
   const currentDay = new Date().getDate();
   const daysInMonth = new Date(
     new Date().getFullYear(),
     new Date().getMonth() + 1,
     0
   ).getDate();
+
+  // Calculate monthly revenue for Target KPI (cumulative from start of month)
+  const monthlyRevenue = React.useMemo(() => {
+    if (!kpiMonthlyRevenueData) return 0;
+
+    const cash = parseFloat(kpiMonthlyRevenueData.cash) || 0;
+    const transfer = parseFloat(kpiMonthlyRevenueData.transfer) || 0;
+    const card = parseFloat(kpiMonthlyRevenueData.card) || 0;
+
+    const total = cash + transfer + card;
+
+    console.log("🔍 KPI Debug - Monthly revenue calculation (cumulative):", {
+      cash,
+      transfer,
+      card,
+      total,
+      monthlyTarget,
+    });
+
+    return total;
+  }, [kpiMonthlyRevenueData]);
+
+  // Calculate daily revenue from daily revenue API data (cash + transfer + card)
+  const dailyRevenue = React.useMemo(() => {
+    if (!dailyRevenueData) return 0;
+
+    const cash = parseFloat(dailyRevenueData.cash) || 0;
+    const transfer = parseFloat(dailyRevenueData.transfer) || 0;
+    const card = parseFloat(dailyRevenueData.card) || 0;
+
+    const total = cash + transfer + card;
+
+    console.log("🔍 KPI Debug - Daily revenue calculation:", {
+      cash,
+      transfer,
+      card,
+      total,
+      dailyTarget: monthlyTarget / daysInMonth,
+    });
+
+    return total;
+  }, [dailyRevenueData, daysInMonth]);
+
+  // Use appropriate revenue based on view mode
+  const currentRevenue =
+    kpiViewMode === "monthly" ? monthlyRevenue : dailyRevenue;
+
+  // Monthly view calculations
   const dailyTargetForToday = (monthlyTarget / daysInMonth) * currentDay;
   const dailyTargetPercentage = (dailyTargetForToday / monthlyTarget) * 100;
   const currentPercentage = (currentRevenue / monthlyTarget) * 100;
   const remainingTarget = Math.max(0, monthlyTarget - currentRevenue);
 
+  // Daily view calculations (for current day)
+  const currentDate = new Date();
+  const currentDayForDaily = currentDate.getDate();
+  const dailyTargetForCurrentDay = monthlyTarget / daysInMonth; // Target for one day
+  const dailyTargetPercentageForCurrentDay =
+    (dailyTargetForCurrentDay / monthlyTarget) * 100;
+  const dailyPercentageForCurrentDay =
+    (currentRevenue / dailyTargetForCurrentDay) * 100;
+  const remainingDailyTarget = Math.max(
+    0,
+    dailyTargetForCurrentDay - currentRevenue
+  );
+
+  // Daily KPI Growth Data (real) derived from kpiDailySeries
+  const dailyKpiGrowthData = React.useMemo(() => {
+    if (!kpiDailySeries || kpiDailySeries.length === 0) return [] as Array<any>;
+    const today = new Date();
+    const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+    return kpiDailySeries.map((d) => {
+      const [yyyy, mm, dd] = d.isoDate.split("-");
+      const jsDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+      const dayName = dayNames[jsDate.getDay()];
+      const isToday = jsDate.toDateString() === today.toDateString();
+      const target = dailyTargetForCurrentDay;
+      const percentage = target > 0 ? (d.total / target) * 100 : 0;
+      return {
+        day: dayName,
+        date: d.dateLabel,
+        revenue: d.total,
+        target,
+        percentage,
+        isToday,
+      };
+    });
+  }, [kpiDailySeries, dailyTargetForCurrentDay]);
+
   const getTargetStatus = () => {
-    if (currentRevenue >= dailyTargetForToday) {
-      return currentRevenue > dailyTargetForToday * 1.1 ? "ahead" : "ontrack";
+    if (kpiViewMode === "monthly") {
+      if (currentRevenue >= dailyTargetForToday) {
+        return currentRevenue > dailyTargetForToday * 1.1 ? "ahead" : "ontrack";
+      }
+      return "behind";
+    } else {
+      // Daily view
+      if (currentRevenue >= dailyTargetForCurrentDay) {
+        return currentRevenue > dailyTargetForCurrentDay * 1.1
+          ? "ahead"
+          : "ontrack";
+      }
+      return "behind";
     }
-    return "behind";
   };
 
   const targetStatus = getTargetStatus();
+  // Map search queries to sections and scroll/highlight
+  const sectionRefs = React.useRef({
+    dashboard_total_sale_table: React.createRef<HTMLDivElement>(),
+    dashboard_foxie_balance: React.createRef<HTMLDivElement>(),
+    dashboard_sales_by_hour: React.createRef<HTMLDivElement>(),
+    dashboard_sale_detail: React.createRef<HTMLDivElement>(),
+    dashboard_kpi: React.createRef<HTMLDivElement>(),
+    dashboard_customer_section: React.createRef<HTMLDivElement>(),
+    dashboard_booking_section: React.createRef<HTMLDivElement>(),
+    dashboard_service_section: React.createRef<HTMLDivElement>(),
+  });
+
+  const normalizeKey = (s: string) => normalize(s).replace(/\s+/g, "");
+
+  const [highlightKey, setHighlightKey] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    // If navigated here with ?q=, trigger search once
+    if (searchParamQuery) {
+      const event = new CustomEvent('global-search', { detail: { query: searchParamQuery } });
+      window.dispatchEvent(event);
+      // Clean URL param without reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete('q');
+      window.history.replaceState({}, '', url.toString());
+    }
+
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { query?: string };
+      const q = normalize(detail?.query || "");
+      if (!q) return;
+      const map = SEARCH_TARGETS.map((t) => ({ keys: [normalizeKey(t.label), ...t.keywords.map((k) => normalizeKey(k))], refKey: t.refKey }));
+      const found = map.find((m) => m.keys.some((k) => normalizeKey(q).includes(k)));
+      const allowed = [
+        'dashboard_total_sale_table','dashboard_foxie_balance','dashboard_sales_by_hour','dashboard_sale_detail','dashboard_kpi','dashboard_customer_section','dashboard_booking_section','dashboard_service_section'
+      ] as const;
+      const ref = found && (allowed as readonly string[]).includes(found.refKey)
+        ? (sectionRefs.current as Record<string, React.RefObject<HTMLDivElement>>)[found.refKey]
+        : null;
+      if (ref?.current) {
+        ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        setHighlightKey(found!.refKey);
+        window.setTimeout(() => setHighlightKey(null), 1200);
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("global-search", handler as EventListener);
+      // Support anchor hash direct navigation: #refKey
+      const hash = window.location.hash.replace('#','');
+      if (hash) {
+        const target = (sectionRefs.current as Record<string, React.RefObject<HTMLDivElement>>)[hash];
+        if (target?.current) {
+          setTimeout(() => target.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+        }
+      }
+      // Listener for direct jump events from header within same route
+      const jumpHandler = (ev: Event) => {
+        const refKey = (ev as CustomEvent).detail?.refKey as string | undefined;
+        if (!refKey) return;
+        const target = (sectionRefs.current as Record<string, React.RefObject<HTMLDivElement>>)[refKey];
+        if (target?.current) target.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      window.addEventListener('jump-to-ref', jumpHandler as EventListener);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("global-search", handler as EventListener);
+        window.removeEventListener('jump-to-ref', (()=>{}) as EventListener);
+      }
+    };
+  }, []);
+
   const statusColors = {
     ahead: { bg: "#00d084", text: "Vượt tiến độ" },
     ontrack: { bg: "#fcb900", text: "Đúng tiến độ" },
@@ -587,41 +1418,7 @@ export default function Dashboard() {
     }).format(value);
   };
 
-  const getTopRanking = () =>
-    revenueRankingData.filter((item) => item.type === "top");
-  const getBottomRanking = () =>
-    revenueRankingData.filter((item) => item.type === "bottom");
-
-  const getTopFoxieRanking = () =>
-    foxieRankingData.filter((item) => item.type === "top");
-  const getBottomFoxieRanking = () =>
-    foxieRankingData.filter((item) => item.type === "bottom");
-
-  const getRankingChartData = () => {
-    const data = showTopRanking ? getTopRanking() : getBottomRanking();
-    return data
-      .map((item) => ({
-        name: item.name.replace("Chi nhánh ", ""),
-        revenue: item.revenue / 1000000, // Convert to millions for better display
-        growth: item.growth,
-        fullName: item.name,
-      }))
-      .reverse(); // Reverse to show highest at top
-  };
-
-  const getFoxieRankingChartData = () => {
-    const data = showTopFoxieRanking
-      ? getTopFoxieRanking()
-      : getBottomFoxieRanking();
-    return data
-      .map((item) => ({
-        name: item.name.replace("Chi nhánh ", ""),
-        foxiePayment: item.revenue / 1000000, // FIXED
-        growth: item.growth,
-        fullName: item.name,
-      }))
-      .reverse();
-  };
+  // Removed ranking helpers reliant on mock datasets (revenueRankingData, foxieRankingData)
 
   // Use global date context instead of local state
   const { isLoaded: dateLoaded } = useDateRange();
@@ -652,7 +1449,13 @@ export default function Dashboard() {
       hasShownSuccess.current = true;
       reportDataLoadSuccess("sales-summary", 1);
     }
-  }, [salesLoading, salesError, salesSummaryData, showSuccess, reportDataLoadSuccess]);
+  }, [
+    salesLoading,
+    salesError,
+    salesSummaryData,
+    showSuccess,
+    reportDataLoadSuccess,
+  ]);
 
   // Monitor API error notifications
   useEffect(() => {
@@ -686,6 +1489,72 @@ export default function Dashboard() {
     }
   }, [salesError, showError, reportPageError]);
 
+  // Watch for auth expiration across all API errors
+  useEffect(() => {
+    const authErrorTexts = [
+      "Authentication failed - please login again",
+      "No valid token",
+    ];
+    const anyAuthError = [
+      salesError,
+      serviceError,
+      bookingError,
+      dailyRevenueError,
+      kpiMonthlyRevenueError,
+      newCustomerError,
+    ].some((e) => e && authErrorTexts.some((t) => String(e).includes(t)));
+    if (anyAuthError) setAuthExpired(true);
+  }, [
+    salesError,
+    serviceError,
+    bookingError,
+    dailyRevenueError,
+    kpiMonthlyRevenueError,
+    newCustomerError,
+  ]);
+
+  // Listen to global auth expired event from ApiService
+  useEffect(() => {
+    const handler = () => setAuthExpired(true);
+    if (typeof window !== "undefined") {
+      window.addEventListener("auth-expired", handler);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("auth-expired", handler);
+      }
+    };
+  }, []);
+
+  // Monitor booking data success
+  useEffect(() => {
+    if (
+      !bookingLoading &&
+      !bookingError &&
+      bookingData &&
+      !hasShownSuccess.current
+    ) {
+      showSuccess("Dữ liệu đặt lịch đã được tải thành công!");
+      hasShownSuccess.current = true;
+      reportDataLoadSuccess("booking", 1);
+    }
+  }, [
+    bookingLoading,
+    bookingError,
+    bookingData,
+    showSuccess,
+    reportDataLoadSuccess,
+  ]);
+
+  // Monitor booking data error
+  useEffect(() => {
+    if (bookingError && !hasShownError.current) {
+      showError(`Booking data error: ${bookingError}`);
+      hasShownError.current = true;
+      reportPageError(`Lỗi tải dữ liệu booking: ${bookingError}`);
+    }
+  }, [bookingError, showError, reportPageError]);
+
   // Report page performance
   useEffect(() => {
     if (!loading) {
@@ -693,14 +1562,12 @@ export default function Dashboard() {
     }
   }, [loading, reportPagePerformance]);
 
-  // Show loading if date context is not loaded yet or sales data is loading
-  if (!dateLoaded || salesLoading) {
+  // Show loading only until the date context is ready. Sections handle their own loading states.
+  if (!dateLoaded) {
     return (
       <div className="p-3 sm:p-6">
         <div className="flex items-center justify-center h-64">
-          <div className="text-lg text-gray-600">
-            {!dateLoaded ? "Đang tải dữ liệu..." : "Đang tải dữ liệu bán hàng..."}
-          </div>
+          <div className="text-lg text-gray-600">{"Đang tải dữ liệu..."}</div>
         </div>
       </div>
     );
@@ -716,7 +1583,34 @@ export default function Dashboard() {
         onClose={hideNotification}
       />
 
-      <div className="mb-3 sm:mb-6">
+      {authExpired && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-[90%] max-w-md text-center">
+            <div className="text-xl font-semibold text-[#334862] mb-2">
+              Hết phiên đăng nhập
+            </div>
+            <div className="text-sm text-gray-600 mb-6">
+              Cần đăng nhập lại để tiếp tục sử dụng hệ thống.
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                className="px-4 py-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
+                onClick={() => setAuthExpired(false)}
+              >
+                Để sau
+              </button>
+              <a
+                href="/login"
+                className="px-4 py-2 rounded-md bg-[#f16a3f] hover:bg-[#e55a2b] text-white"
+              >
+                Đăng nhập lại
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-3 sm:mb-6" ref={sectionRefs.current.dashboard_total_sale_table}>
         <h1 className="text-lg sm:text-2xl font-semibold text-gray-900 mb-2">
           Dashboard
         </h1>
@@ -755,7 +1649,6 @@ export default function Dashboard() {
               Dashboard Quản Lý Kinh Doanh
             </h1>
           </div>
-          
         </div>
 
         {/* DOANH SỐ SECTION */}
@@ -765,966 +1658,166 @@ export default function Dashboard() {
             <h2 className="text-2xl font-bold text-[#334862]">Doanh Số</h2>
           </div>
 
-          {/* KPI Cards */}
-          <Card className="border-[#f16a3f]/20 shadow-lg bg-gradient-to-r from-white to-[#f16a3f]/5">
-            <CardHeader>
-              <CardTitle className="text-orange-500 font-bold text-[25px] pt-2 pl-4">
-                Bảng Tổng Doanh Số
-                {salesSummaryData && (
-                  <span className="ml-2 text-sm font-normal text-green-600">
-                    
-                  </span>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="grid grid-cols-12 gap-4 p-3 bg-gradient-to-r from-[#7bdcb5]/20 to-[#00d084]/20 rounded-lg font-semibold text-sm">
-                  <div className="col-span-4 text-gray-800">
-                    Phương thức thanh toán
-                  </div>
-                  <div className="col-span-3 text-right text-gray-800">
-                    Số tiền
-                  </div>
-                  <div className="col-span-3 text-center text-gray-800">
-                    Tỷ lệ
-                  </div>
-                  <div className="col-span-2 text-center text-gray-800">GD</div>
-                </div>
-
-                {allPaymentMethods
-                  .sort((a: PaymentMethod, b: PaymentMethod) => b.amount - a.amount)
-                  .map((method: PaymentMethod, index: number) => (
-                    <div
-                      key={index}
-                      className="grid grid-cols-12 gap-4 p-3 border border-[#f16a3f]/10 rounded-lg hover:bg-gradient-to-r hover:from-[#f8a0ca]/10 hover:to-[#41d1d9]/10 transition-all duration-300"
-                    >
-                      <div className="col-span-4 flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          {method.method === "TM+CK+QT" && (
-                            <Banknote className="h-4 w-4 text-[#00d084]" />
-                          )}
-                          {method.method === "Thanh toán ví" && (
-                            <Wallet className="h-4 w-4 text-[#fcb900]" />
-                          )}
-                          {method.method === "Thẻ Foxie" && (
-                            <CreditCard className="h-4 w-4 text-[#9b51e0]" />
-                          )}
-                          <span className="font-medium">{method.method}</span>
-                        </div>
+          {/* Bảng Tổng Doanh Số */}
+          {salesLoading || paymentMethods.length === 0 ? (
+            <div className="border-[#f16a3f]/20 shadow-lg bg-gradient-to-r from-white to-[#f16a3f]/5 rounded-lg p-4 sm:p-6">
+              <div className="h-6 w-48 bg-gray-200 rounded animate-pulse mb-4" />
+              <div className="hidden sm:grid grid-cols-12 gap-4 p-3 bg-gradient-to-r from-[#7bdcb5]/20 to-[#00d084]/20 rounded-lg font-semibold text-sm mb-3">
+                <div className="col-span-4 h-4 bg-gray-200 rounded" />
+                <div className="col-span-3 h-4 bg-gray-200 rounded" />
+                <div className="col-span-3 h-4 bg-gray-200 rounded" />
+                <div className="col-span-2 h-4 bg-gray-200 rounded" />
+              </div>
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="border border-[#f16a3f]/10 rounded-lg p-3">
+                    <div className="hidden sm:grid grid-cols-12 gap-4">
+                      <div className="col-span-4 h-4 bg-gray-200 rounded" />
+                      <div className="col-span-3 h-4 bg-gray-200 rounded" />
+                      <div className="col-span-3 h-4 bg-gray-200 rounded" />
+                      <div className="col-span-2 h-4 bg-gray-200 rounded" />
+                    </div>
+                    <div className="sm:hidden space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="h-4 w-28 bg-gray-200 rounded" />
+                        <div className="h-4 w-10 bg-gray-200 rounded" />
                       </div>
-                      <div className="col-span-3 text-right font-semibold">
-                        {formatCurrency(method.amount)}
-                      </div>
-                      <div className="col-span-3 text-center">
-                        <span className="text-sm font-medium bg-gradient-to-r from-[#f16a3f] to-[#d26e4b] bg-clip-text text-transparent">
-                          {method.percentage}%
-                        </span>
-                      </div>
-                      <div className="col-span-2 text-center text-sm text-muted-foreground">
-                        {method.transactions}
+                      <div className="flex items-center justify-between">
+                        <div className="h-4 w-12 bg-gray-200 rounded" />
+                        <div className="h-4 w-24 bg-gray-200 rounded" />
                       </div>
                     </div>
-                  ))}
-
-                <div className="grid grid-cols-12 gap-4 p-3 bg-[#f16a3f] rounded-lg font-bold border-2 border-[#f16a3f]">
-                  <div className="col-span-4 flex items-center gap-3">
-                    <DollarSign className="h-5 w-5 text-white" />
-                    <span className="text-white font-bold">TỔNG CỘNG</span>
                   </div>
-                  <div className="col-span-3 text-right text-lg text-white font-bold">
-                    {formatCurrency(totalRevenue)}
+                ))}
+              </div>
+              <div className="bg-[#f16a3f] rounded-lg mt-3">
+                <div className="hidden sm:grid grid-cols-12 gap-4 p-3">
+                  <div className="col-span-4 h-5 bg-white/40 rounded" />
+                  <div className="col-span-3 h-5 bg-white/40 rounded" />
+                  <div className="col-span-3 h-5 bg-white/40 rounded" />
+                  <div className="col-span-2 h-5 bg-white/40 rounded" />
+                </div>
+                <div className="sm:hidden p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="h-4 w-28 bg-white/40 rounded" />
+                    <div className="h-4 w-12 bg-white/40 rounded" />
                   </div>
-                  <div className="col-span-3 text-center">
-                    <span className="text-sm text-white font-bold">100%</span>
-                  </div>
-                  <div className="col-span-2 text-center text-sm text-white font-bold">
-                    {allPaymentMethods.reduce(
-                      (sum: number, method: PaymentMethod) => sum + method.transactions,
-                      0
-                    )}
+                  <div className="flex items-center justify-between">
+                    <div className="h-4 w-10 bg-white/40 rounded" />
+                    <div className="h-4 w-24 bg-white/40 rounded" />
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          ) : (
+            <TotalSaleTable
+              allPaymentMethods={paymentMethods}
+              totalRevenue={totalRevenue}
+            />
+          )}
+
+          {/* FOXIE BALANCE SECTION */}
+          <div ref={sectionRefs.current.dashboard_foxie_balance} className={highlightKey === 'dashboard_foxie_balance' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
+          <FoxieBalanceTable
+            foxieBalanceLoading={foxieBalanceLoading}
+            foxieBalanceError={foxieBalanceError}
+            foxieBalanceData={foxieBalanceData}
+          />
+          </div>
+
+          {/* SALES BY HOUR SECTION */}
+          <div ref={sectionRefs.current.dashboard_sales_by_hour} className={highlightKey === 'dashboard_sales_by_hour' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
+          <SalesByHourTable
+            salesByHourLoading={salesByHourLoading}
+            salesByHourError={salesByHourError}
+            salesByHourData={salesByHourData}
+          />
+          </div>
+
+          {/* CHI TIẾT DOANH THU SECTION */}
+          <div ref={sectionRefs.current.dashboard_sale_detail} className={highlightKey === 'dashboard_sale_detail' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
+          <SaleDetail
+            salesDetailLoading={salesDetailLoading}
+            salesDetailError={salesDetailError}
+            salesDetailData={salesDetailData}
+          />
+          </div>
 
           {/* Revenue Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border-[#0693e3]/20 shadow-lg">
-              <CardHeader className="bg-[#0693e3] text-white rounded-t-lg">
-                <div className="flex items-center justify-between">
-                  <div className="p-2">
-                    <CardTitle className="text-white font-bold">
-                      Ranking Chi Nhánh Theo Doanh Số
-                    </CardTitle>
-                    <CardDescription className="text-white/90 font-medium">
-                      Xếp hạng theo TM/CK/QT (triệu VNĐ)
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={showTopRanking ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => setShowTopRanking(true)}
-                      className="text-xs bg-white text-[#0693e3] hover:bg-gray-100 border-white font-semibold"
-                    >
-                      Top 10
-                    </Button>
-                    <Button
-                      variant={!showTopRanking ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => setShowTopRanking(false)}
-                      className="text-xs bg-white text-[#0693e3] hover:bg-gray-100 border-white font-semibold"
-                    >
-                      Bottom 10
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart
-                    data={getRankingChartData()}
-                    layout="horizontal"
-                    margin={{ top: 20, right: 30, left: 80, bottom: 20 }}
-                  >
-                    <defs>
-                      <linearGradient id="revenueGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor={showTopRanking ? "#0693e3" : "#cf2e2e"} stopOpacity={0.8}/>
-                        <stop offset="100%" stopColor={showTopRanking ? "#41d1d9" : "#ff6b6b"} stopOpacity={0.6}/>
-                      </linearGradient>
-                      <linearGradient id="gridGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgba(241,106,63,0.1)" stopOpacity={0}/>
-                        <stop offset="100%" stopColor="rgba(241,106,63,0.2)" stopOpacity={1}/>
-                      </linearGradient>
-                    </defs>
-                    
-                    <CartesianGrid
-                      strokeDasharray="2 4"
-                      stroke="url(#gridGradient)"
-                      strokeWidth={1}
-                    />
-
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-                        padding: '12px 16px',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}
-                      formatter={(value: number | string) => {
-                        if (typeof value === "number" && !isNaN(value)) {
-                          return [`${value.toFixed(1)}M VNĐ`, "Doanh thu"];
-                        }
-                        return ["0M VNĐ", "Doanh thu"];
-                      }}
-                      labelFormatter={(
-                        label: string,
-                        payload: readonly { payload?: { fullName: string; growth: number } }[]
-                      ) => {
-                        if (payload && payload[0]?.payload) {
-                          const data = payload[0].payload;
-                          return `${data.fullName} (${
-                            data.growth > 0 ? "+" : ""
-                          }${data.growth}%)`;
-                        }
-                        return label;
-                      }}
-                    />
-                    <Bar
-                      dataKey="revenue"
-                      fill="url(#revenueGradient)"
-                      radius={[0, 8, 8, 0]}
-                      stroke={showTopRanking ? "#0693e3" : "#cf2e2e"}
-                      strokeWidth={1}
-                      animationBegin={0}
-                      animationDuration={1500}
-                      animationEasing="ease-out"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="border-[#00d084]/20 shadow-lg">
-              <CardHeader className="bg-[#00d084] text-white rounded-t-lg">
-                <div className="flex items-center justify-between">
-                  <div className="p-2">
-                    <CardTitle className="text-white font-bold">
-                      Ranking Chi Nhánh Theo Thẻ Foxie
-                    </CardTitle>
-                    <CardDescription className="text-white/90 font-medium">
-                      Xếp hạng thanh toán thẻ Foxie (triệu VNĐ)
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={showTopFoxieRanking ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => setShowTopFoxieRanking(true)}
-                      className="text-xs bg-white text-[#00d084] hover:bg-gray-100 border-white font-semibold"
-                    >
-                      Top 10
-                    </Button>
-                    <Button
-                      variant={!showTopFoxieRanking ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => setShowTopFoxieRanking(false)}
-                      className="text-xs bg-white text-[#00d084] hover:bg-gray-100 border-white font-semibold"
-                    >
-                      Bottom 10
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart
-                    data={getFoxieRankingChartData()}
-                    layout="horizontal"
-                    margin={{ top: 20, right: 30, left: 60, bottom: 20 }}
-                  >
-                    <defs>
-                      <linearGradient id="foxieGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor={showTopFoxieRanking ? "#00d084" : "#fcb900"} stopOpacity={0.9}/>
-                        <stop offset="100%" stopColor={showTopFoxieRanking ? "#7bdcb5" : "#fdd835"} stopOpacity={0.7}/>
-                      </linearGradient>
-                      <linearGradient id="foxieGridGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgba(0,208,132,0.05)" stopOpacity={0}/>
-                        <stop offset="100%" stopColor="rgba(0,208,132,0.15)" stopOpacity={1}/>
-                      </linearGradient>
-                    </defs>
-                    
-                    <CartesianGrid 
-                      strokeDasharray="2 4" 
-                      stroke="url(#foxieGridGradient)" 
-                      strokeWidth={1}
-                    />
-
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-                        padding: '12px 16px',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}
-                      formatter={(value: number | string) => [
-                        `${Number(value).toFixed(1)}M VNĐ`,
-                        "Thanh toán Foxie",
-                      ]}
-                      labelFormatter={(
-                        label: string,
-                        payload: readonly { payload?: { fullName: string; growth: number } }[]
-                      ) => {
-                        if (payload && payload[0]?.payload) {
-                          const data = payload[0].payload;
-                          return `${data.fullName} (${
-                            data.growth > 0 ? "+" : ""
-                          }${data.growth}%)`;
-                        }
-                        return label;
-                      }}
-                    />
-                    <Bar
-                      dataKey="foxiePayment"
-                      fill="url(#foxieGradient)"
-                      radius={[0, 8, 8, 0]}
-                      stroke={showTopFoxieRanking ? "#00d084" : "#fcb900"}
-                      strokeWidth={1}
-                      animationBegin={200}
-                      animationDuration={1500}
-                      animationEasing="ease-out"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+          {/* <RevenueChart
+            showTopRanking={showTopRanking}
+            setShowTopRanking={setShowTopRanking}
+            rankingData={getRankingChartData()}
+            showTopFoxieRanking={showTopFoxieRanking}
+            setShowTopFoxieRanking={setShowTopFoxieRanking}
+            foxieRankingData={getFoxieRankingChartData()}
+          /> */}
 
           {/* Service & Foxie Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="border-[#41d1d9]/20 shadow-lg bg-gradient-to-br from-white to-[#41d1d9]/10">
-              <CardHeader className="bg-[#0891b2] text-white rounded-t-lg p-2">
-                <CardTitle className="text-white font-bold">
-                  % Sản Phẩm Theo Cửa Hàng
-                </CardTitle>
-                <CardDescription className="text-white/90 font-medium">
-                  Phân bố sản phẩm theo từng cửa hàng
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <defs>
-                      <filter id="glow">
-                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                        <feMerge> 
-                          <feMergeNode in="coloredBlur"/>
-                          <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                      </filter>
-                    </defs>
-                    <Pie
-                      data={productDataByDistrict}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={20}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}%`}
-                      labelLine={false}
-                      animationBegin={0}
-                      animationDuration={2000}
-                      animationEasing="ease-out"
-                    >
-                      {productDataByDistrict.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={entry.color}
-                          stroke="rgba(255,255,255,0.8)"
-                          strokeWidth={2}
-                          filter="url(#glow)"
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-                        padding: '12px 16px',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}
-                      formatter={(value) => [`${value}%`, "Tỷ lệ"]} 
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+          {/* <PercentChart
+            productDataByDistrict={productDataByDistrict}
+            foxieCardDataByDistrict={foxieCardDataByDistrict}
+            serviceDataByDistrict={serviceDataByDistrict}
+          /> */}
 
-            <Card className="border-[#9b51e0]/20 shadow-lg bg-gradient-to-br from-white to-[#9b51e0]/10">
-              <CardHeader className="bg-[#9b51e0] text-white rounded-t-lg p-2">
-                <CardTitle className="text-white font-bold">
-                  % Thẻ Foxie Theo Cửa Hàng
-                </CardTitle>
-                <CardDescription className="text-white/90 font-medium">
-                  Phân bố thẻ Foxie theo từng cửa hàng
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <defs>
-                      <filter id="foxieGlow">
-                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                        <feMerge> 
-                          <feMergeNode in="coloredBlur"/>
-                          <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                      </filter>
-                    </defs>
-                    <Pie
-                      data={foxieCardDataByDistrict}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={20}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}%`}
-                      labelLine={false}
-                      animationBegin={300}
-                      animationDuration={2000}
-                      animationEasing="ease-out"
-                    >
-                      {foxieCardDataByDistrict.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={entry.color}
-                          stroke="rgba(255,255,255,0.8)"
-                          strokeWidth={2}
-                          filter="url(#foxieGlow)"
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-                        padding: '12px 16px',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}
-                      formatter={(value) => [`${value}%`, "Tỷ lệ"]} 
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="border-[#00b894]/20 shadow-lg bg-gradient-to-br from-white to-[#00b894]/10">
-              <CardHeader className="bg-[#00b894] text-white rounded-t-lg p-2">
-                <CardTitle className="text-white font-bold">
-                  % Dịch Vụ Theo Cửa Hàng
-                </CardTitle>
-                <CardDescription className="text-white/90 font-medium">
-                  Phân bố dịch vụ theo cửa hàng
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <defs>
-                      <filter id="serviceGlow">
-                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                        <feMerge> 
-                          <feMergeNode in="coloredBlur"/>
-                          <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                      </filter>
-                    </defs>
-                    <Pie
-                      data={serviceDataByDistrict}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={20}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}%`}
-                      labelLine={false}
-                      animationBegin={600}
-                      animationDuration={2000}
-                      animationEasing="ease-out"
-                    >
-                      {serviceDataByDistrict.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={entry.color}
-                          stroke="rgba(255,255,255,0.8)"
-                          strokeWidth={2}
-                          filter="url(#serviceGlow)"
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-                        padding: '12px 16px',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}
-                      formatter={(value) => [`${value}%`, "Tỷ lệ"]} 
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border-[#fcb900]/20 shadow-lg bg-gradient-to-br from-white to-[#fcb900]/10">
-              <CardHeader className="bg-[#d97706] text-white rounded-t-lg p-2">
-                <CardTitle className="text-white font-bold">
-                  Tiến Độ Thẻ Foxie
-                </CardTitle>
-                <CardDescription className="text-white/90 font-medium">
-                  Số tiền chưa sử dụng tổng thể
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Đã sử dụng</span>
-                    <span className="font-semibold text-[#f16a3f]">68%</span>
-                  </div>
-                  <Progress value={68} className="h-3" />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Còn lại:{" "}
-                    <span className="text-[#f16a3f] font-semibold">
-                      {formatCurrency(25000000)}
-                    </span>
-                  </p>
-                </div>
-                <div className="pt-2 border-t border-[#fcb900]/20">
-                  <p className="text-sm font-medium">Tổng giá trị thẻ</p>
-                  <p className="text-lg font-bold text-[#f16a3f]">
-                    {formatCurrency(78000000)}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-[#7bdcb5]/20 shadow-lg bg-gradient-to-br from-[#7bdcb5]/20 via-[#41d1d9]/20 to-[#0693e3]/20 relative overflow-hidden">
-              <CardHeader className="bg-[#00b894] text-white rounded-t-lg p-4">
-                <CardTitle className="text-white font-bold">
-                  Target KPI
-                </CardTitle>
-                <CardDescription className="text-white font-medium">
-                  Tiến độ hoàn thành mục tiêu doanh thu tháng
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 bg-gradient-to-br from-[#7bdcb5]/10 via-[#41d1d9]/10 to-[#0693e3]/10">
-                <div className="space-y-6">
-                  {/* Scale markers */}
-                  <div className="relative">
-                    <div className="flex justify-between text-sm font-semibold text-gray-700 mb-2">
-                      <span>0M</span>
-                      <span>100M</span>
-                      <span>250M</span>
-                      <span>400M</span>
-                      <span>500M</span>
-                    </div>
-
-                    {/* Progress bar container */}
-                    <div className="relative h-12 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                      {/* Gradient progress fill */}
-                      <div
-                        className="h-full bg-gradient-to-r from-[#ff6b6b] via-[#ff9500] to-[#fcb900] rounded-full transition-all duration-1000 ease-out shadow-lg"
-                        style={{ width: `${currentPercentage}%` }}
-                      />
-
-                      <div
-                        className="absolute top-0 h-full w-1 bg-gray-800 shadow-lg z-10"
-                        style={{ left: `${dailyTargetPercentage}%` }}
-                      />
-
-                      {/* Scale tick marks */}
-                      <div className="absolute top-0 left-0 w-full h-full flex justify-between items-center px-1">
-                        <div className="w-0.5 h-8 bg-gray-400"></div>
-                        <div className="w-0.5 h-8 bg-gray-400"></div>
-                        <div className="w-0.5 h-6 bg-gray-600 font-bold"></div>
-                        <div className="w-0.5 h-8 bg-gray-400"></div>
-                        <div className="w-0.5 h-8 bg-gray-400"></div>
-                      </div>
-                    </div>
-
-                    {/* Current value indicator */}
-                    <div className="mt-4 text-center">
-                      <p className="text-2xl font-bold text-gray-800">
-                        {formatCurrency(currentRevenue)}
-                      </p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {currentPercentage.toFixed(1)}% hoàn thành mục tiêu
-                        tháng
-                      </p>
-                      <div className="mt-2 flex items-center justify-center gap-2">
-                        <div
-                          className="px-3 py-1 rounded-full text-white text-sm font-semibold"
-                          style={{
-                            backgroundColor: statusColors[targetStatus].bg,
-                          }}
-                        >
-                          {statusColors[targetStatus].text}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Additional stats */}
-                  <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-200">
-                    <div className="text-center">
-                      <p className="text-sm text-gray-600">Mục tiêu</p>
-                      <p className="text-lg font-bold text-[#0693e3]">
-                        {formatCurrency(monthlyTarget)}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm text-gray-600">Cần hôm nay</p>
-                      <p className="text-lg font-bold text-gray-800">
-                        {formatCurrency(dailyTargetForToday)}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm text-gray-600">Còn lại</p>
-                      <p className="text-lg font-bold text-[#ff6b6b]">
-                        {formatCurrency(remainingTarget)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-gray-200">
-                    <div className="flex items-center justify-center gap-2 text-sm">
-                      <div className="w-3 h-3 bg-gray-800 rounded"></div>
-                      <span className="text-gray-700 font-medium">
-                        Mục tiêu hôm nay: {formatCurrency(dailyTargetForToday)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* KPI Chart */}
+          <div ref={sectionRefs.current.dashboard_kpi} className={highlightKey === 'dashboard_kpi' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
+          <KPIChart
+            kpiDailySeriesLoading={kpiDailySeriesLoading}
+            kpiDailySeriesError={kpiDailySeriesError}
+            dailyKpiGrowthData={dailyKpiGrowthData}
+            kpiViewMode={kpiViewMode}
+            setKpiViewMode={setKpiViewMode}
+            currentDayForDaily={currentDayForDaily}
+            currentPercentage={currentPercentage}
+            dailyPercentageForCurrentDay={dailyPercentageForCurrentDay}
+            kpiMonthlyRevenueLoading={kpiMonthlyRevenueLoading}
+            dailyRevenueLoading={dailyRevenueLoading}
+            targetStatus={targetStatus}
+            monthlyTarget={monthlyTarget}
+            dailyTargetForCurrentDay={dailyTargetForCurrentDay}
+            dailyTargetForToday={dailyTargetForToday}
+            remainingTarget={remainingTarget}
+            remainingDailyTarget={remainingDailyTarget}
+            dailyTargetPercentageForCurrentDay={
+              dailyTargetPercentageForCurrentDay
+            }
+            currentRevenue={currentRevenue}
+          />
           </div>
         </div>
 
         {/* KHÁCH HÀNG SECTION */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-2">
-            <Users className="h-6 w-6 text-[#f16a3f]" />
-            <h2 className="text-2xl font-bold text-[#334862]">Khách Hàng</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="border-[#00d084]/20 shadow-lg bg-gradient-to-br from-white to-[#00d084]/10">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Khách Mới Hôm Nay
-                </CardTitle>
-                <Users className="h-4 w-4 text-[#00d084]" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[#f16a3f]">24</div>
-                <p className="text-xs text-muted-foreground">
-                  <span className="text-[#00d084] font-semibold">+18%</span> so
-                  với hôm qua
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-[#0693e3]/20 shadow-lg bg-gradient-to-br from-white to-[#0693e3]/10">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Khách Cũ Quay Lại
-                </CardTitle>
-                <Users className="h-4 w-4 text-[#0693e3]" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[#f16a3f]">156</div>
-                <p className="text-xs text-muted-foreground">
-                  <span className="text-[#00d084] font-semibold">+5%</span> so
-                  với hôm qua
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-[#9b51e0]/20 shadow-lg bg-gradient-to-br from-white to-[#9b51e0]/10">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Tổng Khách Hàng
-                </CardTitle>
-                <Users className="h-4 w-4 text-[#9b51e0]" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[#f16a3f]">2,847</div>
-                <p className="text-xs text-muted-foreground">
-                  Tích lũy đến nay
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Nguồn Khách Mới</CardTitle>
-                <CardDescription>Phân loại theo kênh tiếp cận</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <defs>
-                      <filter id="customerGlow">
-                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                        <feMerge> 
-                          <feMergeNode in="coloredBlur"/>
-                          <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                      </filter>
-                    </defs>
-                    <Pie
-                      data={customerSourceData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={30}
-                      outerRadius={80}
-                      paddingAngle={3}
-                      labelLine={false}
-                      label={({ name, value }) => `${name}: ${value}%`}
-                      dataKey="value"
-                      animationBegin={0}
-                      animationDuration={2000}
-                      animationEasing="ease-out"
-                    >
-                      {customerSourceData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={entry.color}
-                          stroke="rgba(255,255,255,0.8)"
-                          strokeWidth={2}
-                          filter="url(#customerGlow)"
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-                        padding: '12px 16px',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Nguồn Khách Cũ</CardTitle>
-                <CardDescription>Kênh quay lại của khách cũ</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <defs>
-                      <filter id="oldCustomerGlow">
-                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                        <feMerge> 
-                          <feMergeNode in="coloredBlur"/>
-                          <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                      </filter>
-                    </defs>
-                    <Pie
-                      data={[
-                        { name: "Trực tiếp", value: 45, color: "#9b51e0" },
-                        { name: "Điện thoại", value: 32, color: "#f78da7" },
-                        { name: "App", value: 23, color: "#41d1d9" },
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={30}
-                      outerRadius={80}
-                      paddingAngle={3}
-                      labelLine={false}
-                      label={({ name, value }) => `${name}: ${value}%`}
-                      dataKey="value"
-                      animationBegin={200}
-                      animationDuration={2000}
-                      animationEasing="ease-out"
-                    >
-                      {[
-                        { name: "Trực tiếp", value: 45, color: "#9b51e0" },
-                        { name: "Điện thoại", value: 32, color: "#f78da7" },
-                        { name: "App", value: 23, color: "#41d1d9" },
-                      ].map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={entry.color}
-                          stroke="rgba(255,255,255,0.8)"
-                          strokeWidth={2}
-                          filter="url(#oldCustomerGlow)"
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-                        padding: '12px 16px',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+        <div ref={sectionRefs.current.dashboard_customer_section} className={highlightKey === 'dashboard_customer_section' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
+        <CustomerSection
+          newCustomerLoading={newCustomerLoading}
+          newCustomerError={newCustomerError}
+          newCustomerTotal={newCustomerTotal}
+          newCustomerPieData={newCustomerPieData}
+          oldCustomerLoading={oldCustomerLoading}
+          oldCustomerError={oldCustomerError}
+          oldCustomerTotal={oldCustomerTotal}
+          oldCustomerPieData={oldCustomerPieData}
+        />
         </div>
 
         {/* ĐẶT LỊCH SECTION */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-6 w-6 text-[#f16a3f]" />
-            <h2 className="text-2xl font-bold text-[#334862]">Đặt Lịch</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="border-[#41d1d9]/20 shadow-lg bg-gradient-to-br from-white to-[#41d1d9]/10">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Tổng Đặt Lịch
-                </CardTitle>
-                <Calendar className="h-4 w-4 text-[#41d1d9]" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[#f16a3f]">89</div>
-                <p className="text-xs text-muted-foreground">Hôm nay</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-[#fcb900]/20 shadow-lg bg-gradient-to-br from-white to-[#fcb900]/10">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Đã Sử Dụng
-                </CardTitle>
-                <Clock className="h-4 w-4 text-[#fcb900]" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[#f16a3f]">67</div>
-                <p className="text-xs text-muted-foreground">75% hoàn thành</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-[#ff6900]/20 shadow-lg bg-gradient-to-br from-white to-[#ff6900]/10">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Đang Sử Dụng
-                </CardTitle>
-                <Clock className="h-4 w-4 text-[#ff6900]" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[#f16a3f]">22</div>
-                <p className="text-xs text-muted-foreground">Đang thực hiện</p>
-              </CardContent>
-            </Card>
-          </div>
+        <div ref={sectionRefs.current.dashboard_booking_section} className={highlightKey === 'dashboard_booking_section' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
+        <BookingSection
+          bookingLoading={bookingLoading}
+          bookingError={bookingError}
+          bookingData={bookingData}
+        />
         </div>
 
         {/* DỊCH VỤ SECTION */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-2">
-            <Star className="h-6 w-6 text-[#f16a3f]" />
-            <h2 className="text-2xl font-bold text-[#334862]">Dịch Vụ</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="border-[#f78da7]/20 shadow-lg bg-gradient-to-br from-white to-[#f78da7]/10">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Dịch Vụ Đang Làm
-                </CardTitle>
-                <Star className="h-4 w-4 text-[#f78da7]" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[#f16a3f]">34</div>
-                <p className="text-xs text-muted-foreground">
-                  Combo & dịch vụ lẻ
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-[#8ed1fc]/20 shadow-lg bg-gradient-to-br from-white to-[#8ed1fc]/10">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Dịch Vụ Đã Làm
-                </CardTitle>
-                <Star className="h-4 w-4 text-[#8ed1fc]" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[#f16a3f]">156</div>
-                <p className="text-xs text-muted-foreground">
-                  Hoàn thành hôm nay
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="border-[#9b51e0]/20 shadow-lg bg-gradient-to-br from-white to-[#9b51e0]/10">
-            <CardHeader className="bg-[#9b51e0] text-white rounded-t-lg p-2">
-              <CardTitle className="text-white font-bold">
-                Top 10 Dịch Vụ Bán Chạy
-              </CardTitle>
-              <CardDescription className="text-white/90 font-medium">
-                Xếp hạng theo doanh thu (triệu VNĐ)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={topServices
-                    .map((service) => ({
-                      name: service.name
-                        .replace("Massage ", "")
-                        .replace("Chăm sóc ", "")
-                        .replace("Gội đầu ", ""),
-                      revenue: service.revenue / 1000000,
-                      growth: service.growth,
-                      fullName: service.name,
-                    }))
-                    .reverse()}
-                  layout="horizontal"
-                  margin={{ top: 20, right: 30, left: 100, bottom: 20 }}
-                >
-                  <defs>
-                    <linearGradient id="serviceRevenueGradient" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#9b51e0" stopOpacity={0.9}/>
-                      <stop offset="100%" stopColor="#a29bfe" stopOpacity={0.7}/>
-                    </linearGradient>
-                    <linearGradient id="serviceGridGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(155,81,224,0.05)" stopOpacity={0}/>
-                      <stop offset="100%" stopColor="rgba(155,81,224,0.15)" stopOpacity={1}/>
-                    </linearGradient>
-                  </defs>
-                  
-                  <CartesianGrid 
-                    strokeDasharray="2 4" 
-                    stroke="url(#serviceGridGradient)" 
-                    strokeWidth={1}
-                  />
-
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '12px',
-                      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-                      padding: '12px 16px',
-                      fontSize: '14px',
-                      fontWeight: '500'
-                    }}
-                    formatter={(value: number | string) => [
-                      `${Number(value).toFixed(1)}M VNĐ`,
-                      "Doanh thu",
-                    ]}
-                    labelFormatter={(
-                      label: string,
-                      payload: readonly { payload?: { fullName: string; growth: number } }[]
-                    ) => {
-                      if (payload && payload[0]?.payload) {
-                        const data = payload[0].payload;
-                        return `${data.fullName} (${
-                          data.growth > 0 ? "+" : ""
-                        }${data.growth}%)`;
-                      }
-                      return label;
-                    }}
-                  />
-                  <Bar 
-                    dataKey="revenue" 
-                    fill="url(#serviceRevenueGradient)" 
-                    radius={[0, 8, 8, 0]}
-                    stroke="#9b51e0"
-                    strokeWidth={1}
-                    animationBegin={0}
-                    animationDuration={1500}
-                    animationEasing="ease-out"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+        <div ref={sectionRefs.current.dashboard_service_section} className={highlightKey === 'dashboard_service_section' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
+        <ServiceSection
+          bookingLoading={bookingLoading}
+          bookingError={bookingError}
+          bookingData={bookingData}
+          serviceSummaryData={serviceSummaryData}
+        />
         </div>
       </div>
     </div>

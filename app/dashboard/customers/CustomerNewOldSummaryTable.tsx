@@ -82,7 +82,7 @@ export default function CustomerNewOldSummaryTable({
 
   return (
     <div className="bg-white rounded-xl shadow p-6">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2" data-search-ref="customers_summary">
         <div>
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Tổng hợp khách hàng mới/cũ

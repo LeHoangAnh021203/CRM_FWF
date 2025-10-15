@@ -93,7 +93,7 @@ export default function PieChartData({
   renderPieLabel,
 }: PieChartDataProps) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:gap-3">
+    <div className="flex flex-col gap-3 sm:flex-row sm:gap-3"  data-search-ref="services_pies">
       {/* PieChart tỉ lệ dịch vụ/combo/cộng thêm (có filter) */}
       <div className="w-full sm:w-1/3 bg-white rounded-xl shadow-lg mt-5 p-4">
         <div className="text-xl font-medium text-gray-700 text-center mb-4">

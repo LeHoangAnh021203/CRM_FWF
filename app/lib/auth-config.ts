@@ -1,7 +1,7 @@
 // Authentication configuration
 export const AUTH_CONFIG = {
   // Set to true to force mock mode, false to use API when available
-  FORCE_MOCK_MODE: true,
+  FORCE_MOCK_MODE: false,
   
   // API Configuration
   API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://192.168.1.140:8080',

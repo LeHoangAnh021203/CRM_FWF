@@ -56,7 +56,7 @@ export class AuthAPI {
       console.log('AuthAPI.login response headers:', Object.fromEntries(response.headers.entries()))
 
       if (!response.ok) {
-        let errorData = {}
+        let errorData: Record<string, unknown> = {}
         try {
           const contentType = response.headers.get('content-type')
           if (contentType && contentType.includes('application/json')) {
@@ -71,7 +71,11 @@ export class AuthAPI {
         }
         
         console.error('AuthAPI.login error details:', errorData)
-        throw new Error(`Login failed: ${response.status} - ${errorData.error || errorData.details || 'Unknown error'}`)
+        const errMsg =
+          (errorData && typeof errorData === 'object' && (
+            (errorData as any).error || (errorData as any).details || (errorData as any).message
+          )) || `HTTP ${response.status}: ${response.statusText}`
+        throw new Error(`Login failed: ${response.status} - ${errMsg}`)
       }
 
       console.log('AuthAPI.login parsing response...')

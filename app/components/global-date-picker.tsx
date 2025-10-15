@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarDate, today, getLocalTimeZone, parseDate } from '@internationalized/date';
 import { useDateRange } from '@/app/contexts/DateContext';
 import { Button } from './ui/button';
-import { Calendar, ChevronDown, RotateCcw } from 'lucide-react';
+import { Calendar, ChevronDown, RotateCcw, Check } from 'lucide-react';
 
 interface GlobalDatePickerProps {
   className?: string;
@@ -22,6 +23,10 @@ export function GlobalDatePicker({
   const [tempStartDate, setTempStartDate] = useState<CalendarDate | null>(null);
   const [tempEndDate, setTempEndDate] = useState<CalendarDate | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const portalDropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [justApplied, setJustApplied] = useState(false);
 
   // Initialize temp dates when dropdown opens
   useEffect(() => {
@@ -31,12 +36,14 @@ export function GlobalDatePicker({
     }
   }, [isOpen, startDate, endDate, isLoaded]);
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside (works for both in-DOM and portal dropdown)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+      const target = event.target as Node;
+      const clickedInsideTrigger = triggerRef.current?.contains(target);
+      const clickedInsideInline = dropdownRef.current?.contains(target);
+      const clickedInsidePortal = portalDropdownRef.current?.contains(target);
+      if (!clickedInsideTrigger && !clickedInsideInline && !clickedInsidePortal) setIsOpen(false);
     }
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -49,6 +56,9 @@ export function GlobalDatePicker({
       setEndDate(tempEndDate);
     }
     setIsOpen(false);
+    // visual feedback
+    setJustApplied(true);
+    window.setTimeout(() => setJustApplied(false), 900);
   };
 
   const handleCancel = () => {
@@ -66,46 +76,63 @@ export function GlobalDatePicker({
     return `${formatDate(startDate)} - ${formatDate(endDate)}`;
   };
 
-  if (!isLoaded) {
-    return (
-      <div className={`flex items-center gap-2 ${className}`}>
-        <div className="h-9 bg-gray-200 rounded-md animate-pulse w-48"></div>
-      </div>
-    );
-  }
+  // Compute dropdown position when opening
+  useEffect(() => {
+    if (isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const left = Math.min(rect.left, window.innerWidth - 360);
+      setDropdownPos({ top: rect.bottom + window.scrollY + 8, left: left + window.scrollX, width: Math.max(rect.width, 360) });
+    }
+  }, [isOpen]);
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
-      {/* Date Range Display Button */}
-      <Button
-        variant="outline"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 ${compact ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'}`}
-      >
-        <Calendar className="w-4 h-4" />
-        <span className={compact ? 'text-xs' : 'text-sm'}>
-          {formatDateRange()}
-        </span>
-        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </Button>
+      {!isLoaded ? (
+        <div className="flex items-center gap-2">
+          <div className="h-9 bg-gray-200 rounded-md animate-pulse w-48"></div>
+        </div>
+      ) : (
+        <>
+          {/* Animated Gradient Border Container */}
+          <div ref={triggerRef} className="relative p-[2px] rounded-md bg-gradient-to-r from-[#f16a3f] via-[#0693e3] to-[#00d084] animate-gradient-x">
+            <div className="absolute inset-0 rounded-md bg-gradient-to-r from-[#f16a3f] via-[#0693e3] to-[#00d084] opacity-75 animate-gradient-x blur-sm"></div>
+            
+            {/* Date Range Display Button */}
+            <Button
+              variant="outline"
+              onClick={() => setIsOpen(!isOpen)}
+              className={`relative bg-white hover:bg-gray-50 flex items-center gap-2 ${compact ? 'px-3 py-1.5 text-base' : 'px-4 py-2'} border-0 ${justApplied ? 'ring-2 ring-[#00d084] ring-offset-2 ring-offset-white animate-pulse' : ''}`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span className={compact ? 'text-[14px] font-medium' : 'text-[20px]'}>
+                {formatDateRange()}
+              </span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+              {justApplied && (
+                <span className="absolute -top-2 -right-2 bg-[#00d084] text-white rounded-full w-5 h-5 flex items-center justify-center shadow-md">
+                  <Check className="w-3 h-3" />
+                </span>
+              )}
+            </Button>
+          </div>
 
-      {/* Reset Button */}
-      {showResetButton && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={resetToDefault}
-          className="ml-2"
-          title="Reset về 7 ngày gần nhất"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </Button>
-      )}
+          {/* Reset Button */}
+          {showResetButton && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetToDefault}
+              className="ml-2"
+              title="Reset về 7 ngày gần nhất"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          )}
 
-      {/* Dropdown */}
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-96">
-          <div className="p-4">
+          {/* Dropdown (rendered in portal to avoid clipping) */}
+          {isOpen && dropdownPos && typeof window !== 'undefined' && createPortal(
+            <div ref={portalDropdownRef} className="fixed bg-white border border-gray-200 rounded-lg shadow-2xl z-[1000]" style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}>
+              <div className="p-4">
             <div className="mb-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">Chọn khoảng thời gian</h3>
               
@@ -231,8 +258,11 @@ export function GlobalDatePicker({
                 Áp dụng
               </Button>
             </div>
-          </div>
-        </div>
+              </div>
+            </div>,
+            document.body
+          )}
+        </>
       )}
     </div>
   );

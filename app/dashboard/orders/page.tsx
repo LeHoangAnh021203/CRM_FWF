@@ -6,6 +6,7 @@ import React, {
   useCallback,
   Suspense,
 } from "react";
+import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
 import {
   CalendarDate,
   parseDate,
@@ -221,6 +222,53 @@ const locationRegionMap: Record<string, string> = {
 };
 
 export default function CustomerReportPage() {
+  // Handle ?q= search param and global-search events (cross-tab search)
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const q = url.searchParams.get('q');
+    const hash = window.location.hash.replace('#','');
+    const scrollToRefWithRetry = (refKey: string, attempts = 25, delayMs = 120) => {
+      const tryOnce = (left: number) => {
+        const el = document.querySelector(`[data-search-ref='${refKey}']`) as HTMLElement | null;
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          el.classList.add('ring-2','ring-[#41d1d9]','rounded-lg');
+          window.setTimeout(() => el.classList.remove('ring-2','ring-[#41d1d9]','rounded-lg'), 1500);
+          return;
+        }
+        if (left > 0) window.setTimeout(() => tryOnce(left - 1), delayMs);
+      };
+      tryOnce(attempts);
+    };
+    if (q) {
+      window.dispatchEvent(new CustomEvent('global-search', { detail: { query: q } }));
+      url.searchParams.delete('q');
+      window.history.replaceState({}, '', url.toString());
+    } else if (hash) {
+      scrollToRefWithRetry(hash);
+    }
+
+    const normalizeKey = (s: string) => normalize(s).replace(/\s+/g, "");
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { query?: string };
+      const query = String(detail?.query || "");
+      const map = SEARCH_TARGETS.filter(t => t.route === 'orders').map(t => ({
+        keys: [normalizeKey(t.label), ...t.keywords.map(k => normalizeKey(k))],
+        refKey: t.refKey,
+      }));
+      const found = map.find(m => m.keys.some(k => normalizeKey(query).includes(k)));
+      if (!found) return;
+      scrollToRefWithRetry(found.refKey);
+    };
+    window.addEventListener('global-search', handler as EventListener);
+    const jumpHandler = (ev: Event) => {
+      const refKey = (ev as CustomEvent).detail?.refKey as string | undefined;
+      if (!refKey) return;
+      scrollToRefWithRetry(refKey);
+    };
+    window.addEventListener('jump-to-ref', jumpHandler as EventListener);
+    return () => window.removeEventListener('global-search', handler as EventListener);
+  }, []);
   const { notification, showSuccess, showError, hideNotification } =
     useNotification();
   const hasShownSuccess = useRef(false);
@@ -1802,6 +1850,7 @@ export default function CustomerReportPage() {
           }
         >
           <LazyOrderOfStore
+            data-search-ref="orders_store_table"
             storeOrderTableData={storeOrderTableData}
             totalOrderSumAll={totalOrderSumAll}
           />
@@ -1821,6 +1870,7 @@ export default function CustomerReportPage() {
           }
         >
           <LazyOrderActualStoreSale
+            data-search-ref="orders_store_revenue"
             storeTableData={storeTableData}
             avgRevenuePercent={avgRevenuePercent}
             avgFoxiePercent={0}
@@ -1837,6 +1887,7 @@ export default function CustomerReportPage() {
           }
         >
           <LazyOrderActualCollection
+            data-search-ref="orders_region_pie"
             regionStats={regionStats}
             totalRevenueThisWeek={
               regionActualPie?.actualRevenue ||
@@ -1858,6 +1909,7 @@ export default function CustomerReportPage() {
           }
         >
           <LazyOrderTotalByDay
+            data-search-ref="orders_total_by_day"
             key={`regional-chart-${fromDate}-${toDate}`}
             data={regionalSalesByDay}
             isMobile={isMobile}
@@ -1873,6 +1925,7 @@ export default function CustomerReportPage() {
           }
         >
           <LazyOrderTotalByStore
+            data-search-ref="orders_total_by_store"
             data={dailyByShopType}
             formatAxisDate={formatAxisDate}
           />
@@ -1886,6 +1939,7 @@ export default function CustomerReportPage() {
           }
         >
           <LazyOrderCustomerTypeSaleaByDay
+            data-search-ref="orders_customer_type_by_day"
             isMobile={isMobile}
             customerTypeSalesByDay={customerTypeSalesByDay}
           />
@@ -1899,6 +1953,7 @@ export default function CustomerReportPage() {
           }
         >
           <LazyOrderTop10LocationChartData
+            data-search-ref="orders_top10_location"
             isMobile={isMobile}
             top10LocationChartData={top10LocationChartData}
             fullStoreRevenueData={fullStoreRevenue || undefined}
@@ -1918,6 +1973,7 @@ export default function CustomerReportPage() {
           }
         >
           <LazyOrdersChartData
+            data-search-ref="orders_orders_chart"
             isMobile={isMobile}
             ordersChartData={ordersChartData}
           />
@@ -1931,6 +1987,7 @@ export default function CustomerReportPage() {
           }
         >
           <LazyOrderTop10StoreOfOrder
+            data-search-ref="orders_top10_store"
             chartOrderData={chartOrderData}
             isMobile={isMobile}
           />
@@ -1953,6 +2010,7 @@ export default function CustomerReportPage() {
           }
         >
           <LazyOrderStatCardsWithAPI
+            data-search-ref="orders_stat_cards"
             data={overallOrderSummary}
             loading={overallOrderSummaryLoading}
             error={overallOrderSummaryError}

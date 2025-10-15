@@ -42,7 +42,7 @@ const CustomerAppDownloadPieChart: React.FC<CustomerAppDownloadPieChartProps> = 
 
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-      <div className="text-sm sm:text-base md:text-xl font-medium text-gray-700 text-center mb-4">
+      <div className="text-sm sm:text-base md:text-xl font-medium text-gray-700 text-center mb-4" data-search-ref="customers_app_pie">
         Tỷ lệ tải app
       </div>
       <div className="w-full flex justify-center ">

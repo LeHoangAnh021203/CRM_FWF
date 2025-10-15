@@ -20,7 +20,7 @@ const CustomerTypeTrendChart: React.FC<CustomerTypeTrendChartProps> = ({
     }`}
     style={{ minWidth: isMobile ? 220 : undefined }}
   >
-    <h2 className="text-base lg:text-xl text-center font-semibold text-gray-800 p-3">
+    <h2 className="text-base lg:text-xl text-center font-semibold text-gray-800 p-3" data-search-ref="customers_type_trend">
       Số khách mới chia theo loại
     </h2>
     <div className="w-full flex justify-center">

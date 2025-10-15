@@ -41,7 +41,7 @@ interface LabelProps {
 
 const OrderTotalByDay: React.FC<OrderTotalByDayProps> = ({ data, isMobile, formatAxisDate }) => (
   <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-    <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+    <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4" data-search-ref="orders_total_by_day">
       Tổng thực thu tại các khu vực theo ngày
     </div>
     <div className="w-full ">

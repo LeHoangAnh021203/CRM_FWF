@@ -203,7 +203,7 @@ const OrderTop10LocationChartData: React.FC<Props> = ({
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
       <div className="flex flex-col items-center mb-4">
-        <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-3">
+        <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-3"  data-search-ref="orders_top10_location">
           {currentTitle}
         </div>
 

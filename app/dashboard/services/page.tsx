@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
 import { useState, useEffect, useRef } from "react";
 import { CalendarDate } from "@internationalized/date";
 
@@ -131,6 +132,53 @@ function useApiData<T>(url: string, fromDate: string, toDate: string) {
 }
 
 export default function CustomerReportPage() {
+  // Cross-tab search support
+  React.useEffect(() => {
+    const url = new URL(window.location.href);
+    const q = url.searchParams.get('q');
+    const hash = window.location.hash.replace('#','');
+    const scrollToRefWithRetry = (refKey: string, attempts = 25, delayMs = 120) => {
+      const tryOnce = (left: number) => {
+        const el = document.querySelector(`[data-search-ref='${refKey}']`) as HTMLElement | null;
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          el.classList.add('ring-2','ring-[#41d1d9]','rounded-lg');
+          window.setTimeout(() => el.classList.remove('ring-2','ring-[#41d1d9]','rounded-lg'), 1500);
+          return;
+        }
+        if (left > 0) window.setTimeout(() => tryOnce(left - 1), delayMs);
+      };
+      tryOnce(attempts);
+    };
+    if (q) {
+      window.dispatchEvent(new CustomEvent('global-search', { detail: { query: q } }));
+      url.searchParams.delete('q');
+      window.history.replaceState({}, '', url.toString());
+    } else if (hash) {
+      scrollToRefWithRetry(hash);
+    }
+
+    const normalizeKey = (s: string) => normalize(s).replace(/\s+/g, "");
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { query?: string };
+      const query = String(detail?.query || "");
+      const map = SEARCH_TARGETS.filter(t => t.route === 'services').map(t => ({
+        keys: [normalizeKey(t.label), ...t.keywords.map(k => normalizeKey(k))],
+        refKey: t.refKey,
+      }));
+      const found = map.find(m => m.keys.some(k => normalizeKey(query).includes(k)));
+      if (!found) return;
+      scrollToRefWithRetry(found.refKey);
+    };
+    window.addEventListener('global-search', handler as EventListener);
+    const jumpHandler = (ev: Event) => {
+      const refKey = (ev as CustomEvent).detail?.refKey as string | undefined;
+      if (!refKey) return;
+      scrollToRefWithRetry(refKey);
+    };
+    window.addEventListener('jump-to-ref', jumpHandler as EventListener);
+    return () => window.removeEventListener('global-search', handler as EventListener);
+  }, []);
   const { notification, showSuccess, showError, hideNotification } =
     useNotification();
   const hasShownSuccess = useRef(false);
@@ -879,10 +927,12 @@ export default function CustomerReportPage() {
 
         {/* Tổng dịch vụ thực hiện */}
         <WeeklyServiceChartData
+          data-search-ref="services_weekly"
           weeklyServiceChartData={weeklyServiceChartData}
           isMobile={isMobile}
         />
         <PieChartData
+          data-search-ref="services_pies"
           pieChartData={pieChartData}
           pieTop10Data={pieTop10Data}
           pieTop10AvgData={pieTop10AvgData}
@@ -895,6 +945,7 @@ export default function CustomerReportPage() {
         />
 
         <ServiceBottomPieData
+          data-search-ref="services_bottom3"
           bottom3ServicesUsageData={bottom3ServicesUsageData}
           bottom3ServicesUsageLoading={bottom3ServicesUsageLoading}
           bottom3ServicesUsageError={bottom3ServicesUsageError}
@@ -908,6 +959,7 @@ export default function CustomerReportPage() {
 
         {/* 5 bảng tổng dịch vụ */}
         <ServiceStatCards
+          data-search-ref="services_stat_cards"
           serviceSummary={serviceSummary}
           serviceSummaryLoading={serviceSummaryLoading}
           serviceSummaryError={serviceSummaryError}
@@ -915,6 +967,7 @@ export default function CustomerReportPage() {
 
         {/* Tổng dịch vụ thực hiện theo cửa hàng*/}
         <ServiceStoreChartData
+          data-search-ref="services_store"
           shopLoading={shopLoading}
           shopError={shopError}
           isMobile={isMobile}
@@ -923,6 +976,7 @@ export default function CustomerReportPage() {
 
         {/* Tổng dịch vụ thực hiện theo khu vực */}
         <ServicesRegionData
+          data-search-ref="services_region"
           regionLoading={regionLoading}
           regionError={regionError}
           isMobile={isMobile}
@@ -931,6 +985,7 @@ export default function CustomerReportPage() {
 
         {/* Bảng thống kê tất cả các dịch vụ */}
         <ServicesTable
+          data-search-ref="services_table"
           serviceTableData={serviceTableData}
           serviceTableLoading={serviceTableLoading}
           serviceTableError={serviceTableError}
@@ -939,6 +994,7 @@ export default function CustomerReportPage() {
 
         {/* Tỉ lệ khách hàng mới và cũ sử dụng dịch vụ */}
         <ServiceNewOldCustomer
+          data-search-ref="services_new_old"
           customerStatusData={customerStatusData}
           loading={customerStatusLoading}
           error={customerStatusError}

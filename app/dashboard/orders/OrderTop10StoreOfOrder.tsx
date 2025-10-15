@@ -37,7 +37,7 @@ export default function OrderTop10StoreOfOrder({
 
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4">
-      <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4">
+      <div className="text-base sm:text-xl font-medium text-gray-700 text-center mb-4" data-search-ref="orders_top10_store">
         Top 10 cửa hàng theo đơn hàng
       </div>
       <div className="w-full overflow-x-auto">
