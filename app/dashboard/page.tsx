@@ -1,8 +1,6 @@
 "use client";
 
-import React from "react";
-import { useState } from "react";
-import { Suspense, useEffect, useRef } from "react";
+import React, { useState, useRef, Suspense, useEffect } from "react";
 import { Notification, useNotification } from "@/app/components/notification";
 import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
@@ -12,6 +10,19 @@ import { ApiService } from "@/app/lib/api-service";
 
 import { QuickActions } from "@/app/components/quick-actions";
 import { DollarSign } from "lucide-react";
+import {
+  TotalSaleTable,
+  SaleDetail,
+  KPIChart,
+  CustomerSection,
+  BookingSection,
+  BookingByHourChart,
+  ServiceSection,
+  FoxieBalanceTable,
+  SalesByHourTable,
+  GrowthByPaymentChart,
+} from "./lazy-components";
+import { LazyLoadingWrapper, ConditionalRender } from "./LazyLoadingWrapper";
 
 interface PaymentMethod {
   method: string;
@@ -19,16 +30,6 @@ interface PaymentMethod {
   percentage: number;
   transactions: number;
 }
-import TotalSaleTable from "./TotalSaleTable";
-import SaleDetail from "./SaleDetail";
-// import RevenueChart from "./RevenueChart";
-// import PercentChart from "./PercentChart";
-import KPIChart from "./KPIChart";
-import CustomerSection from "./CustomerSection";
-import BookingSection from "./BookingSection";
-import ServiceSection from "./ServiceSection";
-import FoxieBalanceTable from "./FoxieBalanceTable";
-import SalesByHourTable from "./SalesByHourTable";
 
 // Real data only: no mock datasets for dashboard
 
@@ -354,6 +355,9 @@ export default function Dashboard() {
     useNotification();
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
+  
+  // Track which data sections have been loaded and notified
+  const notifiedDataRef = useRef<Set<string>>(new Set());
   const {
     reportPageError,
     reportDataLoadSuccess,
@@ -361,14 +365,28 @@ export default function Dashboard() {
     reportDataLoadError,
   } = usePageStatus("dashboard");
 
-  const { loading, error, apiErrors, apiSuccesses, stats } = useDashboardData();
+  const { loading, error, apiErrors, apiSuccesses } = useDashboardData();
 
   // Use the same date range format as orders page
   const { fromDate, toDate } = useDateRange();
+  
+  // Memoize date strings to prevent unnecessary re-renders
+  const fromDateStr = React.useMemo(() => {
+    if (!fromDate) return "";
+    // Extract just the date part (YYYY-MM-DD) for comparison
+    return fromDate.split("T")[0];
+  }, [fromDate]);
+  
+  const toDateStr = React.useMemo(() => {
+    if (!toDate) return "";
+    // Extract just the date part (YYYY-MM-DD) for comparison
+    return toDate.split("T")[0];
+  }, [toDate]);
+  
   const searchParamQuery = (() => {
-    if (typeof window === 'undefined') return '';
+    if (typeof window === "undefined") return "";
     const url = new URL(window.location.href);
-    return url.searchParams.get('q') || '';
+    return url.searchParams.get("q") || "";
   })();
 
   // Fetch sales summary data using direct API call (like the original)
@@ -389,7 +407,7 @@ export default function Dashboard() {
   // Use ApiService with authentication like other pages
   React.useEffect(() => {
     const fetchSalesSummary = async () => {
-      if (!fromDate || !toDate) return;
+      if (!fromDateStr || !toDateStr) return;
 
       try {
         setSalesLoading(true);
@@ -404,8 +422,8 @@ export default function Dashboard() {
           return `${day}/${month}/${year}`;
         };
 
-        const startDate = formatDateForAPI(fromDate);
-        const endDate = formatDateForAPI(toDate);
+        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
+        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
         console.log("🔄 Fetching sales summary via ApiService with dates:", {
           startDate,
@@ -414,7 +432,7 @@ export default function Dashboard() {
 
         // Use ApiService with authentication and proxy
         const data = (await ApiService.get(
-          `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}`
+          `real-time/sales-summary-copied?dateStart=${startDate}&dateEnd=${endDate}`
         )) as {
           totalRevenue: string;
           cash: string;
@@ -426,6 +444,8 @@ export default function Dashboard() {
           toPay: string;
           debt: string;
         };
+
+        
 
         console.log("✅ Sales summary data received:", data);
         console.log("🔍 Debug - Data structure check:", {
@@ -449,26 +469,13 @@ export default function Dashboard() {
     };
 
     fetchSalesSummary();
-  }, [fromDate, toDate]);
+  }, [fromDateStr, toDateStr]);
 
-  const [showTopRanking, setShowTopRanking] = useState(true);
-  const [showTopFoxieRanking, setShowTopFoxieRanking] = useState(true);
   const [kpiViewMode, setKpiViewMode] = useState<"monthly" | "daily">(
     "monthly"
   );
 
   // KPI Monthly revenue API state (for Target KPI only - cumulative from start of month)
-  const [kpiMonthlyRevenueData, setKpiMonthlyRevenueData] = useState<{
-    totalRevenue: string;
-    cash: string;
-    transfer: string;
-    card: string;
-    actualRevenue: string;
-    foxieUsageRevenue: string;
-    walletUsageRevenue: string;
-    toPay: string;
-    debt: string;
-  } | null>(null);
   const [kpiMonthlyRevenueLoading, setKpiMonthlyRevenueLoading] =
     useState(true);
   const [kpiMonthlyRevenueError, setKpiMonthlyRevenueError] = useState<
@@ -486,7 +493,6 @@ export default function Dashboard() {
       serviceUsagePercentage: string;
     }>;
   } | null>(null);
-  const [serviceLoading, setServiceLoading] = useState(true);
   const [serviceError, setServiceError] = useState<string | null>(null);
 
   // Auth expiration modal state
@@ -544,6 +550,11 @@ export default function Dashboard() {
   const [salesDetailLoading, setSalesDetailLoading] = useState(true);
   const [salesDetailError, setSalesDetailError] = useState<string | null>(null);
 
+  // Booking by hour API state
+  const [bookingByHourData, setBookingByHourData] = useState<Array<{ type: string; count: number }> | null>(null);
+  const [bookingByHourLoading, setBookingByHourLoading] = useState(true);
+  const [bookingByHourError, setBookingByHourError] = useState<string | null>(null);
+
   // Booking API state
   const [bookingData, setBookingData] = useState<{
     notConfirmed: string;
@@ -558,17 +569,6 @@ export default function Dashboard() {
   const [bookingError, setBookingError] = useState<string | null>(null);
 
   // Daily revenue API state (for current day only)
-  const [dailyRevenueData, setDailyRevenueData] = useState<{
-    totalRevenue: string;
-    cash: string;
-    transfer: string;
-    card: string;
-    actualRevenue: string;
-    foxieUsageRevenue: string;
-    walletUsageRevenue: string;
-    toPay: string;
-    debt: string;
-  } | null>(null);
   const [dailyRevenueLoading, setDailyRevenueLoading] = useState(true);
   const [dailyRevenueError, setDailyRevenueError] = useState<string | null>(
     null
@@ -585,13 +585,16 @@ export default function Dashboard() {
     null
   );
 
+  // Actual revenue (new API) for KPI
+  const [actualRevenueToday, setActualRevenueToday] = useState<number | null>(null);
+  const [actualRevenueMTD, setActualRevenueMTD] = useState<number | null>(null);
+
   // Fetch service summary (real-time) using ApiService via proxy
   React.useEffect(() => {
     const fetchServiceSummary = async () => {
-      if (!fromDate || !toDate) return;
+      if (!fromDateStr || !toDateStr) return;
 
       try {
-        setServiceLoading(true);
         setServiceError(null);
 
         const formatDateForAPI = (isoDateString: string) => {
@@ -601,8 +604,8 @@ export default function Dashboard() {
           return `${day}/${month}/${year}`;
         };
 
-        const startDate = formatDateForAPI(fromDate);
-        const endDate = formatDateForAPI(toDate);
+        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
+        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
         const data = (await ApiService.get(
           `real-time/service-summary?dateStart=${startDate}&dateEnd=${endDate}`
@@ -617,6 +620,8 @@ export default function Dashboard() {
           }>;
         };
 
+        
+
         setServiceSummaryData(data);
       } catch (err) {
         const errorMessage =
@@ -626,17 +631,17 @@ export default function Dashboard() {
         setServiceError(errorMessage);
         console.error("❌ Service summary fetch error:", err);
       } finally {
-        setServiceLoading(false);
+        // setServiceLoading(false); // Removed as per edit hint
       }
     };
 
     fetchServiceSummary();
-  }, [fromDate, toDate]);
+  }, [fromDateStr, toDateStr]);
 
   // Fetch new customers by source (real-time) using ApiService via proxy
   React.useEffect(() => {
     const fetchNewCustomers = async () => {
-      if (!fromDate || !toDate) return;
+      if (!fromDateStr || !toDateStr) return;
 
       try {
         setNewCustomerLoading(true);
@@ -650,8 +655,8 @@ export default function Dashboard() {
           return `${day}/${month}/${year}`;
         };
 
-        const startDate = formatDateForAPI(fromDate);
-        const endDate = formatDateForAPI(toDate);
+        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
+        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
         const data = (await ApiService.get(
           `real-time/get-new-customer?dateStart=${startDate}&dateEnd=${endDate}`
@@ -672,12 +677,12 @@ export default function Dashboard() {
     };
 
     fetchNewCustomers();
-  }, [fromDate, toDate]);
+  }, [fromDateStr, toDateStr]);
 
   // Fetch old customers by source (real-time) using ApiService via proxy
   React.useEffect(() => {
     const fetchOldCustomers = async () => {
-      if (!fromDate || !toDate) return;
+      if (!fromDateStr || !toDateStr) return;
 
       try {
         setOldCustomerLoading(true);
@@ -691,8 +696,8 @@ export default function Dashboard() {
           return `${day}/${month}/${year}`;
         };
 
-        const startDate = formatDateForAPI(fromDate);
-        const endDate = formatDateForAPI(toDate);
+        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
+        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
         const data = (await ApiService.get(
           `real-time/get-old-customer?dateStart=${startDate}&dateEnd=${endDate}`
@@ -713,7 +718,7 @@ export default function Dashboard() {
     };
 
     fetchOldCustomers();
-  }, [fromDate, toDate]);
+  }, [fromDateStr, toDateStr]);
 
   // Fetch Foxie balance using ApiService via proxy
   React.useEffect(() => {
@@ -766,7 +771,7 @@ export default function Dashboard() {
   // Fetch sales by hour (real-time) using ApiService via proxy
   React.useEffect(() => {
     const fetchSalesByHour = async () => {
-      if (!fromDate || !toDate) return;
+      if (!fromDateStr || !toDateStr) return;
 
       try {
         setSalesByHourLoading(true);
@@ -780,8 +785,8 @@ export default function Dashboard() {
           return `${day}/${month}/${year}`;
         };
 
-        const startDate = formatDateForAPI(fromDate);
-        const endDate = formatDateForAPI(toDate);
+        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
+        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
         console.log("🔄 Fetching sales by hour via ApiService with dates:", {
           startDate,
@@ -809,7 +814,64 @@ export default function Dashboard() {
     };
 
     fetchSalesByHour();
-  }, [fromDate, toDate]);
+  }, [fromDateStr, toDateStr]);
+
+  // Fetch Actual Revenue for KPI (day and month-to-date)
+  React.useEffect(() => {
+    const run = async () => {
+      try {
+        const today = toDateStr ? new Date(toDateStr) : new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const toDdMmYyyy = (d: Date) => {
+          const dd = String(d.getDate()).padStart(2, "0");
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const yyyy = d.getFullYear();
+          return `${dd}/${mm}/${yyyy}`;
+        };
+        const dayStr = toDdMmYyyy(today);
+        const startMonthStr = toDdMmYyyy(firstDay);
+        const [dayValue, mtdValue] = await Promise.all([
+          ApiService.get(`real-time/get-actual-revenue?dateStart=${dayStr}&dateEnd=${dayStr}`),
+          ApiService.get(`real-time/get-actual-revenue?dateStart=${startMonthStr}&dateEnd=${dayStr}`),
+        ]);
+        setActualRevenueToday(Number(dayValue || 0));
+        setActualRevenueMTD(Number(mtdValue || 0));
+      } catch {
+        // ignore
+      }
+    };
+    run();
+  }, [fromDateStr, toDateStr]);
+
+  // Fetch booking by hour (real-time)
+  React.useEffect(() => {
+    const fetchBookingByHour = async () => {
+      if (!fromDateStr || !toDateStr) return;
+      try {
+        setBookingByHourLoading(true);
+        setBookingByHourError(null);
+        const toDdMmYyyy = (dateString: string) => {
+          const d = new Date(dateString);
+          const dd = String(d.getDate()).padStart(2, "0");
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const yyyy = d.getFullYear();
+          return `${dd}/${mm}/${yyyy}`;
+        };
+        const start = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const end = toDdMmYyyy(toDateStr + "T23:59:59");
+        const data = (await ApiService.get(
+          `real-time/get-booking-by-hour?dateStart=${start}&dateEnd=${end}`
+        )) as Array<{ count: number; type: string }>;
+        setBookingByHourData(data || []);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to fetch booking by hour";
+        setBookingByHourError(msg);
+      } finally {
+        setBookingByHourLoading(false);
+      }
+    };
+    fetchBookingByHour();
+  }, [fromDateStr, toDateStr]);
 
   const newCustomerTotal = React.useMemo(() => {
     if (!newCustomerData || newCustomerData.length === 0) return 0;
@@ -827,18 +889,22 @@ export default function Dashboard() {
     );
   }, [oldCustomerData]);
 
-  const colorPalette = [
-    "#f16a3f",
-    "#0693e3",
-    "#00d084",
-    "#fcb900",
-    "#9b51e0",
-    "#41d1d9",
-    "#ff6b6b",
-    "#7bdcb5",
-    "#ff6900",
-    "#4ecdc4",
-  ];
+  // --- colorPalette useMemo để tránh deps bị warning ---
+  const colorPalette = React.useMemo(
+    () => [
+      "#f16a3f",
+      "#0693e3",
+      "#00d084",
+      "#fcb900",
+      "#9b51e0",
+      "#41d1d9",
+      "#ff6b6b",
+      "#7bdcb5",
+      "#ff6900",
+      "#4ecdc4",
+    ],
+    []
+  );
 
   const newCustomerPieData = React.useMemo(() => {
     if (!newCustomerData || newCustomerData.length === 0)
@@ -863,7 +929,7 @@ export default function Dashboard() {
   // Fetch sales detail (real-time) using ApiService via proxy
   React.useEffect(() => {
     const fetchSalesDetail = async () => {
-      if (!fromDate || !toDate) return;
+      if (!fromDateStr || !toDateStr) return;
 
       try {
         setSalesDetailLoading(true);
@@ -877,8 +943,8 @@ export default function Dashboard() {
           return `${day}/${month}/${year}`;
         };
 
-        const startDate = formatDateForAPI(fromDate);
-        const endDate = formatDateForAPI(toDate);
+        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
+        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
         const data = (await ApiService.get(
           `real-time/sales-detail?dateStart=${startDate}&dateEnd=${endDate}`
@@ -909,12 +975,12 @@ export default function Dashboard() {
     };
 
     fetchSalesDetail();
-  }, [fromDate, toDate]);
+  }, [fromDateStr, toDateStr]);
 
   // Fetch booking data (real-time) using ApiService via proxy
   React.useEffect(() => {
     const fetchBookingData = async () => {
-      if (!fromDate || !toDate) return;
+      if (!fromDateStr || !toDateStr) return;
 
       try {
         setBookingLoading(true);
@@ -928,8 +994,8 @@ export default function Dashboard() {
           return `${day}/${month}/${year}`;
         };
 
-        const startDate = formatDateForAPI(fromDate);
-        const endDate = formatDateForAPI(toDate);
+        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
+        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
         console.log("🔄 Fetching booking data via ApiService with dates:", {
           startDate,
@@ -961,7 +1027,7 @@ export default function Dashboard() {
     };
 
     fetchBookingData();
-  }, [fromDate, toDate]);
+  }, [fromDateStr, toDateStr]);
 
   // Fetch daily revenue (current day only) using ApiService via proxy
   React.useEffect(() => {
@@ -994,7 +1060,7 @@ export default function Dashboard() {
         };
 
         console.log("✅ Daily revenue data received:", data);
-        setDailyRevenueData(data);
+        // setDailyRevenueData(data); // This line is removed
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to fetch daily revenue";
@@ -1053,7 +1119,7 @@ export default function Dashboard() {
         };
 
         console.log("✅ KPI monthly revenue data received:", data);
-        setKpiMonthlyRevenueData(data);
+        // setKpiMonthlyRevenueData(data); // This line is removed
       } catch (err) {
         const errorMessage =
           err instanceof Error
@@ -1070,7 +1136,11 @@ export default function Dashboard() {
   }, []); // Empty dependency - fetch once on mount
 
   // Fetch daily KPI series (TM+CK+QT per day) from start of month to today
+  // Only fetch once on mount - this data doesn't depend on date range
+  const hasFetchedKpiSeries = React.useRef(false);
   React.useEffect(() => {
+    if (hasFetchedKpiSeries.current) return;
+    hasFetchedKpiSeries.current = true;
     const fetchDailySeries = async () => {
       try {
         setKpiDailySeriesLoading(true);
@@ -1101,32 +1171,60 @@ export default function Dashboard() {
           isoDate: string;
           total: number;
         }> = [];
-        // Loop day by day to fetch real totals
+        
+        // Create array of all dates from first day of month to today
+        const dates: Date[] = [];
         for (
           let d = new Date(firstDayOfMonth);
           d <= today;
           d.setDate(d.getDate() + 1)
         ) {
-          const ddmmyyyy = toDdMmYyyy(d);
-          const data = (await ApiService.get(
-            `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}`
-          )) as {
-            cash: string;
-            transfer: string;
-            card: string;
-          };
-          const total =
-            (parseFloat(data.cash) || 0) +
-            (parseFloat(data.transfer) || 0) +
-            (parseFloat(data.card) || 0);
-          results.push({
-            dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
-              d.getMonth() + 1
-            ).padStart(2, "0")}`,
-            isoDate: toIsoYyyyMmDd(d),
-            total,
-          });
+          dates.push(new Date(d));
         }
+
+        // Fetch all dates in parallel for better performance
+        const parseCurrency = (v: unknown) =>
+          typeof v === "string"
+            ? Number(v.replace(/[^0-9.-]/g, "")) || 0
+            : Number(v) || 0;
+
+        const fetchPromises = dates.map(async (d) => {
+          const ddmmyyyy = toDdMmYyyy(d);
+          try {
+            const data = (await ApiService.get(
+              `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}`
+            )) as {
+              cash: string;
+              transfer: string;
+              card: string;
+            };
+            const total =
+              parseCurrency(data.cash) +
+              parseCurrency(data.transfer) +
+              parseCurrency(data.card);
+            return {
+              dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
+                d.getMonth() + 1
+              ).padStart(2, "0")}`,
+              isoDate: toIsoYyyyMmDd(d),
+              total,
+            };
+          } catch (err) {
+            // Return zero for failed requests
+            console.error(`Failed to fetch data for ${ddmmyyyy}:`, err);
+            return {
+              dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
+                d.getMonth() + 1
+              ).padStart(2, "0")}`,
+              isoDate: toIsoYyyyMmDd(d),
+              total: 0,
+            };
+          }
+        });
+
+        // Wait for all requests to complete in parallel
+        const fetchedResults = await Promise.all(fetchPromises);
+        results.push(...fetchedResults);
 
         setKpiDailySeries(results);
       } catch (err) {
@@ -1217,123 +1315,7 @@ export default function Dashboard() {
     0
   );
 
-  const monthlyTarget = 9750000000; // 9.75B VND target
-
-  // Calculate days in current month
-  const currentDay = new Date().getDate();
-  const daysInMonth = new Date(
-    new Date().getFullYear(),
-    new Date().getMonth() + 1,
-    0
-  ).getDate();
-
-  // Calculate monthly revenue for Target KPI (cumulative from start of month)
-  const monthlyRevenue = React.useMemo(() => {
-    if (!kpiMonthlyRevenueData) return 0;
-
-    const cash = parseFloat(kpiMonthlyRevenueData.cash) || 0;
-    const transfer = parseFloat(kpiMonthlyRevenueData.transfer) || 0;
-    const card = parseFloat(kpiMonthlyRevenueData.card) || 0;
-
-    const total = cash + transfer + card;
-
-    console.log("🔍 KPI Debug - Monthly revenue calculation (cumulative):", {
-      cash,
-      transfer,
-      card,
-      total,
-      monthlyTarget,
-    });
-
-    return total;
-  }, [kpiMonthlyRevenueData]);
-
-  // Calculate daily revenue from daily revenue API data (cash + transfer + card)
-  const dailyRevenue = React.useMemo(() => {
-    if (!dailyRevenueData) return 0;
-
-    const cash = parseFloat(dailyRevenueData.cash) || 0;
-    const transfer = parseFloat(dailyRevenueData.transfer) || 0;
-    const card = parseFloat(dailyRevenueData.card) || 0;
-
-    const total = cash + transfer + card;
-
-    console.log("🔍 KPI Debug - Daily revenue calculation:", {
-      cash,
-      transfer,
-      card,
-      total,
-      dailyTarget: monthlyTarget / daysInMonth,
-    });
-
-    return total;
-  }, [dailyRevenueData, daysInMonth]);
-
-  // Use appropriate revenue based on view mode
-  const currentRevenue =
-    kpiViewMode === "monthly" ? monthlyRevenue : dailyRevenue;
-
-  // Monthly view calculations
-  const dailyTargetForToday = (monthlyTarget / daysInMonth) * currentDay;
-  const dailyTargetPercentage = (dailyTargetForToday / monthlyTarget) * 100;
-  const currentPercentage = (currentRevenue / monthlyTarget) * 100;
-  const remainingTarget = Math.max(0, monthlyTarget - currentRevenue);
-
-  // Daily view calculations (for current day)
-  const currentDate = new Date();
-  const currentDayForDaily = currentDate.getDate();
-  const dailyTargetForCurrentDay = monthlyTarget / daysInMonth; // Target for one day
-  const dailyTargetPercentageForCurrentDay =
-    (dailyTargetForCurrentDay / monthlyTarget) * 100;
-  const dailyPercentageForCurrentDay =
-    (currentRevenue / dailyTargetForCurrentDay) * 100;
-  const remainingDailyTarget = Math.max(
-    0,
-    dailyTargetForCurrentDay - currentRevenue
-  );
-
-  // Daily KPI Growth Data (real) derived from kpiDailySeries
-  const dailyKpiGrowthData = React.useMemo(() => {
-    if (!kpiDailySeries || kpiDailySeries.length === 0) return [] as Array<any>;
-    const today = new Date();
-    const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-    return kpiDailySeries.map((d) => {
-      const [yyyy, mm, dd] = d.isoDate.split("-");
-      const jsDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-      const dayName = dayNames[jsDate.getDay()];
-      const isToday = jsDate.toDateString() === today.toDateString();
-      const target = dailyTargetForCurrentDay;
-      const percentage = target > 0 ? (d.total / target) * 100 : 0;
-      return {
-        day: dayName,
-        date: d.dateLabel,
-        revenue: d.total,
-        target,
-        percentage,
-        isToday,
-      };
-    });
-  }, [kpiDailySeries, dailyTargetForCurrentDay]);
-
-  const getTargetStatus = () => {
-    if (kpiViewMode === "monthly") {
-      if (currentRevenue >= dailyTargetForToday) {
-        return currentRevenue > dailyTargetForToday * 1.1 ? "ahead" : "ontrack";
-      }
-      return "behind";
-    } else {
-      // Daily view
-      if (currentRevenue >= dailyTargetForCurrentDay) {
-        return currentRevenue > dailyTargetForCurrentDay * 1.1
-          ? "ahead"
-          : "ontrack";
-      }
-      return "behind";
-    }
-  };
-
-  const targetStatus = getTargetStatus();
-  // Map search queries to sections and scroll/highlight
+  const COMPANY_MONTH_TARGET = 9750000000; // Luôn số cứng cố định cho mục tiêu tháng này
   const sectionRefs = React.useRef({
     dashboard_total_sale_table: React.createRef<HTMLDivElement>(),
     dashboard_foxie_balance: React.createRef<HTMLDivElement>(),
@@ -1344,34 +1326,144 @@ export default function Dashboard() {
     dashboard_booking_section: React.createRef<HTMLDivElement>(),
     dashboard_service_section: React.createRef<HTMLDivElement>(),
   });
-
   const normalizeKey = (s: string) => normalize(s).replace(/\s+/g, "");
 
   const [highlightKey, setHighlightKey] = React.useState<string | null>(null);
 
+  const endDateObj = toDate ? new Date(toDate.split("T")[0]) : null;
+  const daysInMonth = endDateObj
+    ? new Date(endDateObj.getFullYear(), endDateObj.getMonth() + 1, 0).getDate()
+    : 0;
+  const lastDay = endDateObj ? endDateObj.getDate() : 0;
+  const dailyTargetForCurrentDay =
+    daysInMonth > 0 ? COMPANY_MONTH_TARGET / daysInMonth : 0;
+  const targetUntilNow = lastDay * dailyTargetForCurrentDay; // Đến nay cần đạt
+
+  // ---------- KPI Ngày: lấy ngày hiện tại (hôm nay) thay vì ngày cuối range ----------
+  const today = new Date();
+  const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(today.getDate()).padStart(2, "0")}`;
+  const todayDay = today.getDate();
+  
+  // Khi ở chế độ "Ngày", dùng ngày hiện tại; khi ở chế độ "Tháng", dùng ngày cuối range
+  const dailyKpiDateStr = todayDateStr;
+  const dailyKpiRevenue = actualRevenueToday ?? (
+    kpiDailySeries && dailyKpiDateStr
+      ? kpiDailySeries.find((e) => e.isoDate === dailyKpiDateStr)?.total || 0
+      : 0
+  );
+  const dailyPercentage =
+    dailyTargetForCurrentDay > 0
+      ? (dailyKpiRevenue / dailyTargetForCurrentDay) * 100
+      : 0;
+  const dailyKpiLeft = Math.max(0, dailyTargetForCurrentDay - dailyKpiRevenue);
+
+  // ---------- KPI Tháng: sum từ ngày 1 đến ngày cuối range ----------
+  const currentRevenue = actualRevenueMTD ?? (() => {
+    if (!kpiDailySeries || !toDate || !endDateObj) return 0;
+    const monthKey = `${endDateObj.getFullYear()}-${String(
+      endDateObj.getMonth() + 1
+    ).padStart(2, "0")}`;
+    let sum = 0;
+    for (const e of kpiDailySeries || []) {
+      if (e.isoDate.startsWith(monthKey)) {
+        const eDay = Number(e.isoDate.split("-")[2]);
+        if (eDay <= lastDay) sum += e.total;
+      }
+    }
+    return sum;
+  })();
+  const currentPercentage =
+    targetUntilNow > 0 ? (currentRevenue / targetUntilNow) * 100 : 0;
+  const remainingTarget = Math.max(0, targetUntilNow - currentRevenue);
+
+  const dailyKpiGrowthData = React.useMemo(() => {
+    const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+    if (!kpiDailySeries) return [];
+    return kpiDailySeries.map((d) => {
+      const [yyyy, mm, dd] = d.isoDate.split("-");
+      const jsDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+      return {
+        day: dayNames[jsDate.getDay()],
+        date: d.dateLabel,
+        revenue: d.total,
+        target: dailyTargetForCurrentDay,
+        percentage:
+          dailyTargetForCurrentDay > 0
+            ? (d.total / dailyTargetForCurrentDay) * 100
+            : 0,
+        isToday: jsDate.toDateString() === new Date().toDateString(),
+      };
+    });
+  }, [kpiDailySeries, dailyTargetForCurrentDay]);
+
+  // Status logic cho hiển thị trạng thái
+  const dailyStatus =
+    dailyTargetForCurrentDay === 0
+      ? "ontrack"
+      : dailyKpiRevenue >= dailyTargetForCurrentDay
+      ? dailyKpiRevenue > dailyTargetForCurrentDay * 1.1
+        ? "ahead"
+        : "ontrack"
+      : "behind";
+  const monthlyStatus =
+    targetUntilNow === 0
+      ? "ontrack"
+      : currentRevenue >= targetUntilNow
+      ? currentRevenue > targetUntilNow * 1.1
+        ? "ahead"
+        : "ontrack"
+      : "behind";
+
+  // -------- Render tách riêng cho Ngày và Tháng --------
   React.useEffect(() => {
     // If navigated here with ?q=, trigger search once
     if (searchParamQuery) {
-      const event = new CustomEvent('global-search', { detail: { query: searchParamQuery } });
+      const event = new CustomEvent("global-search", {
+        detail: { query: searchParamQuery },
+      });
       window.dispatchEvent(event);
       // Clean URL param without reload
       const url = new URL(window.location.href);
-      url.searchParams.delete('q');
-      window.history.replaceState({}, '', url.toString());
+      url.searchParams.delete("q");
+      window.history.replaceState({}, "", url.toString());
     }
 
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { query?: string };
       const q = normalize(detail?.query || "");
       if (!q) return;
-      const map = SEARCH_TARGETS.map((t) => ({ keys: [normalizeKey(t.label), ...t.keywords.map((k) => normalizeKey(k))], refKey: t.refKey }));
-      const found = map.find((m) => m.keys.some((k) => normalizeKey(q).includes(k)));
+      const map = SEARCH_TARGETS.map((t) => ({
+        keys: [
+          normalizeKey(t.label),
+          ...t.keywords.map((k) => normalizeKey(k)),
+        ],
+        refKey: t.refKey,
+      }));
+      const found = map.find((m) =>
+        m.keys.some((k) => normalizeKey(q).includes(k))
+      );
       const allowed = [
-        'dashboard_total_sale_table','dashboard_foxie_balance','dashboard_sales_by_hour','dashboard_sale_detail','dashboard_kpi','dashboard_customer_section','dashboard_booking_section','dashboard_service_section'
+        "dashboard_total_sale_table",
+        "dashboard_foxie_balance",
+        "dashboard_sales_by_hour",
+        "dashboard_sale_detail",
+        "dashboard_kpi",
+        "dashboard_customer_section",
+        "dashboard_booking_section",
+        "dashboard_service_section",
       ] as const;
-      const ref = found && (allowed as readonly string[]).includes(found.refKey)
-        ? (sectionRefs.current as Record<string, React.RefObject<HTMLDivElement>>)[found.refKey]
-        : null;
+      const ref =
+        found && (allowed as readonly string[]).includes(found.refKey)
+          ? (
+              sectionRefs.current as Record<
+                string,
+                React.RefObject<HTMLDivElement>
+              >
+            )[found.refKey]
+          : null;
       if (ref?.current) {
         ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
         setHighlightKey(found!.refKey);
@@ -1381,47 +1473,41 @@ export default function Dashboard() {
     if (typeof window !== "undefined") {
       window.addEventListener("global-search", handler as EventListener);
       // Support anchor hash direct navigation: #refKey
-      const hash = window.location.hash.replace('#','');
+      const hash = window.location.hash.replace("#", "");
       if (hash) {
-        const target = (sectionRefs.current as Record<string, React.RefObject<HTMLDivElement>>)[hash];
+        const target = (
+          sectionRefs.current as Record<string, React.RefObject<HTMLDivElement>>
+        )[hash];
         if (target?.current) {
-          setTimeout(() => target.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+          setTimeout(
+            () =>
+              target.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              }),
+            0
+          );
         }
       }
       // Listener for direct jump events from header within same route
       const jumpHandler = (ev: Event) => {
         const refKey = (ev as CustomEvent).detail?.refKey as string | undefined;
         if (!refKey) return;
-        const target = (sectionRefs.current as Record<string, React.RefObject<HTMLDivElement>>)[refKey];
-        if (target?.current) target.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const target = (
+          sectionRefs.current as Record<string, React.RefObject<HTMLDivElement>>
+        )[refKey];
+        if (target?.current)
+          target.current.scrollIntoView({ behavior: "smooth", block: "start" });
       };
-      window.addEventListener('jump-to-ref', jumpHandler as EventListener);
+      window.addEventListener("jump-to-ref", jumpHandler as EventListener);
     }
     return () => {
       if (typeof window !== "undefined") {
         window.removeEventListener("global-search", handler as EventListener);
-        window.removeEventListener('jump-to-ref', (()=>{}) as EventListener);
+        window.removeEventListener("jump-to-ref", (() => {}) as EventListener);
       }
     };
-  }, []);
-
-  const statusColors = {
-    ahead: { bg: "#00d084", text: "Vượt tiến độ" },
-    ontrack: { bg: "#fcb900", text: "Đúng tiến độ" },
-    behind: { bg: "#ff6b6b", text: "Chậm tiến độ" },
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(value);
-  };
-
-  // Removed ranking helpers reliant on mock datasets (revenueRankingData, foxieRankingData)
-
-  // Use global date context instead of local state
-  const { isLoaded: dateLoaded } = useDateRange();
+  }, [searchParamQuery]);
 
   // Monitor API success notifications
   useEffect(() => {
@@ -1435,7 +1521,8 @@ export default function Dashboard() {
       hasShownSuccess.current = true;
       reportDataLoadSuccess("dashboard", apiSuccesses.length);
     }
-  }, [apiSuccesses, showSuccess, reportDataLoadSuccess]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiSuccesses]); // Functions are stable, no need in deps
 
   // Monitor sales summary success
   useEffect(() => {
@@ -1443,19 +1530,14 @@ export default function Dashboard() {
       !salesLoading &&
       !salesError &&
       salesSummaryData &&
-      !hasShownSuccess.current
+      !notifiedDataRef.current.has("sales-summary")
     ) {
-      showSuccess("Dữ liệu tổng doanh số đã được tải thành công!");
-      hasShownSuccess.current = true;
+      showSuccess("✅ Dữ liệu tổng doanh số đã được tải thành công!");
+      notifiedDataRef.current.add("sales-summary");
       reportDataLoadSuccess("sales-summary", 1);
     }
-  }, [
-    salesLoading,
-    salesError,
-    salesSummaryData,
-    showSuccess,
-    reportDataLoadSuccess,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesLoading, salesError, salesSummaryData]); // Functions are stable
 
   // Monitor API error notifications
   useEffect(() => {
@@ -1469,7 +1551,8 @@ export default function Dashboard() {
       hasShownError.current = true;
       reportDataLoadError("dashboard", errorMessage);
     }
-  }, [apiErrors, showError, reportDataLoadError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiErrors]); // Functions are stable
 
   // Monitor general error
   useEffect(() => {
@@ -1478,7 +1561,8 @@ export default function Dashboard() {
       hasShownError.current = true;
       reportPageError(error);
     }
-  }, [error, showError, reportPageError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error]); // Functions are stable
 
   // Monitor sales summary error
   useEffect(() => {
@@ -1487,7 +1571,8 @@ export default function Dashboard() {
       hasShownError.current = true;
       reportPageError(`Lỗi tải dữ liệu sales summary: ${salesError}`);
     }
-  }, [salesError, showError, reportPageError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesError]); // Functions are stable
 
   // Watch for auth expiration across all API errors
   useEffect(() => {
@@ -1532,19 +1617,134 @@ export default function Dashboard() {
       !bookingLoading &&
       !bookingError &&
       bookingData &&
-      !hasShownSuccess.current
+      !notifiedDataRef.current.has("booking")
     ) {
-      showSuccess("Dữ liệu đặt lịch đã được tải thành công!");
-      hasShownSuccess.current = true;
+      showSuccess("✅ Dữ liệu đặt lịch đã được tải thành công!");
+      notifiedDataRef.current.add("booking");
       reportDataLoadSuccess("booking", 1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingLoading, bookingError, bookingData]); // Functions are stable
+
+  // Monitor KPI data success
+  useEffect(() => {
+    if (
+      !kpiDailySeriesLoading &&
+      !kpiMonthlyRevenueLoading &&
+      !kpiDailySeriesError &&
+      kpiDailySeries &&
+      !notifiedDataRef.current.has("kpi")
+    ) {
+      showSuccess("✅ Dữ liệu KPI đã được tải thành công!");
+      notifiedDataRef.current.add("kpi");
+      reportDataLoadSuccess("kpi", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    bookingLoading,
-    bookingError,
-    bookingData,
-    showSuccess,
-    reportDataLoadSuccess,
-  ]);
+    kpiDailySeriesLoading,
+    kpiMonthlyRevenueLoading,
+    kpiDailySeriesError,
+    kpiDailySeries,
+  ]); // Functions are stable
+
+  // Monitor customer data success
+  useEffect(() => {
+    if (
+      !newCustomerLoading &&
+      !oldCustomerLoading &&
+      !newCustomerError &&
+      !oldCustomerError &&
+      (newCustomerData || oldCustomerData) &&
+      !notifiedDataRef.current.has("customer")
+    ) {
+      showSuccess("✅ Dữ liệu khách hàng đã được tải thành công!");
+      notifiedDataRef.current.add("customer");
+      reportDataLoadSuccess("customer", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    newCustomerLoading,
+    oldCustomerLoading,
+    newCustomerError,
+    oldCustomerError,
+    newCustomerData,
+    oldCustomerData,
+  ]); // Functions are stable
+
+  // Monitor service data success
+  useEffect(() => {
+    if (
+      !bookingLoading &&
+      !serviceError &&
+      serviceSummaryData &&
+      !notifiedDataRef.current.has("service")
+    ) {
+      showSuccess("✅ Dữ liệu dịch vụ đã được tải thành công!");
+      notifiedDataRef.current.add("service");
+      reportDataLoadSuccess("service", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingLoading, serviceError, serviceSummaryData]); // Functions are stable
+
+  // Monitor foxie balance success
+  useEffect(() => {
+    if (
+      !foxieBalanceLoading &&
+      !foxieBalanceError &&
+      foxieBalanceData &&
+      !notifiedDataRef.current.has("foxie-balance")
+    ) {
+      showSuccess("✅ Dữ liệu số dư Foxie đã được tải thành công!");
+      notifiedDataRef.current.add("foxie-balance");
+      reportDataLoadSuccess("foxie-balance", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foxieBalanceLoading, foxieBalanceError, foxieBalanceData]); // Functions are stable
+
+  // Monitor sales by hour success
+  useEffect(() => {
+    if (
+      !salesByHourLoading &&
+      !salesByHourError &&
+      salesByHourData &&
+      !notifiedDataRef.current.has("sales-by-hour")
+    ) {
+      showSuccess("✅ Dữ liệu doanh số theo giờ đã được tải thành công!");
+      notifiedDataRef.current.add("sales-by-hour");
+      reportDataLoadSuccess("sales-by-hour", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesByHourLoading, salesByHourError, salesByHourData]); // Functions are stable
+
+  // Monitor sales detail success
+  useEffect(() => {
+    if (
+      !salesDetailLoading &&
+      !salesDetailError &&
+      salesDetailData &&
+      !notifiedDataRef.current.has("sales-detail")
+    ) {
+      showSuccess("✅ Dữ liệu chi tiết doanh số đã được tải thành công!");
+      notifiedDataRef.current.add("sales-detail");
+      reportDataLoadSuccess("sales-detail", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesDetailLoading, salesDetailError, salesDetailData]); // Functions are stable
+
+  // Monitor booking by hour success
+  useEffect(() => {
+    if (
+      !bookingByHourLoading &&
+      !bookingByHourError &&
+      bookingByHourData &&
+      !notifiedDataRef.current.has("booking-by-hour")
+    ) {
+      showSuccess("✅ Dữ liệu đặt lịch theo giờ đã được tải thành công!");
+      notifiedDataRef.current.add("booking-by-hour");
+      reportDataLoadSuccess("booking-by-hour", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingByHourLoading, bookingByHourError, bookingByHourData]); // Functions are stable
 
   // Monitor booking data error
   useEffect(() => {
@@ -1553,7 +1753,8 @@ export default function Dashboard() {
       hasShownError.current = true;
       reportPageError(`Lỗi tải dữ liệu booking: ${bookingError}`);
     }
-  }, [bookingError, showError, reportPageError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingError]); // Functions are stable
 
   // Report page performance
   useEffect(() => {
@@ -1562,16 +1763,173 @@ export default function Dashboard() {
     }
   }, [loading, reportPagePerformance]);
 
-  // Show loading only until the date context is ready. Sections handle their own loading states.
-  if (!dateLoaded) {
-    return (
-      <div className="p-3 sm:p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg text-gray-600">{"Đang tải dữ liệu..."}</div>
-        </div>
-      </div>
-    );
-  }
+  const isDaily = kpiViewMode === "daily";
+
+  // Sample aggregation ( giả lập, bạn cần thay bằng logic thực tế hoặc gọi API tổng hợp từng tháng )
+  const [paymentGrowthByMonth, setPaymentGrowthByMonth] = React.useState<
+    Array<{ month: string; tmckqt: number; foxie: number; vi: number }>
+  >([]);
+  const [loadingGrowth, setLoadingGrowth] = React.useState(true);
+  const [compareFromDay, setCompareFromDay] = React.useState(1);
+  const [compareToDay, setCompareToDay] = React.useState(31);
+  const [compareMonth, setCompareMonth] = React.useState("");
+
+  // Cache for individual months to avoid re-fetching
+  const monthCacheRef = React.useRef<Map<string, {
+    data: { month: string; tmckqt: number; foxie: number; vi: number };
+    timestamp: number;
+  }>>(new Map());
+
+  // Monitor growth by payment success (placed after state declarations)
+  useEffect(() => {
+    if (
+      !loadingGrowth &&
+      paymentGrowthByMonth.length > 0 &&
+      !notifiedDataRef.current.has("growth-by-payment")
+    ) {
+      showSuccess("✅ Dữ liệu tăng trưởng thanh toán đã được tải thành công!");
+      notifiedDataRef.current.add("growth-by-payment");
+      reportDataLoadSuccess("growth-by-payment", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingGrowth, paymentGrowthByMonth]); // Functions are stable
+
+  // Helper function to fetch a single month's data and update state
+  const fetchSingleMonth = React.useCallback(async (
+    monthKey: string,
+    month: string,
+    year: number
+  ): Promise<{ month: string; tmckqt: number; foxie: number; vi: number }> => {
+    // Check cache first
+    const cached = monthCacheRef.current.get(monthKey);
+    const now = Date.now();
+    const cacheDuration = 10 * 60 * 1000; // 10 minutes
+    if (cached && now - cached.timestamp < cacheDuration) {
+      // Still update state if not already present
+      setPaymentGrowthByMonth(prev => {
+        if (prev.some(d => d.month === monthKey)) {
+          return prev;
+        }
+        const updated = [...prev, cached.data].sort((a, b) => {
+          const [mA, yA] = a.month.split("/").map(Number);
+          const [mB, yB] = b.month.split("/").map(Number);
+          if (yA !== yB) return yA - yB;
+          return mA - mB;
+        });
+        return updated;
+      });
+      return cached.data;
+    }
+
+    // Fetch from API
+    const lastDayOfMonth = new Date(year, Number(month), 0).getDate();
+    const startDate = `01/${month}/${year}`;
+    const endDate = `${lastDayOfMonth}/${month}/${year}`;
+
+    const parse = (v: string | number | undefined) => {
+      if (typeof v === "string") {
+        return Number((v || "").replace(/[^\d.-]/g, "")) || 0;
+      }
+      return Number(v) || 0;
+    };
+
+    try {
+      const res = await ApiService.get(
+        `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}`
+      );
+      const parsed = res as {
+        cash?: string | number;
+        transfer?: string | number;
+        card?: string | number;
+        foxieUsageRevenue?: string | number;
+        walletUsageRevenue?: string | number;
+      };
+      const data = {
+        month: monthKey,
+        tmckqt: parse(parsed.cash) + parse(parsed.transfer) + parse(parsed.card),
+        foxie: Math.abs(parse(parsed.foxieUsageRevenue)),
+        vi: Math.abs(parse(parsed.walletUsageRevenue)),
+      };
+
+      // Cache the data
+      monthCacheRef.current.set(monthKey, {
+        data,
+        timestamp: Date.now(),
+      });
+
+      // Update state if month not already in paymentGrowthByMonth
+      setPaymentGrowthByMonth(prev => {
+        if (prev.some(d => d.month === monthKey)) {
+          return prev; // Already exists
+        }
+        const updated = [...prev, data].sort((a, b) => {
+          const [mA, yA] = a.month.split("/").map(Number);
+          const [mB, yB] = b.month.split("/").map(Number);
+          if (yA !== yB) return yA - yB;
+          return mA - mB;
+        });
+        return updated;
+      });
+
+      return data;
+    } catch (err) {
+      console.error(`Failed to fetch sales data for ${monthKey}:`, err);
+      return {
+        month: monthKey,
+        tmckqt: 0,
+        foxie: 0,
+        vi: 0,
+      };
+    }
+  }, []);
+
+  // Fetch only current month and previous month (lazy loading)
+  React.useEffect(() => {
+    let isSubscribed = true;
+    async function fetchInitialMonths() {
+      setLoadingGrowth(true);
+      const dateNow = new Date();
+      
+      // Get current month
+      const currentMonth = String(dateNow.getMonth() + 1).padStart(2, "0");
+      const currentYear = dateNow.getFullYear();
+      const currentMonthKey = `${currentMonth}/${currentYear}`;
+
+      // Get previous month
+      const prevDate = new Date(dateNow.getFullYear(), dateNow.getMonth() - 1, 1);
+      const prevMonth = String(prevDate.getMonth() + 1).padStart(2, "0");
+      const prevYear = prevDate.getFullYear();
+      const prevMonthKey = `${prevMonth}/${prevYear}`;
+
+      try {
+        // Fetch only 2 months in parallel
+        const [currentData, prevData] = await Promise.all([
+          fetchSingleMonth(currentMonthKey, currentMonth, currentYear),
+          fetchSingleMonth(prevMonthKey, prevMonth, prevYear),
+        ]);
+
+        if (isSubscribed) {
+          const initialData = [prevData, currentData].sort((a, b) => {
+            const [mA, yA] = a.month.split("/").map(Number);
+            const [mB, yB] = b.month.split("/").map(Number);
+            if (yA !== yB) return yA - yB;
+            return mA - mB;
+          });
+          
+          setPaymentGrowthByMonth(initialData);
+          setCompareMonth(prevMonthKey); // Set default compare month to previous month
+          setLoadingGrowth(false);
+        }
+      } catch (err) {
+        console.error("Failed to fetch initial months:", err);
+        if (isSubscribed) setLoadingGrowth(false);
+      }
+    }
+    fetchInitialMonths();
+    return () => {
+      isSubscribed = false;
+    };
+  }, [fetchSingleMonth]);
 
   return (
     <div className="p-3 sm:p-6">
@@ -1610,7 +1968,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="mb-3 sm:mb-6" ref={sectionRefs.current.dashboard_total_sale_table}>
+      <div
+        className="mb-3 sm:mb-6"
+        ref={sectionRefs.current.dashboard_total_sale_table}
+      >
         <h1 className="text-lg sm:text-2xl font-semibold text-gray-900 mb-2">
           Dashboard
         </h1>
@@ -1658,89 +2019,210 @@ export default function Dashboard() {
             <h2 className="text-2xl font-bold text-[#334862]">Doanh Số</h2>
           </div>
 
-          {/* Bảng Tổng Doanh Số */}
-          {salesLoading || paymentMethods.length === 0 ? (
-            <div className="border-[#f16a3f]/20 shadow-lg bg-gradient-to-r from-white to-[#f16a3f]/5 rounded-lg p-4 sm:p-6">
-              <div className="h-6 w-48 bg-gray-200 rounded animate-pulse mb-4" />
-              <div className="hidden sm:grid grid-cols-12 gap-4 p-3 bg-gradient-to-r from-[#7bdcb5]/20 to-[#00d084]/20 rounded-lg font-semibold text-sm mb-3">
-                <div className="col-span-4 h-4 bg-gray-200 rounded" />
-                <div className="col-span-3 h-4 bg-gray-200 rounded" />
-                <div className="col-span-3 h-4 bg-gray-200 rounded" />
-                <div className="col-span-2 h-4 bg-gray-200 rounded" />
-              </div>
-              <div className="space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="border border-[#f16a3f]/10 rounded-lg p-3">
-                    <div className="hidden sm:grid grid-cols-12 gap-4">
-                      <div className="col-span-4 h-4 bg-gray-200 rounded" />
-                      <div className="col-span-3 h-4 bg-gray-200 rounded" />
-                      <div className="col-span-3 h-4 bg-gray-200 rounded" />
-                      <div className="col-span-2 h-4 bg-gray-200 rounded" />
-                    </div>
-                    <div className="sm:hidden space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="h-4 w-28 bg-gray-200 rounded" />
-                        <div className="h-4 w-10 bg-gray-200 rounded" />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="h-4 w-12 bg-gray-200 rounded" />
-                        <div className="h-4 w-24 bg-gray-200 rounded" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="bg-[#f16a3f] rounded-lg mt-3">
-                <div className="hidden sm:grid grid-cols-12 gap-4 p-3">
-                  <div className="col-span-4 h-5 bg-white/40 rounded" />
-                  <div className="col-span-3 h-5 bg-white/40 rounded" />
-                  <div className="col-span-3 h-5 bg-white/40 rounded" />
-                  <div className="col-span-2 h-5 bg-white/40 rounded" />
-                </div>
-                <div className="sm:hidden p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="h-4 w-28 bg-white/40 rounded" />
-                    <div className="h-4 w-12 bg-white/40 rounded" />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="h-4 w-10 bg-white/40 rounded" />
-                    <div className="h-4 w-24 bg-white/40 rounded" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <TotalSaleTable
-              allPaymentMethods={paymentMethods}
-              totalRevenue={totalRevenue}
-            />
-          )}
-
-          {/* FOXIE BALANCE SECTION */}
-          <div ref={sectionRefs.current.dashboard_foxie_balance} className={highlightKey === 'dashboard_foxie_balance' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
-          <FoxieBalanceTable
-            foxieBalanceLoading={foxieBalanceLoading}
-            foxieBalanceError={foxieBalanceError}
-            foxieBalanceData={foxieBalanceData}
-          />
+          {/* KPI Chart */}
+          <div
+            ref={sectionRefs.current.dashboard_kpi}
+            className={
+              highlightKey === "dashboard_kpi"
+                ? "ring-2 ring-[#41d1d9] rounded-lg"
+                : ""
+            }
+          >
+            <LazyLoadingWrapper type="chart" minHeight="400px">
+              {/* Always show KPIChart - let it handle its own loading states internally */}
+              <KPIChart
+                kpiDailySeriesLoading={kpiDailySeriesLoading}
+                kpiDailySeriesError={kpiDailySeriesError}
+                dailyKpiGrowthData={dailyKpiGrowthData}
+                kpiViewMode={kpiViewMode}
+                setKpiViewMode={setKpiViewMode}
+                currentDayForDaily={isDaily ? todayDay : lastDay}
+                currentPercentage={isDaily ? dailyPercentage : currentPercentage}
+                dailyPercentageForCurrentDay={
+                  isDaily ? dailyPercentage : currentPercentage
+                }
+                kpiMonthlyRevenueLoading={kpiMonthlyRevenueLoading}
+                dailyRevenueLoading={dailyRevenueLoading}
+                targetStatus={isDaily ? dailyStatus : monthlyStatus}
+                monthlyTarget={COMPANY_MONTH_TARGET} // đây là Mục tiêu tháng này - LUÔN SỐ CỨNG
+                dailyTargetForCurrentDay={dailyTargetForCurrentDay}
+                dailyTargetForToday={
+                  isDaily ? dailyTargetForCurrentDay : targetUntilNow
+                } // Đến nay cần đạt: ngày hoặc tháng
+                remainingTarget={isDaily ? dailyKpiLeft : remainingTarget}
+                remainingDailyTarget={isDaily ? dailyKpiLeft : remainingTarget}
+                dailyTargetPercentageForCurrentDay={100.0}
+                currentRevenue={isDaily ? dailyKpiRevenue : currentRevenue}
+              />
+            </LazyLoadingWrapper>
           </div>
 
-          {/* SALES BY HOUR SECTION */}
-          <div ref={sectionRefs.current.dashboard_sales_by_hour} className={highlightKey === 'dashboard_sales_by_hour' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
-          <SalesByHourTable
-            salesByHourLoading={salesByHourLoading}
-            salesByHourError={salesByHourError}
-            salesByHourData={salesByHourData}
-          />
+          {/* Bảng Tổng Doanh Số */}
+          <LazyLoadingWrapper type="table" minHeight="300px">
+            <ConditionalRender
+              loading={salesLoading}
+              error={salesError}
+              data={salesSummaryData}
+              fallback={
+                <div className="border-[#f16a3f]/20 shadow-lg bg-gradient-to-r from-white to-[#f16a3f]/5 rounded-lg p-4 sm:p-6">
+                  <div className="h-6 w-48 bg-gray-200 rounded animate-pulse mb-4" />
+                  <div className="hidden sm:grid grid-cols-12 gap-4 p-3 bg-gradient-to-r from-[#7bdcb5]/20 to-[#00d084]/20 rounded-lg font-semibold text-sm mb-3">
+                    <div className="col-span-4 h-4 bg-gray-200 rounded" />
+                    <div className="col-span-3 h-4 bg-gray-200 rounded" />
+                    <div className="col-span-3 h-4 bg-gray-200 rounded" />
+                    <div className="col-span-2 h-4 bg-gray-200 rounded" />
+                  </div>
+                  <div className="space-y-2">
+                    {[...Array(3)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="border border-[#f16a3f]/10 rounded-lg p-3"
+                      >
+                        <div className="hidden sm:grid grid-cols-12 gap-4">
+                          <div className="col-span-4 h-4 bg-gray-200 rounded" />
+                          <div className="col-span-3 h-4 bg-gray-200 rounded" />
+                          <div className="col-span-3 h-4 bg-gray-200 rounded" />
+                          <div className="col-span-2 h-4 bg-gray-200 rounded" />
+                        </div>
+                        <div className="sm:hidden space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 w-28 bg-gray-200 rounded" />
+                            <div className="h-4 w-10 bg-gray-200 rounded" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 w-12 bg-gray-200 rounded" />
+                            <div className="h-4 w-24 bg-gray-200 rounded" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bg-[#f16a3f] rounded-lg mt-3">
+                    <div className="hidden sm:grid grid-cols-12 gap-4 p-3">
+                      <div className="col-span-4 h-5 bg-white/40 rounded" />
+                      <div className="col-span-3 h-5 bg-white/40 rounded" />
+                      <div className="col-span-3 h-5 bg-white/40 rounded" />
+                      <div className="col-span-2 h-5 bg-white/40 rounded" />
+                    </div>
+                    <div className="sm:hidden p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="h-4 w-28 bg-white/40 rounded" />
+                        <div className="h-4 w-12 bg-white/40 rounded" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="h-4 w-10 bg-white/40 rounded" />
+                        <div className="h-4 w-24 bg-white/40 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+            >
+              <TotalSaleTable
+                allPaymentMethods={paymentMethods}
+                totalRevenue={totalRevenue}
+              />
+            </ConditionalRender>
+          </LazyLoadingWrapper>
+
+          {/* Growth By Payment Chart */}
+          <LazyLoadingWrapper type="chart" minHeight="450px">
+            {loadingGrowth ? (
+              <div className="w-full flex justify-center items-center min-h-[450px] rounded-lg bg-gray-50 text-[#41d1d9] text-lg font-semibold">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#41d1d9]"></div>
+                  <span>Đang tải dữ liệu tăng trưởng...</span>
+                </div>
+              </div>
+            ) : paymentGrowthByMonth.length === 0 ? (
+              <div className="w-full flex justify-center items-center min-h-[450px] rounded-lg bg-gray-50 text-gray-600">
+                Không có dữ liệu để hiển thị
+              </div>
+            ) : (
+              <GrowthByPaymentChart
+                data={paymentGrowthByMonth}
+                compareFromDay={compareFromDay}
+                compareToDay={compareToDay}
+                compareMonth={compareMonth}
+                setCompareFromDay={setCompareFromDay}
+                setCompareToDay={setCompareToDay}
+                setCompareMonth={setCompareMonth}
+                onMonthSelect={fetchSingleMonth}
+              />
+            )}
+          </LazyLoadingWrapper>
+        </div>
+
+          {/* FOXIE BALANCE SECTION */}
+          <div
+            ref={sectionRefs.current.dashboard_foxie_balance}
+            className={
+              highlightKey === "dashboard_foxie_balance"
+                ? "ring-2 ring-[#41d1d9] rounded-lg"
+                : ""
+            }
+          >
+            <LazyLoadingWrapper type="table" minHeight="200px">
+              <ConditionalRender
+                loading={foxieBalanceLoading}
+                error={foxieBalanceError}
+                data={foxieBalanceData}
+              >
+                <FoxieBalanceTable
+                  foxieBalanceLoading={foxieBalanceLoading}
+                  foxieBalanceError={foxieBalanceError}
+                  foxieBalanceData={foxieBalanceData}
+                />
+              </ConditionalRender>
+            </LazyLoadingWrapper>
           </div>
 
           {/* CHI TIẾT DOANH THU SECTION */}
-          <div ref={sectionRefs.current.dashboard_sale_detail} className={highlightKey === 'dashboard_sale_detail' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
-          <SaleDetail
-            salesDetailLoading={salesDetailLoading}
-            salesDetailError={salesDetailError}
-            salesDetailData={salesDetailData}
-          />
+          <div
+            ref={sectionRefs.current.dashboard_sale_detail}
+            className={
+              highlightKey === "dashboard_sale_detail"
+                ? "ring-2 ring-[#41d1d9] rounded-lg"
+                : ""
+            }
+          >
+            <LazyLoadingWrapper type="table" minHeight="300px">
+              <ConditionalRender
+                loading={salesDetailLoading}
+                error={salesDetailError}
+                data={salesDetailData}
+              >
+                <SaleDetail
+                  salesDetailLoading={salesDetailLoading}
+                  salesDetailError={salesDetailError}
+                  salesDetailData={salesDetailData}
+                />
+              </ConditionalRender>
+            </LazyLoadingWrapper>
+          </div>
+
+          {/* SALES BY HOUR SECTION */}
+          <div
+            ref={sectionRefs.current.dashboard_sales_by_hour}
+            className={
+              highlightKey === "dashboard_sales_by_hour"
+                ? "ring-2 ring-[#41d1d9] rounded-lg"
+                : ""
+            }
+          >
+            <LazyLoadingWrapper type="table" minHeight="300px">
+              <ConditionalRender
+                loading={salesByHourLoading}
+                error={salesByHourError}
+                data={salesByHourData}
+              >
+                <SalesByHourTable
+                  salesByHourLoading={salesByHourLoading}
+                  salesByHourError={salesByHourError}
+                  salesByHourData={salesByHourData}
+                />
+              </ConditionalRender>
+            </LazyLoadingWrapper>
           </div>
 
           {/* Revenue Charts */}
@@ -1760,65 +2242,97 @@ export default function Dashboard() {
             serviceDataByDistrict={serviceDataByDistrict}
           /> */}
 
-          {/* KPI Chart */}
-          <div ref={sectionRefs.current.dashboard_kpi} className={highlightKey === 'dashboard_kpi' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
-          <KPIChart
-            kpiDailySeriesLoading={kpiDailySeriesLoading}
-            kpiDailySeriesError={kpiDailySeriesError}
-            dailyKpiGrowthData={dailyKpiGrowthData}
-            kpiViewMode={kpiViewMode}
-            setKpiViewMode={setKpiViewMode}
-            currentDayForDaily={currentDayForDaily}
-            currentPercentage={currentPercentage}
-            dailyPercentageForCurrentDay={dailyPercentageForCurrentDay}
-            kpiMonthlyRevenueLoading={kpiMonthlyRevenueLoading}
-            dailyRevenueLoading={dailyRevenueLoading}
-            targetStatus={targetStatus}
-            monthlyTarget={monthlyTarget}
-            dailyTargetForCurrentDay={dailyTargetForCurrentDay}
-            dailyTargetForToday={dailyTargetForToday}
-            remainingTarget={remainingTarget}
-            remainingDailyTarget={remainingDailyTarget}
-            dailyTargetPercentageForCurrentDay={
-              dailyTargetPercentageForCurrentDay
-            }
-            currentRevenue={currentRevenue}
-          />
-          </div>
-        </div>
 
         {/* KHÁCH HÀNG SECTION */}
-        <div ref={sectionRefs.current.dashboard_customer_section} className={highlightKey === 'dashboard_customer_section' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
-        <CustomerSection
-          newCustomerLoading={newCustomerLoading}
-          newCustomerError={newCustomerError}
-          newCustomerTotal={newCustomerTotal}
-          newCustomerPieData={newCustomerPieData}
-          oldCustomerLoading={oldCustomerLoading}
-          oldCustomerError={oldCustomerError}
-          oldCustomerTotal={oldCustomerTotal}
-          oldCustomerPieData={oldCustomerPieData}
-        />
+        <div
+          ref={sectionRefs.current.dashboard_customer_section}
+          className={
+            highlightKey === "dashboard_customer_section"
+              ? "ring-2 ring-[#41d1d9] rounded-lg"
+              : ""
+          }
+        >
+          <LazyLoadingWrapper type="section" minHeight="400px">
+            <ConditionalRender
+              loading={newCustomerLoading || oldCustomerLoading}
+              error={newCustomerError || oldCustomerError}
+              data={(newCustomerData || oldCustomerData) ? { newCustomerData, oldCustomerData } : null}
+            >
+              <CustomerSection
+                newCustomerLoading={newCustomerLoading}
+                newCustomerError={newCustomerError}
+                newCustomerTotal={newCustomerTotal}
+                newCustomerPieData={newCustomerPieData}
+                oldCustomerLoading={oldCustomerLoading}
+                oldCustomerError={oldCustomerError}
+                oldCustomerTotal={oldCustomerTotal}
+                oldCustomerPieData={oldCustomerPieData}
+              />
+            </ConditionalRender>
+          </LazyLoadingWrapper>
         </div>
 
         {/* ĐẶT LỊCH SECTION */}
-        <div ref={sectionRefs.current.dashboard_booking_section} className={highlightKey === 'dashboard_booking_section' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
-        <BookingSection
-          bookingLoading={bookingLoading}
-          bookingError={bookingError}
-          bookingData={bookingData}
-        />
+        <div
+          ref={sectionRefs.current.dashboard_booking_section}
+          className={
+            highlightKey === "dashboard_booking_section"
+              ? "ring-2 ring-[#41d1d9] rounded-lg"
+              : ""
+          }
+        >
+          <LazyLoadingWrapper type="section" minHeight="300px">
+            <ConditionalRender
+              loading={bookingLoading}
+              error={bookingError}
+              data={bookingData}
+            >
+              <BookingSection
+                bookingLoading={bookingLoading}
+                bookingError={bookingError}
+                bookingData={bookingData}
+              />
+            </ConditionalRender>
+          </LazyLoadingWrapper>
         </div>
 
+         {/* BOOKING BY HOUR CHART */}
+         <LazyLoadingWrapper type="chart" minHeight="300px">
+           <ConditionalRender
+             loading={bookingByHourLoading}
+             error={bookingByHourError}
+             data={bookingByHourData}
+           >
+             <BookingByHourChart loading={bookingByHourLoading} error={bookingByHourError} data={bookingByHourData} />
+           </ConditionalRender>
+         </LazyLoadingWrapper>
+
         {/* DỊCH VỤ SECTION */}
-        <div ref={sectionRefs.current.dashboard_service_section} className={highlightKey === 'dashboard_service_section' ? 'ring-2 ring-[#41d1d9] rounded-lg' : ''}>
-        <ServiceSection
-          bookingLoading={bookingLoading}
-          bookingError={bookingError}
-          bookingData={bookingData}
-          serviceSummaryData={serviceSummaryData}
-        />
+        <div
+          ref={sectionRefs.current.dashboard_service_section}
+          className={
+            highlightKey === "dashboard_service_section"
+              ? "ring-2 ring-[#41d1d9] rounded-lg"
+              : ""
+          }
+        >
+          <LazyLoadingWrapper type="section" minHeight="400px">
+            <ConditionalRender
+              loading={bookingLoading || !serviceSummaryData}
+              error={bookingError || serviceError}
+              data={serviceSummaryData || bookingData}
+            >
+              <ServiceSection
+                bookingLoading={bookingLoading}
+                bookingError={bookingError}
+                bookingData={bookingData}
+                serviceSummaryData={serviceSummaryData}
+              />
+            </ConditionalRender>
+          </LazyLoadingWrapper>
         </div>
+
+       
       </div>
     </div>
   );

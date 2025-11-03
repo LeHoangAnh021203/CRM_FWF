@@ -9,6 +9,7 @@ import {
   Sparkles,
   Radical,
   CalendarCheck2,
+  LayoutDashboard
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import Link from "next/link";
@@ -19,10 +20,16 @@ import { useAuth } from "../contexts/AuthContext";
 
 const menuItems = [
   {
+    icon: LayoutDashboard,
+    label: "Dashboard",
+    href: "/",
+  },
+  {
     icon: Users,
     label: "Customer",
     href: "/dashboard/customers",
   },
+
   {
     icon: ShoppingCart,
     label: "Orders",

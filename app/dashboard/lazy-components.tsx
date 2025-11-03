@@ -36,3 +36,64 @@ export const TopSaleChart = lazy(() =>
     default: module.default,
   })),
 );
+
+// Lazy load dashboard-specific components
+export const TotalSaleTable = lazy(() =>
+  import("./TotalSaleTable").then((module) => ({
+    default: module.default,
+  })),
+);
+
+export const SaleDetail = lazy(() =>
+  import("./SaleDetail").then((module) => ({
+    default: module.default,
+  })),
+);
+
+export const KPIChart = lazy(() =>
+  import("./KPIChart").then((module) => ({
+    default: module.default,
+  })),
+);
+
+export const CustomerSection = lazy(() =>
+  import("./CustomerSection").then((module) => ({
+    default: module.default,
+  })),
+);
+
+export const BookingSection = lazy(() =>
+  import("./BookingSection").then((module) => ({
+    default: module.default,
+  })),
+);
+
+export const BookingByHourChart = lazy(() =>
+  import("./BookingByHourChart").then((module) => ({
+    default: module.default,
+  })),
+);
+
+export const ServiceSection = lazy(() =>
+  import("./ServiceSection").then((module) => ({
+    default: module.default,
+  })),
+);
+
+export const FoxieBalanceTable = lazy(() =>
+  import("./FoxieBalanceTable").then((module) => ({
+    default: module.default,
+  })),
+);
+
+export const SalesByHourTable = lazy(() =>
+  import("./SalesByHourTable").then((module) => ({
+    default: module.default,
+  })),
+);
+
+export const GrowthByPaymentChart = lazy(() =>
+  import("./GrowthByPaymentChart").then((module) => ({
+    default: module.default,
+  })),
+);

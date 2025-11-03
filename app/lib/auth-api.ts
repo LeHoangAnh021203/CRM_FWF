@@ -69,6 +69,14 @@ export class AuthAPI {
           console.warn('Failed to parse error response:', parseError)
           errorData = { error: `HTTP ${response.status}: ${response.statusText}` }
         }
+
+        // Fallback if server returned an empty JSON object
+        if (
+          !errorData ||
+          (typeof errorData === 'object' && Object.keys(errorData).length === 0)
+        ) {
+          errorData = { error: `HTTP ${response.status}: ${response.statusText}` }
+        }
         
         console.error('AuthAPI.login error details:', errorData)
         const errMsg =

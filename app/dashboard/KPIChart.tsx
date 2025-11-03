@@ -1,8 +1,22 @@
 "use client";
 
 import React from "react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/app/components/ui/card";
-import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/app/components/ui/card";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from "recharts";
 
 interface DailyKpiPoint {
   day: string;
@@ -40,7 +54,9 @@ interface KPIChartProps {
 }
 
 const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(value);
+  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
+    value
+  );
 
 const statusColors = {
   ahead: { bg: "#00d084", text: "Vượt tiến độ" },
@@ -74,8 +90,12 @@ export default function KPIChart(props: KPIChartProps) {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
       <Card className="border-[#fcb900]/20 shadow-lg bg-gradient-to-br from-white to-[#fcb900]/10">
         <CardHeader className="bg-[#d97706] text-white rounded-t-lg p-3 sm:p-4">
-          <CardTitle className="text-white font-bold text-base sm:text-lg">Tăng Trưởng KPI Theo Ngày</CardTitle>
-          <CardDescription className="text-white/90 font-medium text-sm">Biểu đồ doanh thu từ đầu tháng đến hiện tại</CardDescription>
+          <CardTitle className="text-white font-bold text-base sm:text-lg">
+            Tăng Trưởng KPI Theo Ngày
+          </CardTitle>
+          <CardDescription className="text-white/90 font-medium text-sm">
+            Biểu đồ doanh thu từ đầu tháng đến hiện tại
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
           {kpiDailySeriesLoading ? (
@@ -83,76 +103,149 @@ export default function KPIChart(props: KPIChartProps) {
               <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-[#d97706]"></div>
             </div>
           ) : kpiDailySeriesError ? (
-            <div className="h-[200px] sm:h-[280px] flex items-center justify-center text-red-600 text-xs sm:text-sm px-2">Lỗi tải dữ liệu: {kpiDailySeriesError}</div>
+            <div className="h-[200px] sm:h-[280px] flex items-center justify-center text-red-600 text-xs sm:text-sm px-2">
+              Lỗi tải dữ liệu: {kpiDailySeriesError}
+            </div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={dailyKpiGrowthData} margin={{ top: 10, right: 15, left: 10, bottom: 10 }}>
+              <LineChart
+                data={dailyKpiGrowthData}
+                margin={{ top: 10, right: 15, left: 10, bottom: 10 }}
+              >
                 <defs>
-                  <linearGradient id="kpiAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient
+                    id="kpiAreaGradient"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
                     <stop offset="0%" stopColor="#fcb900" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#fcb900" stopOpacity={0.05} />
+                    <stop
+                      offset="100%"
+                      stopColor="#fcb900"
+                      stopOpacity={0.05}
+                    />
                   </linearGradient>
-                  <linearGradient id="targetAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient
+                    id="targetAreaGradient"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
                     <stop offset="0%" stopColor="#d97706" stopOpacity={0.2} />
-                    <stop offset="100%" stopColor="#d97706" stopOpacity={0.02} />
+                    <stop
+                      offset="100%"
+                      stopColor="#d97706"
+                      stopOpacity={0.02}
+                    />
                   </linearGradient>
                 </defs>
 
-                <CartesianGrid strokeDasharray="1 3" stroke="#fcb900" strokeOpacity={0.2} vertical={false} />
-                <XAxis 
-                  dataKey="date" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 9, fill: "#d97706", fontWeight: "500" }} 
-                  interval="preserveStartEnd" 
-                  tickCount={Math.min(dailyKpiGrowthData.length, 6)} 
+                <CartesianGrid
+                  strokeDasharray="1 3"
+                  stroke="#fcb900"
+                  strokeOpacity={0.2}
+                  vertical={false}
                 />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 8, fill: "#d97706" }} 
-                  tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} 
-                  domain={["dataMin - 50000000", "dataMax + 50000000"]} 
+                <XAxis
+                  dataKey="date"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 9, fill: "#d97706", fontWeight: "500" }}
+                  interval="preserveStartEnd"
+                  tickCount={Math.min(dailyKpiGrowthData.length, 6)}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 8, fill: "#d97706" }}
+                  tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
+                  domain={["dataMin - 50000000", "dataMax + 50000000"]}
                 />
                 <Tooltip
-                  contentStyle={{ 
-                    backgroundColor: "rgba(0, 0, 0, 0.9)", 
-                    border: "1px solid #fcb900", 
-                    borderRadius: "8px", 
-                    boxShadow: "0 10px 25px rgba(0, 0, 0, 0.3)", 
-                    padding: "8px 12px", 
-                    fontSize: "11px", 
-                    fontWeight: "500", 
-                    color: "white" 
+                  contentStyle={{
+                    backgroundColor: "rgba(0, 0, 0, 0.9)",
+                    border: "1px solid #fcb900",
+                    borderRadius: "8px",
+                    boxShadow: "0 10px 25px rgba(0, 0, 0, 0.3)",
+                    padding: "8px 12px",
+                    fontSize: "11px",
+                    fontWeight: "500",
+                    color: "white",
                   }}
                   formatter={(value: number, name: string) => {
-                    if (name === "revenue") return [formatCurrency(value), "Doanh thu"];
-                    if (name === "target") return [formatCurrency(value), "Mục tiêu"];
+                    if (name === "revenue")
+                      return [formatCurrency(value), "Doanh thu"];
+                    if (name === "target")
+                      return [formatCurrency(value), "Mục tiêu"];
                     return [value, name];
                   }}
-                  labelFormatter={(label: string, payload: readonly { payload?: { day: string; percentage: number; isToday: boolean } }[]) => {
+                  labelFormatter={(
+                    label: string,
+                    payload: readonly {
+                      payload?: {
+                        day: string;
+                        percentage: number;
+                        isToday: boolean;
+                      };
+                    }[]
+                  ) => {
                     if (payload && payload[0]?.payload) {
                       const data = payload[0].payload as DailyKpiPoint;
-                      return `${data.day} ${label} ${data.isToday ? "(Hôm nay)" : ""} - ${data.percentage.toFixed(1)}%`;
+                      return `${data.day} ${label} ${
+                        data.isToday ? "(Hôm nay)" : ""
+                      } - ${data.percentage.toFixed(1)}%`;
                     }
                     return label;
                   }}
                 />
-                <Line type="monotone" dataKey="target" stroke="#d97706" strokeWidth={2} strokeDasharray="8 4" dot={false} activeDot={{ r: 4, stroke: "#d97706", strokeWidth: 2, fill: "white" }} />
+                <Line
+                  type="monotone"
+                  dataKey="target"
+                  stroke="#d97706"
+                  strokeWidth={2}
+                  strokeDasharray="8 4"
+                  dot={false}
+                  activeDot={{
+                    r: 4,
+                    stroke: "#d97706",
+                    strokeWidth: 2,
+                    fill: "white",
+                  }}
+                />
                 <Line
                   type="monotone"
                   dataKey="revenue"
                   stroke="#fcb900"
                   strokeWidth={3}
-                  dot={(p: { cx: number; cy: number; payload: Partial<DailyKpiPoint> }) => {
+                  dot={(p: {
+                    cx: number;
+                    cy: number;
+                    payload: Partial<DailyKpiPoint>;
+                  }) => {
                     const { cx, cy, payload } = p;
                     const key = payload.date || `${cx}-${cy}`;
                     const isToday = Boolean(payload.isToday);
                     return (
-                      <circle key={`dot-${key}`} cx={cx} cy={cy} r={isToday ? 6 : 4} fill={isToday ? "#ff6b6b" : "#fcb900"} stroke={isToday ? "white" : "#fcb900"} strokeWidth={isToday ? 3 : 2} />
+                      <circle
+                        key={`dot-${key}`}
+                        cx={cx}
+                        cy={cy}
+                        r={isToday ? 6 : 4}
+                        fill={isToday ? "#ff6b6b" : "#fcb900"}
+                        stroke={isToday ? "white" : "#fcb900"}
+                        strokeWidth={isToday ? 3 : 2}
+                      />
                     );
                   }}
-                  activeDot={{ r: 8, stroke: "#fcb900", strokeWidth: 3, fill: "white" }}
+                  activeDot={{
+                    r: 8,
+                    stroke: "#fcb900",
+                    strokeWidth: 3,
+                    fill: "white",
+                  }}
                   animationBegin={0}
                   animationDuration={2000}
                   animationEasing="ease-out"
@@ -164,15 +257,33 @@ export default function KPIChart(props: KPIChartProps) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 pt-3 border-t border-[#fcb900]/20">
             <div className="text-center p-2 bg-white/50 rounded-lg">
               <p className="text-xs text-gray-600">Tổng tháng</p>
-              <p className="text-xs sm:text-sm font-bold text-[#d97706] break-all">{formatCurrency(dailyKpiGrowthData.reduce((sum, item) => sum + item.revenue, 0))}</p>
+              <p className="text-xs sm:text-sm font-bold text-[#d97706] break-all">
+                {formatCurrency(
+                  dailyKpiGrowthData.reduce(
+                    (sum, item) => sum + item.revenue,
+                    0
+                  )
+                )}
+              </p>
             </div>
             <div className="text-center p-2 bg-white/50 rounded-lg">
               <p className="text-xs text-gray-600">Trung bình</p>
-              <p className="text-xs sm:text-sm font-bold text-[#d97706] break-all">{formatCurrency(dailyKpiGrowthData.reduce((sum, item) => sum + item.revenue, 0) / dailyKpiGrowthData.length)}</p>
+              <p className="text-xs sm:text-sm font-bold text-[#d97706] break-all">
+                {formatCurrency(
+                  dailyKpiGrowthData.reduce(
+                    (sum, item) => sum + item.revenue,
+                    0
+                  ) / dailyKpiGrowthData.length
+                )}
+              </p>
             </div>
             <div className="text-center p-2 bg-white/50 rounded-lg">
               <p className="text-xs text-gray-600">Cao nhất</p>
-              <p className="text-xs sm:text-sm font-bold text-[#d97706] break-all">{formatCurrency(Math.max(...dailyKpiGrowthData.map((i) => i.revenue)))}</p>
+              <p className="text-xs sm:text-sm font-bold text-[#d97706] break-all">
+                {formatCurrency(
+                  Math.max(...dailyKpiGrowthData.map((i) => i.revenue))
+                )}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -182,21 +293,49 @@ export default function KPIChart(props: KPIChartProps) {
         <CardHeader className="bg-[#00b894] text-white rounded-t-lg p-3 sm:p-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <CardTitle className="text-white font-bold text-base sm:text-lg">Target KPI</CardTitle>
+              <CardTitle className="text-white font-bold text-base sm:text-lg">
+                Target KPI
+              </CardTitle>
               <CardDescription className="text-white font-medium text-sm">
-                {kpiViewMode === "monthly" ? "Tiến độ hoàn thành mục tiêu doanh thu tháng" : `Tiến độ doanh thu ngày ${currentDayForDaily}`}
+                {kpiViewMode === "monthly"
+                  ? "Tiến độ hoàn thành mục tiêu doanh thu tháng"
+                  : `Tiến độ doanh thu ngày ${currentDayForDaily}`}
               </CardDescription>
             </div>
 
             <div className="flex items-center justify-center sm:justify-end gap-3">
-              <span className={`text-xs sm:text-sm font-medium transition-colors ${kpiViewMode === "monthly" ? "text-white" : "text-white/70"}`}>Tháng</span>
-              <button
-                onClick={() => setKpiViewMode(kpiViewMode === "monthly" ? "daily" : "monthly")}
-                className={`relative inline-flex h-5 w-9 sm:h-6 sm:w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#00b894] ${kpiViewMode === "daily" ? "bg-white" : "bg-white/30"}`}
+              <span
+                className={`text-xs sm:text-sm font-medium transition-colors ${
+                  kpiViewMode === "monthly" ? "text-white" : "text-white/70"
+                }`}
               >
-                <span className={`inline-block h-3 w-3 sm:h-4 sm:w-4 transform rounded-full bg-[#00b894] transition-transform ${kpiViewMode === "daily" ? "translate-x-5 sm:translate-x-6" : "translate-x-1"}`} />
+                Tháng
+              </span>
+              <button
+                onClick={() =>
+                  setKpiViewMode(
+                    kpiViewMode === "monthly" ? "daily" : "monthly"
+                  )
+                }
+                className={`relative inline-flex h-5 w-9 sm:h-6 sm:w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#00b894] ${
+                  kpiViewMode === "daily" ? "bg-white" : "bg-white/30"
+                }`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 sm:h-4 sm:w-4 transform rounded-full bg-[#00b894] transition-transform ${
+                    kpiViewMode === "daily"
+                      ? "translate-x-5 sm:translate-x-6"
+                      : "translate-x-1"
+                  }`}
+                />
               </button>
-              <span className={`text-xs sm:text-sm font-medium transition-colors ${kpiViewMode === "daily" ? "text-white" : "text-white/70"}`}>Ngày</span>
+              <span
+                className={`text-xs sm:text-sm font-medium transition-colors ${
+                  kpiViewMode === "daily" ? "text-white" : "text-white/70"
+                }`}
+              >
+                Ngày
+              </span>
             </div>
           </div>
         </CardHeader>
@@ -220,16 +359,30 @@ export default function KPIChart(props: KPIChartProps) {
                     <span>100M</span>
                     <span className="hidden sm:inline">150M</span>
                     <span>200M</span>
-                    <span>{Math.round(dailyTargetForCurrentDay / 1000000)}M</span>
+                    <span>
+                      {Math.round(dailyTargetForCurrentDay / 1000000)}M
+                    </span>
                   </>
                 )}
               </div>
 
               <div className="relative h-8 sm:h-12 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                <div className="h-full bg-gradient-to-r from-[#ff6b6b] via-[#ff9500] to-[#fcb900] rounded-full transition-all duration-1000 ease-out shadow-lg" style={{ width: `${kpiViewMode === "monthly" ? currentPercentage : dailyPercentageForCurrentDay}%` }} />
+                <div
+                  className="h-full bg-gradient-to-r from-[#ff6b6b] via-[#ff9500] to-[#fcb900] rounded-full transition-all duration-1000 ease-out shadow-lg"
+                  style={{
+                    width: `${
+                      kpiViewMode === "monthly"
+                        ? currentPercentage
+                        : dailyPercentageForCurrentDay
+                    }%`,
+                  }}
+                />
 
                 {kpiViewMode === "daily" && (
-                  <div className="absolute top-0 h-full w-1 bg-gray-800 shadow-lg z-10" style={{ left: `${dailyTargetPercentageForCurrentDay}%` }} />
+                  <div
+                    className="absolute top-0 h-full w-1 bg-gray-800 shadow-lg z-10"
+                    style={{ left: `${dailyTargetPercentageForCurrentDay}%` }}
+                  />
                 )}
 
                 <div className="absolute top-0 left-0 w-full h-full flex justify-between items-center px-1">
@@ -243,7 +396,8 @@ export default function KPIChart(props: KPIChartProps) {
               </div>
 
               <div className="mt-3 sm:mt-4 text-center">
-                {(kpiViewMode === "monthly" && kpiMonthlyRevenueLoading) || (kpiViewMode === "daily" && dailyRevenueLoading) ? (
+                {(kpiViewMode === "monthly" && kpiMonthlyRevenueLoading) ||
+                (kpiViewMode === "daily" && dailyRevenueLoading) ? (
                   <div className="space-y-2 sm:space-y-3">
                     <div className="animate-pulse bg-gray-200 h-6 sm:h-8 w-32 sm:w-48 mx-auto rounded"></div>
                     <div className="animate-pulse bg-gray-200 h-3 sm:h-4 w-24 sm:w-32 mx-auto rounded"></div>
@@ -251,14 +405,25 @@ export default function KPIChart(props: KPIChartProps) {
                   </div>
                 ) : (
                   <>
-                    <p className="text-lg sm:text-2xl font-bold text-gray-800 break-all">{formatCurrency(currentRevenue)}</p>
+                    <p className="text-lg sm:text-2xl font-bold text-gray-800 break-all">
+                      {formatCurrency(currentRevenue)}
+                    </p>
                     <p className="text-xs sm:text-sm text-gray-600 mt-1 px-2">
                       {kpiViewMode === "monthly"
-                        ? `${currentPercentage.toFixed(1)}% hoàn thành mục tiêu tháng`
-                        : `${dailyPercentageForCurrentDay.toFixed(1)}% hoàn thành mục tiêu ngày ${currentDayForDaily}`}
+                        ? `${currentPercentage.toFixed(
+                            1
+                          )}% hoàn thành mục tiêu tháng`
+                        : `${dailyPercentageForCurrentDay.toFixed(
+                            1
+                          )}% hoàn thành mục tiêu ngày ${currentDayForDaily}`}
                     </p>
                     <div className="mt-2 flex items-center justify-center gap-2">
-                      <div className="px-2 sm:px-3 py-1 rounded-full text-white text-xs sm:text-sm font-semibold" style={{ backgroundColor: statusColors[targetStatus].bg }}>
+                      <div
+                        className="px-2 sm:px-3 py-1 rounded-full text-white text-xs sm:text-sm font-semibold"
+                        style={{
+                          backgroundColor: statusColors[targetStatus].bg,
+                        }}
+                      >
                         {statusColors[targetStatus].text}
                       </div>
                     </div>
@@ -269,27 +434,58 @@ export default function KPIChart(props: KPIChartProps) {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pt-3 sm:pt-4 border-t border-gray-200">
               <div className="text-center p-2 bg-white/50 rounded-lg">
-                <p className="text-xs sm:text-sm text-gray-600">{kpiViewMode === "monthly" ? "Mục tiêu tháng này" : "Mục tiêu 1 ngày"}</p>
-                {(kpiViewMode === "monthly" && kpiMonthlyRevenueLoading) || (kpiViewMode === "daily" && dailyRevenueLoading) ? (
+                <p className="text-xs sm:text-sm text-gray-600">
+                  {kpiViewMode === "monthly"
+                    ? "Mục tiêu tháng này"
+                    : "Mục tiêu 1 ngày"}
+                </p>
+                {(kpiViewMode === "monthly" && kpiMonthlyRevenueLoading) ||
+                (kpiViewMode === "daily" && dailyRevenueLoading) ? (
                   <div className="animate-pulse bg-gray-200 h-4 sm:h-6 w-16 sm:w-24 mx-auto rounded"></div>
                 ) : (
-                  <p className="text-sm sm:text-lg font-bold text-[#0693e3] break-all">{formatCurrency(kpiViewMode === "monthly" ? monthlyTarget : dailyTargetForCurrentDay)}</p>
+                  <p className="text-sm sm:text-lg font-bold text-[#0693e3] break-all">
+                    {formatCurrency(
+                      kpiViewMode === "monthly"
+                        ? monthlyTarget
+                        : dailyTargetForCurrentDay
+                    )}
+                  </p>
                 )}
               </div>
               <div className="text-center p-2 bg-white/50 rounded-lg">
-                <p className="text-xs sm:text-sm text-gray-600">{kpiViewMode === "monthly" ? "Đến nay cần đạt" : `Mục tiêu ngày ${currentDayForDaily}`}</p>
-                {(kpiViewMode === "monthly" && kpiMonthlyRevenueLoading) || (kpiViewMode === "daily" && dailyRevenueLoading) ? (
+                <p className="text-xs sm:text-sm text-gray-600">
+                  {kpiViewMode === "monthly"
+                    ? "Đến nay cần đạt"
+                    : `Mục tiêu ngày ${currentDayForDaily}`}
+                </p>
+                {(kpiViewMode === "monthly" && kpiMonthlyRevenueLoading) ||
+                (kpiViewMode === "daily" && dailyRevenueLoading) ? (
                   <div className="animate-pulse bg-gray-200 h-4 sm:h-6 w-16 sm:w-24 mx-auto rounded"></div>
                 ) : (
-                  <p className="text-sm sm:text-lg font-bold text-gray-800 break-all">{formatCurrency(kpiViewMode === "monthly" ? dailyTargetForToday : dailyTargetForCurrentDay)}</p>
+                  <p className="text-sm sm:text-lg font-bold text-gray-800 break-all">
+                    {formatCurrency(
+                      kpiViewMode === "monthly"
+                        ? dailyTargetForToday
+                        : dailyTargetForCurrentDay
+                    )}
+                  </p>
                 )}
               </div>
               <div className="text-center p-2 bg-white/50 rounded-lg">
-                <p className="text-xs sm:text-sm text-gray-600">{kpiViewMode === "monthly" ? "Còn lại tháng" : "Còn lại ngày"}</p>
-                {(kpiViewMode === "monthly" && kpiMonthlyRevenueLoading) || (kpiViewMode === "daily" && dailyRevenueLoading) ? (
+                <p className="text-xs sm:text-sm text-gray-600">
+                  {kpiViewMode === "monthly" ? "Còn lại tháng" : "Còn lại ngày"}
+                </p>
+                {(kpiViewMode === "monthly" && kpiMonthlyRevenueLoading) ||
+                (kpiViewMode === "daily" && dailyRevenueLoading) ? (
                   <div className="animate-pulse bg-gray-200 h-4 sm:h-6 w-16 sm:w-24 mx-auto rounded"></div>
                 ) : (
-                  <p className="text-sm sm:text-lg font-bold text-[#ff6b6b] break-all">{formatCurrency(kpiViewMode === "monthly" ? remainingTarget : remainingDailyTarget)}</p>
+                  <p className="text-sm sm:text-lg font-bold text-[#ff6b6b] break-all">
+                    {formatCurrency(
+                      kpiViewMode === "monthly"
+                        ? remainingTarget
+                        : remainingDailyTarget
+                    )}
+                  </p>
                 )}
               </div>
             </div>
@@ -297,13 +493,20 @@ export default function KPIChart(props: KPIChartProps) {
             <div className="pt-3 sm:pt-4 border-t border-gray-200">
               <div className="flex items-center justify-center gap-2 text-xs sm:text-sm">
                 <div className="w-2 h-2 sm:w-3 sm:h-3 bg-gray-800 rounded"></div>
-                {(kpiViewMode === "monthly" && kpiMonthlyRevenueLoading) || (kpiViewMode === "daily" && dailyRevenueLoading) ? (
+                {(kpiViewMode === "monthly" && kpiMonthlyRevenueLoading) ||
+                (kpiViewMode === "daily" && dailyRevenueLoading) ? (
                   <div className="animate-pulse bg-gray-200 h-3 sm:h-4 w-32 sm:w-48 rounded"></div>
                 ) : (
                   <span className="text-gray-700 font-medium text-center break-all">
                     {kpiViewMode === "monthly"
-                      ? `Mục tiêu hôm nay: ${formatCurrency(dailyTargetForToday)}`
-                      : `Mục tiêu ngày ${currentDayForDaily}: ${formatCurrency(dailyTargetForCurrentDay)} (${Math.round(dailyTargetForCurrentDay / 1000000)}M)`}
+                      ? `Mục tiêu hôm nay: ${formatCurrency(
+                          dailyTargetForToday
+                        )}`
+                      : `Mục tiêu ngày ${currentDayForDaily}: ${formatCurrency(
+                          dailyTargetForCurrentDay
+                        )} (${Math.round(
+                          dailyTargetForCurrentDay / 1000000
+                        )}M)`}
                   </span>
                 )}
               </div>

@@ -32,7 +32,7 @@ export async function GET(
     const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 
       (process.env.NODE_ENV === 'production' 
         ? "https://your-backend-api.com" 
-        : "http://192.168.1.140:8080"))
+        : "http://localhost:8080"))
     const backendUrl = queryString 
       ? `${API_BASE_URL}/api/${path}?${queryString}`
       : `${API_BASE_URL}/api/${path}`
@@ -68,9 +68,11 @@ export async function GET(
     
   } catch (error) {
     console.error('❌ Proxy GET Error:', error)
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    const isConnError = /ECONNREFUSED|ENOTFOUND|EAI_AGAIN|fetch failed/i.test(message)
     return NextResponse.json(
-      { error: `Proxy Error: ${error instanceof Error ? error.message : 'Unknown error'}` },
-      { status: 500 }
+      { error: `Proxy Error: ${message}` },
+      { status: isConnError ? 502 : 500 }
     )
   }
 }
@@ -105,7 +107,7 @@ export async function POST(
     const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 
       (process.env.NODE_ENV === 'production' 
         ? "https://your-backend-api.com" 
-        : "http://192.168.1.140:8080"))
+        : "http://localhost:8080"))
     const backendUrl = `${API_BASE_URL}/api/${path}`
     
     console.log('🔍 Proxy Debug:', {
@@ -143,9 +145,11 @@ export async function POST(
     
   } catch (error) {
     console.error('❌ Proxy Error:', error)
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    const isConnError = /ECONNREFUSED|ENOTFOUND|EAI_AGAIN|fetch failed/i.test(message)
     return NextResponse.json(
-      { error: `Proxy Error: ${error instanceof Error ? error.message : 'Unknown error'}` },
-      { status: 500 }
+      { error: `Proxy Error: ${message}` },
+      { status: isConnError ? 502 : 500 }
     )
   }
 }

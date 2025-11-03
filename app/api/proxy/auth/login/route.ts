@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mockLogin } from '@/app/lib/mock-auth'
 import { shouldUseMockMode, getApiEndpoint } from '@/app/lib/auth-config'
-
 // API endpoint configuration
 const LOGIN_ENDPOINT = getApiEndpoint('auth/login');
+
+// In development, disable SSL certificate verification for testing
+// WARNING: This is only for development. Never use in production!
+if (process.env.NODE_ENV === 'development') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +21,14 @@ export async function POST(request: NextRequest) {
       LOGIN_ENDPOINT,
       mode: shouldUseMockMode() ? 'mock' : 'api'
     });
+
+    // Runtime diagnostics to verify env configuration
+    console.log('🧪 Auth Login Diagnostics:', {
+      NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+      NODE_ENV: process.env.NODE_ENV,
+      FORCE_MOCK_MODE: false,
+      resolvedMode: shouldUseMockMode() ? 'mock' : 'api'
+    })
 
     // Check if mock mode is enabled or if no backend API is configured
     const shouldUseMock = shouldUseMockMode();
