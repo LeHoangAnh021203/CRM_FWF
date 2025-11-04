@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mockLogin } from '@/app/lib/mock-auth'
-import { shouldUseMockMode, getApiEndpoint } from '@/app/lib/auth-config'
+import { shouldUseMockMode, getApiEndpoint, AUTH_CONFIG } from '@/app/lib/auth-config'
 // API endpoint configuration
 const LOGIN_ENDPOINT = getApiEndpoint('auth/login');
 
@@ -25,6 +25,10 @@ export async function POST(request: NextRequest) {
     // Runtime diagnostics to verify env configuration
     console.log('🧪 Auth Login Diagnostics:', {
       NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+      NEXT_PUBLIC_API_PREFIX: process.env.NEXT_PUBLIC_API_PREFIX,
+      AUTH_CONFIG_API_BASE_URL: AUTH_CONFIG.API_BASE_URL,
+      AUTH_CONFIG_API_PREFIX: AUTH_CONFIG.API_PREFIX,
+      LOGIN_ENDPOINT,
       NODE_ENV: process.env.NODE_ENV,
       FORCE_MOCK_MODE: false,
       resolvedMode: shouldUseMockMode() ? 'mock' : 'api'
@@ -61,7 +65,7 @@ export async function POST(request: NextRequest) {
     console.log('🌐 Calling real API:', LOGIN_ENDPOINT)
 
     try {
-      // Call the real API
+      // Call the real API (primary endpoint)
       const apiResponse = await fetch(LOGIN_ENDPOINT, {
         method: "POST",
         headers: {
@@ -82,21 +86,49 @@ export async function POST(request: NextRequest) {
         Object.fromEntries(apiResponse.headers.entries())
       );
 
-      // Check if API call was successful
+      // If primary failed with route-ish errors, try fallback endpoint toggling prefix
       if (!apiResponse.ok) {
-        const errorData = await apiResponse.json().catch(() => ({}));
-        console.error("❌ API Error:", errorData);
+        const status = apiResponse.status
+        let errorBody: unknown = null
+        try { errorBody = await apiResponse.json() } catch {}
+        console.warn('⚠️ Primary login endpoint failed:', { status, errorBody })
 
-        return NextResponse.json(
-          {
-            error: errorData.error || "Login failed",
-            details:
-              errorData.details ||
-              errorData.message ||
-              "Please check your credentials and try again",
-          },
-          { status: apiResponse.status }
-        );
+        // Build a fallback endpoint by toggling the prefix presence
+        const hasPrefix = (AUTH_CONFIG.API_PREFIX || '').trim() !== ''
+        const base = (AUTH_CONFIG.API_BASE_URL || '').replace(/\/+$/, '')
+        const altPrefix = hasPrefix ? '' : '/api'
+        const altEndpoint = `${base}${altPrefix}/auth/login`
+
+        console.log('🔁 Retrying login with fallback endpoint:', altEndpoint)
+        const fallbackResp = await fetch(altEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ username, password }),
+          signal: AbortSignal.timeout(10000)
+        })
+
+        if (!fallbackResp.ok) {
+          let fbError: unknown = null
+          try { fbError = await fallbackResp.json() } catch {}
+          console.error('❌ Fallback login endpoint also failed:', { status: fallbackResp.status, fbError })
+          return NextResponse.json(
+            {
+              error: (fbError as any)?.error || (errorBody as any)?.error || 'Login failed',
+              details: (fbError as any)?.details || (fbError as any)?.message || (errorBody as any)?.message || 'Please check your credentials and try again'
+            },
+            { status: fallbackResp.status }
+          )
+        }
+
+        // Use fallback successful response
+        const data = await fallbackResp.json()
+        console.log('✅ API Login successful (fallback):', {
+          role: data.role,
+          user: data.user?.username,
+          hasAccessToken: !!data.access_token,
+          hasRefreshToken: !!data.refresh_token,
+        })
+        return NextResponse.json(data)
       }
 
       // Parse successful response

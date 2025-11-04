@@ -41,7 +41,9 @@ export async function GET(
       path,
       backendUrl,
       queryString,
-      hasAuth: !!authHeader
+      hasAuth: !!authHeader,
+      API_BASE_URL: AUTH_CONFIG.API_BASE_URL,
+      API_PREFIX: AUTH_CONFIG.API_PREFIX
     })
 
     // Forward GET request to backend
@@ -113,7 +115,9 @@ export async function POST(
       path,
       backendUrl,
       hasAuth: !!authHeader,
-      hasCookies: !!cookies
+      hasCookies: !!cookies,
+      API_BASE_URL: AUTH_CONFIG.API_BASE_URL,
+      API_PREFIX: AUTH_CONFIG.API_PREFIX
     })
 
     // Forward request to backend
