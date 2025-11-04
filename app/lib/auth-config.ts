@@ -15,8 +15,11 @@ export const AUTH_CONFIG = {
   
   // API Configuration
   API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://192.168.1.140:8080',
-  // Optional API prefix (e.g. "/api"). Empty string if backend has no prefix.
-  API_PREFIX: normalizeApiPrefix(process.env.NEXT_PUBLIC_API_PREFIX),
+  // Optional API prefix (e.g. "/api"). Defaults to "/api" if not set, empty string if explicitly set to empty.
+  // If env var is not set at all, use default "/api". If set to empty string or empty quotes, use "".
+  API_PREFIX: process.env.NEXT_PUBLIC_API_PREFIX === undefined 
+    ? '/api'  // Default to /api if not set (like local)
+    : normalizeApiPrefix(process.env.NEXT_PUBLIC_API_PREFIX),
   
   // Mock users for development/testing
   MOCK_USERS: {
