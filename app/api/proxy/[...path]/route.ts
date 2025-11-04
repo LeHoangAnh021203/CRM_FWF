@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { AUTH_CONFIG, getApiEndpoint } from '@/app/lib/auth-config'
 
 export async function GET(
   request: NextRequest,
@@ -28,14 +29,13 @@ export async function GET(
       headers['Cookie'] = cookies
     }
 
-    // Build backend URL
-    const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 
-      (process.env.NODE_ENV === 'production' 
-        ? "https://your-backend-api.com" 
-        : "http://localhost:8080"))
-    const backendUrl = queryString 
-      ? `${API_BASE_URL}/api/${path}?${queryString}`
-      : `${API_BASE_URL}/api/${path}`
+    // Build backend URL using centralized config and normalization
+    const base = (AUTH_CONFIG.API_BASE_URL || '').replace(/\/+$/, '')
+    const prefixRaw = (AUTH_CONFIG.API_PREFIX || '').trim()
+    const prefix = prefixRaw ? `/${prefixRaw.replace(/^\/+/, '').replace(/\/+$/, '')}` : ''
+    const backendUrl = queryString
+      ? `${base}${prefix}/${path}?${queryString}`
+      : `${base}${prefix}/${path}`
     
     console.log(' Proxy GET Debug:', {
       path,
@@ -103,12 +103,11 @@ export async function POST(
       headers['Cookie'] = cookies
     }
 
-    // Build backend URL
-    const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 
-      (process.env.NODE_ENV === 'production' 
-        ? "https://your-backend-api.com" 
-        : "http://localhost:8080"))
-    const backendUrl = `${API_BASE_URL}/api/${path}`
+    // Build backend URL using centralized config and normalization
+    const base = (AUTH_CONFIG.API_BASE_URL || '').replace(/\/+$/, '')
+    const prefixRaw = (AUTH_CONFIG.API_PREFIX || '').trim()
+    const prefix = prefixRaw ? `/${prefixRaw.replace(/^\/+/, '').replace(/\/+$/, '')}` : ''
+    const backendUrl = `${base}${prefix}/${path}`
     
     console.log('🔍 Proxy Debug:', {
       path,

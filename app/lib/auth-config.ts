@@ -5,6 +5,8 @@ export const AUTH_CONFIG = {
   
   // API Configuration
   API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://192.168.1.140:8080',
+  // Optional API prefix (e.g. "/api"). Keep empty string if backend has no prefix
+  API_PREFIX: process.env.NEXT_PUBLIC_API_PREFIX ?? '/api',
   
   // Mock users for development/testing
   MOCK_USERS: {
@@ -37,5 +39,11 @@ export function shouldUseMockMode(): boolean {
 
 // Helper function to get API endpoint
 export function getApiEndpoint(path: string): string {
-  return `${AUTH_CONFIG.API_BASE_URL}/api/${path}`;
+  const base = (AUTH_CONFIG.API_BASE_URL || '').replace(/\/+$/, '')
+  const prefixRaw = (AUTH_CONFIG.API_PREFIX || '').trim()
+  const prefix = prefixRaw
+    ? `/${prefixRaw.replace(/^\/+/, '').replace(/\/+$/, '')}`
+    : ''
+  const sanitizedPath = path.startsWith('/') ? path.slice(1) : path
+  return `${base}${prefix}/${sanitizedPath}`
 }
