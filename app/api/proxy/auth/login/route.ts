@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mockLogin } from '@/app/lib/mock-auth'
-import { shouldUseMockMode, getApiEndpoint, AUTH_CONFIG } from '@/app/lib/auth-config'
+import { getApiEndpoint, AUTH_CONFIG } from '@/app/lib/auth-config'
 // API endpoint configuration
 const LOGIN_ENDPOINT = getApiEndpoint('auth/login');
 
@@ -19,7 +18,7 @@ export async function POST(request: NextRequest) {
       username,
       password: password ? "***" : "empty",
       LOGIN_ENDPOINT,
-      mode: shouldUseMockMode() ? 'mock' : 'api'
+      mode: 'api'
     });
 
     // Runtime diagnostics to verify env configuration
@@ -31,36 +30,9 @@ export async function POST(request: NextRequest) {
       LOGIN_ENDPOINT,
       NODE_ENV: process.env.NODE_ENV,
       FORCE_MOCK_MODE: false,
-      resolvedMode: shouldUseMockMode() ? 'mock' : 'api'
+      resolvedMode: 'api'
     })
 
-    // Decide mock mode; NEVER use mock in production
-    const shouldUseMock = (process.env.NODE_ENV !== 'production') && shouldUseMockMode();
-
-    if (shouldUseMock) {
-      console.log('🎭 Using mock authentication')
-      const mockResult = mockLogin(username, password)
-
-      if (!mockResult.success) {
-        return NextResponse.json(
-          {
-            error: "Invalid credentials",
-            details: "Please check your username and password"
-          },
-          { status: 401 }
-        );
-      }
-
-      // Return mock response in the same format as real API
-      return NextResponse.json({
-        success: true,
-        user: mockResult.user,
-        access_token: mockResult.token,
-        refresh_token: mockResult.token, // Same token for simplicity
-        role: mockResult.user?.role,
-        message: 'Login successful (Mock Mode)'
-      })
-    }
 
     console.log('🌐 Calling real API:', LOGIN_ENDPOINT)
 
@@ -111,11 +83,14 @@ export async function POST(request: NextRequest) {
           let fbError: unknown = null
           try { fbError = await fallbackResp.json() } catch {}
           console.error('❌ Fallback login endpoint also failed:', { status: fallbackResp.status, fbError })
+
+          const fb = (typeof fbError === 'object' && fbError !== null) ? fbError as Record<string, unknown> : {}
+          const primary = (typeof errorBody === 'object' && errorBody !== null) ? errorBody as Record<string, unknown> : {}
+          const errorMsg = (fb['error'] ?? primary['error'] ?? 'Login failed') as string
+          const detailsMsg = (fb['details'] ?? fb['message'] ?? primary['message'] ?? 'Please check your credentials and try again') as string
+
           return NextResponse.json(
-            {
-              error: (fbError as any)?.error || (errorBody as any)?.error || 'Login failed',
-              details: (fbError as any)?.details || (fbError as any)?.message || (errorBody as any)?.message || 'Please check your credentials and try again'
-            },
+            { error: String(errorMsg), details: String(detailsMsg) },
             { status: fallbackResp.status }
           )
         }
@@ -142,31 +117,14 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(data);
     } catch (apiError) {
-      console.error("❌ API Connection failed, falling back to mock:", apiError);
-      
-      // Fallback to mock authentication when API is unavailable
-      console.log('🔄 API unavailable, using mock authentication as fallback')
-      const mockResult = mockLogin(username, password)
-
-      if (!mockResult.success) {
-        return NextResponse.json(
-          {
-            error: "Invalid credentials",
-            details: "Please check your username and password"
-          },
-          { status: 401 }
-        );
-      }
-
-      // Return mock response in the same format as real API
-      return NextResponse.json({
-        success: true,
-        user: mockResult.user,
-        access_token: mockResult.token,
-        refresh_token: mockResult.token,
-        role: mockResult.user?.role,
-        message: 'Login successful (Mock Mode - API Fallback)'
-      })
+      console.error("❌ API Connection failed:", apiError);
+      return NextResponse.json(
+        {
+          error: "Connection failed",
+          details: "Unable to connect to authentication server. Please check if the API is running.",
+        },
+        { status: 503 }
+      );
     }
   } catch (error) {
     console.error("❌ Login error:", error);
