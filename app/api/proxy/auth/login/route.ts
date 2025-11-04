@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
       resolvedMode: shouldUseMockMode() ? 'mock' : 'api'
     })
 
-    // Check if mock mode is enabled or if no backend API is configured
-    const shouldUseMock = shouldUseMockMode();
+    // Decide mock mode; NEVER use mock in production
+    const shouldUseMock = (process.env.NODE_ENV !== 'production') && shouldUseMockMode();
 
     if (shouldUseMock) {
       console.log('🎭 Using mock authentication')
