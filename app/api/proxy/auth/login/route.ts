@@ -9,6 +9,14 @@ if (process.env.NODE_ENV === 'development') {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
 
+// Temporary fix for SSL certificate mismatch in production
+// TODO: Fix backend certificate to include backend.facewashfox.com or use correct domain
+// WARNING: This bypasses SSL verification - only use temporarily!
+if (process.env.NODE_ENV === 'production' && process.env.ALLOW_INSECURE_SSL === 'true') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  console.warn('⚠️ SSL verification disabled in production - this is insecure!')
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
