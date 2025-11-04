@@ -19,17 +19,22 @@ export const AUTH_CONFIG = {
 
 // Helper function to check if we should use mock mode
 export function shouldUseMockMode(): boolean {
+  // Never use mock in production (Vercel) to avoid silent 401
+  if (process.env.NODE_ENV === 'production') {
+    return false;
+  }
+
   // Force mock mode if explicitly set
   if (AUTH_CONFIG.FORCE_MOCK_MODE) {
     return true;
   }
   
-  // Use mock if no API URL is configured
+  // In non-production, use mock if no API URL is configured
   if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
     return true;
   }
   
-  // Use mock in development if USE_MOCK_AUTH is true
+  // In development, allow toggling via USE_MOCK_AUTH
   if (process.env.NODE_ENV === 'development' && process.env.USE_MOCK_AUTH === 'true') {
     return true;
   }
