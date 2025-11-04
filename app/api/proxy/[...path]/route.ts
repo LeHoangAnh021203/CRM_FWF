@@ -31,8 +31,7 @@ export async function GET(
 
     // Build backend URL using centralized config and normalization
     const base = (AUTH_CONFIG.API_BASE_URL || '').replace(/\/+$/, '')
-    const prefixRaw = (AUTH_CONFIG.API_PREFIX || '').trim()
-    const prefix = prefixRaw ? `/${prefixRaw.replace(/^\/+/, '').replace(/\/+$/, '')}` : ''
+    const prefix = AUTH_CONFIG.API_PREFIX || ''
     const backendUrl = queryString
       ? `${base}${prefix}/${path}?${queryString}`
       : `${base}${prefix}/${path}`
@@ -107,8 +106,7 @@ export async function POST(
 
     // Build backend URL using centralized config and normalization
     const base = (AUTH_CONFIG.API_BASE_URL || '').replace(/\/+$/, '')
-    const prefixRaw = (AUTH_CONFIG.API_PREFIX || '').trim()
-    const prefix = prefixRaw ? `/${prefixRaw.replace(/^\/+/, '').replace(/\/+$/, '')}` : ''
+    const prefix = AUTH_CONFIG.API_PREFIX || ''
     const backendUrl = `${base}${prefix}/${path}`
     
     console.log('🔍 Proxy Debug:', {

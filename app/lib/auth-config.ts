@@ -1,12 +1,22 @@
 // Authentication configuration
+function normalizeApiPrefix(input?: string): string {
+  if (!input) return ''
+  // Remove surrounding quotes and whitespace
+  const stripped = input.replace(/^['"]+|['"]+$/g, '').trim()
+  if (!stripped) return ''
+  // Remove leading/trailing slashes then prepend one
+  const noSlashes = stripped.replace(/^\/+|\/+$/g, '')
+  return noSlashes ? `/${noSlashes}` : ''
+}
+
 export const AUTH_CONFIG = {
   // Set to true to force mock mode, false to use API when available
   FORCE_MOCK_MODE: false,
   
   // API Configuration
   API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://192.168.1.140:8080',
-  // Optional API prefix (e.g. "/api"). Keep empty string if backend has no prefix
-  API_PREFIX: process.env.NEXT_PUBLIC_API_PREFIX ?? '/api',
+  // Optional API prefix (e.g. "/api"). Empty string if backend has no prefix.
+  API_PREFIX: normalizeApiPrefix(process.env.NEXT_PUBLIC_API_PREFIX),
   
   // Mock users for development/testing
   MOCK_USERS: {
@@ -45,10 +55,7 @@ export function shouldUseMockMode(): boolean {
 // Helper function to get API endpoint
 export function getApiEndpoint(path: string): string {
   const base = (AUTH_CONFIG.API_BASE_URL || '').replace(/\/+$/, '')
-  const prefixRaw = (AUTH_CONFIG.API_PREFIX || '').trim()
-  const prefix = prefixRaw
-    ? `/${prefixRaw.replace(/^\/+/, '').replace(/\/+$/, '')}`
-    : ''
+  const prefix = AUTH_CONFIG.API_PREFIX || ''
   const sanitizedPath = path.startsWith('/') ? path.slice(1) : path
   return `${base}${prefix}/${sanitizedPath}`
 }
