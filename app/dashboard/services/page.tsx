@@ -904,7 +904,7 @@ export default function CustomerReportPage() {
               Reset Filters
             </button>
           </div>
-          <ServicesFilter
+          {/* <ServicesFilter
             selectedRegions={selectedRegions}
             setSelectedRegions={setSelectedRegions}
             selectedBranches={selectedBranches}
@@ -922,7 +922,7 @@ export default function CustomerReportPage() {
             filteredGenders={filteredGenders}
             genderActualPrice={[]}
             formatMoneyShort={(val: number) => val.toLocaleString()}
-          />
+          /> */}
         </div>
 
         {/* Tổng dịch vụ thực hiện */}

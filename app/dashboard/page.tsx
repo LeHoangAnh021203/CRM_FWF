@@ -1315,7 +1315,48 @@ export default function Dashboard() {
     0
   );
 
-  const COMPANY_MONTH_TARGET = 9750000000; // Luôn số cứng cố định cho mục tiêu tháng này
+  // Default target, can be overridden by user input
+  const DEFAULT_MONTH_TARGET = 9750000000;
+  
+  // User-editable monthly target (stored in localStorage)
+  const [userMonthlyTarget, setUserMonthlyTarget] = React.useState<number | null>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('kpi_monthly_target');
+      return stored ? Number(stored) : null;
+    }
+    return null;
+  });
+  
+  const COMPANY_MONTH_TARGET = userMonthlyTarget ?? DEFAULT_MONTH_TARGET;
+
+  // Special holiday days (per month) entered by the user, persisted in localStorage
+  const currentMonthKeyForHoliday = React.useMemo(() => {
+    const now = toDate ? new Date(toDate.split("T")[0]) : new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, [toDate]);
+
+  const [specialHolidays, setSpecialHolidays] = React.useState<number[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(`kpi_special_holidays_${currentMonthKeyForHoliday}`);
+        if (!raw) return [];
+        const arr = JSON.parse(raw) as number[];
+        return Array.isArray(arr) ? arr.filter((d) => Number.isFinite(d)) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(
+        `kpi_special_holidays_${currentMonthKeyForHoliday}`,
+        JSON.stringify(specialHolidays)
+      );
+    }
+  }, [specialHolidays, currentMonthKeyForHoliday]);
   const sectionRefs = React.useRef({
     dashboard_total_sale_table: React.createRef<HTMLDivElement>(),
     dashboard_foxie_balance: React.createRef<HTMLDivElement>(),
@@ -1335,10 +1376,7 @@ export default function Dashboard() {
     ? new Date(endDateObj.getFullYear(), endDateObj.getMonth() + 1, 0).getDate()
     : 0;
   const lastDay = endDateObj ? endDateObj.getDate() : 0;
-  const dailyTargetForCurrentDay =
-    daysInMonth > 0 ? COMPANY_MONTH_TARGET / daysInMonth : 0;
-  const targetUntilNow = lastDay * dailyTargetForCurrentDay; // Đến nay cần đạt
-
+  
   // ---------- KPI Ngày: lấy ngày hiện tại (hôm nay) thay vì ngày cuối range ----------
   const today = new Date();
   const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
@@ -1347,18 +1385,98 @@ export default function Dashboard() {
   )}-${String(today.getDate()).padStart(2, "0")}`;
   const todayDay = today.getDate();
   
-  // Khi ở chế độ "Ngày", dùng ngày hiện tại; khi ở chế độ "Tháng", dùng ngày cuối range
-  const dailyKpiDateStr = todayDateStr;
+  // Calculate weekend days (Saturday=6, Sunday=0) in the month
+  const getWeekendDaysInMonth = (year: number, month: number): number => {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    let weekendCount = 0;
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+      const date = new Date(year, month, day);
+      const dayOfWeek = date.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+        weekendCount++;
+      }
+    }
+    return weekendCount;
+  };
+  
+  const weekendTargetPerDay = 500000000; // 500M per weekend day
+  const holidayTargetPerDay = 600000000; // 600M per special holiday
+  const year = endDateObj ? endDateObj.getFullYear() : new Date().getFullYear();
+  const month = endDateObj ? endDateObj.getMonth() : new Date().getMonth();
+  const weekendDaysCountRaw = daysInMonth > 0 ? getWeekendDaysInMonth(year, month) : 0;
+  const holidayDaysSet = new Set<number>(specialHolidays.map((d) => Math.max(1, Math.min(d, daysInMonth))));
+  // Count holidays that fall on weekend to avoid double counting
+  let holidayDaysCount = 0;
+  let weekendDaysCount = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dow = new Date(year, month, day).getDay();
+    const isHoliday = holidayDaysSet.has(day);
+    const isWeekend = dow === 0 || dow === 6;
+    if (isHoliday) holidayDaysCount++;
+    if (isWeekend && !isHoliday) weekendDaysCount++; // weekend but not holiday
+  }
+  const totalFixedTarget = holidayDaysCount * holidayTargetPerDay + weekendDaysCount * weekendTargetPerDay;
+  const weekdayDaysCount = Math.max(0, daysInMonth - holidayDaysCount - weekendDaysCount);
+  const weekdayTargetPerDay = weekdayDaysCount > 0 
+    ? Math.max(0, (COMPANY_MONTH_TARGET - totalFixedTarget) / weekdayDaysCount) 
+    : 0;
+  
+  // Get target for a specific day
+  const getDailyTargetForDay = (day: number): number => {
+    if (daysInMonth === 0 || !endDateObj) return 0;
+    const date = new Date(year, month, day);
+    const dayOfWeek = date.getDay();
+    if (holidayDaysSet.has(day)) {
+      return holidayTargetPerDay;
+    }
+    if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+      return weekendTargetPerDay;
+    }
+    return weekdayTargetPerDay;
+  };
+  
+  const dailyTargetForCurrentDay = todayDay > 0 ? getDailyTargetForDay(todayDay) : 0;
+  
+  // Calculate target until now (cumulative from day 1 to lastDay)
+  const targetUntilNow = React.useMemo(() => {
+    if (daysInMonth === 0 || lastDay === 0 || !endDateObj) return 0;
+    let sum = 0;
+    for (let day = 1; day <= lastDay; day++) {
+      const date = new Date(year, month, day);
+      const dayOfWeek = date.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+        sum += weekendTargetPerDay;
+      } else {
+        sum += weekdayTargetPerDay;
+      }
+    }
+    return sum;
+  }, [daysInMonth, lastDay, year, month, weekendTargetPerDay, weekdayTargetPerDay, endDateObj]);
+
+  // Get selected day from date picker (toDate) or use today
+  const selectedDay = endDateObj ? endDateObj.getDate() : todayDay;
+  const selectedDateStr = toDateStr || todayDateStr;
+  
+  // Calculate target for selected day (for daily mode)
+  const selectedDayTarget = selectedDay > 0 ? getDailyTargetForDay(selectedDay) : 0;
+  
+  // Khi ở chế độ "Ngày", dùng ngày được chọn từ date picker; khi ở chế độ "Tháng", dùng ngày cuối range
+  const dailyKpiDateStr = selectedDateStr;
   const dailyKpiRevenue = actualRevenueToday ?? (
     kpiDailySeries && dailyKpiDateStr
       ? kpiDailySeries.find((e) => e.isoDate === dailyKpiDateStr)?.total || 0
       : 0
   );
+  
+  // Use selected day target for daily mode, or today's target as fallback
+  const dailyTargetForSelectedDay = selectedDayTarget || dailyTargetForCurrentDay;
+  
   const dailyPercentage =
-    dailyTargetForCurrentDay > 0
-      ? (dailyKpiRevenue / dailyTargetForCurrentDay) * 100
+    dailyTargetForSelectedDay > 0
+      ? (dailyKpiRevenue / dailyTargetForSelectedDay) * 100
       : 0;
-  const dailyKpiLeft = Math.max(0, dailyTargetForCurrentDay - dailyKpiRevenue);
+  const dailyKpiLeft = Math.max(0, dailyTargetForSelectedDay - dailyKpiRevenue);
 
   // ---------- KPI Tháng: sum từ ngày 1 đến ngày cuối range ----------
   const currentRevenue = actualRevenueMTD ?? (() => {
@@ -1382,29 +1500,42 @@ export default function Dashboard() {
   const dailyKpiGrowthData = React.useMemo(() => {
     const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
     if (!kpiDailySeries) return [];
+    
+    // Helper to get target for a specific date
+    const getTargetForDate = (dateStr: string): number => {
+      const [yyyy, mm, dd] = dateStr.split("-");
+      const jsDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+      const dayOfWeek = jsDate.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+        return weekendTargetPerDay;
+      }
+      return weekdayTargetPerDay;
+    };
+    
     return kpiDailySeries.map((d) => {
       const [yyyy, mm, dd] = d.isoDate.split("-");
       const jsDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+      const targetForThisDay = getTargetForDate(d.isoDate);
       return {
         day: dayNames[jsDate.getDay()],
         date: d.dateLabel,
         revenue: d.total,
-        target: dailyTargetForCurrentDay,
+        target: targetForThisDay,
         percentage:
-          dailyTargetForCurrentDay > 0
-            ? (d.total / dailyTargetForCurrentDay) * 100
+          targetForThisDay > 0
+            ? (d.total / targetForThisDay) * 100
             : 0,
         isToday: jsDate.toDateString() === new Date().toDateString(),
       };
     });
-  }, [kpiDailySeries, dailyTargetForCurrentDay]);
+  }, [kpiDailySeries, weekendTargetPerDay, weekdayTargetPerDay]);
 
-  // Status logic cho hiển thị trạng thái
+  // Status logic cho hiển thị trạng thái (dùng selected day target)
   const dailyStatus =
-    dailyTargetForCurrentDay === 0
+    dailyTargetForSelectedDay === 0
       ? "ontrack"
-      : dailyKpiRevenue >= dailyTargetForCurrentDay
-      ? dailyKpiRevenue > dailyTargetForCurrentDay * 1.1
+      : dailyKpiRevenue >= dailyTargetForSelectedDay
+      ? dailyKpiRevenue > dailyTargetForSelectedDay * 1.1
         ? "ahead"
         : "ontrack"
       : "behind";
@@ -1773,6 +1904,14 @@ export default function Dashboard() {
   const [compareFromDay, setCompareFromDay] = React.useState(1);
   const [compareToDay, setCompareToDay] = React.useState(31);
   const [compareMonth, setCompareMonth] = React.useState("");
+  
+  // New mode: 2 separate months with individual day ranges
+  const [month1, setMonth1] = React.useState<string>("");
+  const [month2, setMonth2] = React.useState<string>("");
+  const [month1FromDay, setMonth1FromDay] = React.useState(1);
+  const [month1ToDay, setMonth1ToDay] = React.useState(31);
+  const [month2FromDay, setMonth2FromDay] = React.useState(1);
+  const [month2ToDay, setMonth2ToDay] = React.useState(31);
 
   // Cache for individual months to avoid re-fetching
   const monthCacheRef = React.useRef<Map<string, {
@@ -2036,7 +2175,7 @@ export default function Dashboard() {
                 dailyKpiGrowthData={dailyKpiGrowthData}
                 kpiViewMode={kpiViewMode}
                 setKpiViewMode={setKpiViewMode}
-                currentDayForDaily={isDaily ? todayDay : lastDay}
+                currentDayForDaily={isDaily ? selectedDay : lastDay}
                 currentPercentage={isDaily ? dailyPercentage : currentPercentage}
                 dailyPercentageForCurrentDay={
                   isDaily ? dailyPercentage : currentPercentage
@@ -2044,10 +2183,16 @@ export default function Dashboard() {
                 kpiMonthlyRevenueLoading={kpiMonthlyRevenueLoading}
                 dailyRevenueLoading={dailyRevenueLoading}
                 targetStatus={isDaily ? dailyStatus : monthlyStatus}
-                monthlyTarget={COMPANY_MONTH_TARGET} // đây là Mục tiêu tháng này - LUÔN SỐ CỨNG
-                dailyTargetForCurrentDay={dailyTargetForCurrentDay}
+                monthlyTarget={COMPANY_MONTH_TARGET} // đây là Mục tiêu tháng này - có thể chỉnh sửa
+                onMonthlyTargetChange={(target) => {
+                  setUserMonthlyTarget(target);
+                  localStorage.setItem('kpi_monthly_target', target.toString());
+                }}
+                specialHolidays={specialHolidays}
+                onSpecialHolidaysChange={(days) => setSpecialHolidays(days)}
+                dailyTargetForCurrentDay={isDaily ? dailyTargetForSelectedDay : dailyTargetForCurrentDay}
                 dailyTargetForToday={
-                  isDaily ? dailyTargetForCurrentDay : targetUntilNow
+                  isDaily ? dailyTargetForSelectedDay : targetUntilNow
                 } // Đến nay cần đạt: ngày hoặc tháng
                 remainingTarget={isDaily ? dailyKpiLeft : remainingTarget}
                 remainingDailyTarget={isDaily ? dailyKpiLeft : remainingTarget}
@@ -2148,6 +2293,19 @@ export default function Dashboard() {
                 setCompareToDay={setCompareToDay}
                 setCompareMonth={setCompareMonth}
                 onMonthSelect={fetchSingleMonth}
+                // New mode props
+                month1={month1}
+                month2={month2}
+                month1FromDay={month1FromDay}
+                month1ToDay={month1ToDay}
+                month2FromDay={month2FromDay}
+                month2ToDay={month2ToDay}
+                setMonth1={setMonth1}
+                setMonth2={setMonth2}
+                setMonth1FromDay={setMonth1FromDay}
+                setMonth1ToDay={setMonth1ToDay}
+                setMonth2FromDay={setMonth2FromDay}
+                setMonth2ToDay={setMonth2ToDay}
               />
             )}
           </LazyLoadingWrapper>

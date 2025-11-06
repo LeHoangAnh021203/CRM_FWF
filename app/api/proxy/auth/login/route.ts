@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
           const errorMsg = (fb['error'] ?? primary['error'] ?? 'Login failed') as string
           const detailsMsg = (fb['details'] ?? fb['message'] ?? primary['message'] ?? 'Please check your credentials and try again') as string
 
-          return NextResponse.json(
+        return NextResponse.json(
             { error: String(errorMsg), details: String(detailsMsg) },
             { status: fallbackResp.status }
           )
@@ -126,8 +126,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(data);
     } catch (apiError) {
       console.error("❌ API Connection failed:", apiError);
-      return NextResponse.json(
-        {
+        return NextResponse.json(
+          {
           error: "Connection failed",
           details: "Unable to connect to authentication server. Please check if the API is running.",
         },

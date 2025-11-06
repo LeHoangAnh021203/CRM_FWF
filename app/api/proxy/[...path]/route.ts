@@ -40,7 +40,7 @@ export async function GET(
     // Build backend URL using centralized config and normalization
     const base = (AUTH_CONFIG.API_BASE_URL || '').replace(/\/+$/, '')
     const prefix = AUTH_CONFIG.API_PREFIX || ''
-    const backendUrl = queryString
+    const backendUrl = queryString 
       ? `${base}${prefix}/${path}?${queryString}`
       : `${base}${prefix}/${path}`
     

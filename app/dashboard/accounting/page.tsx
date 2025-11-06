@@ -358,7 +358,7 @@ export default function AccountingReportPage() {
           </div>
 
           {/* Filter */}
-          <CustomerFilters
+          {/* <CustomerFilters
             startDate={startDate}
             endDate={endDate}
             setStartDate={setStartDate}
@@ -386,7 +386,7 @@ export default function AccountingReportPage() {
             showBranchDropdown={showBranchDropdown}
             setShowBranchDropdown={setShowBranchDropdown}
             allBranches={allBranches}
-          />
+          /> */}
 
           {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới) và (khách cũ) */}
           <CustomerPaymentPieChart

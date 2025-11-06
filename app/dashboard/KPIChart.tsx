@@ -51,6 +51,11 @@ interface KPIChartProps {
   remainingDailyTarget: number;
   dailyTargetPercentageForCurrentDay: number;
   currentRevenue: number;
+  // New props for editable target
+  onMonthlyTargetChange?: (target: number) => void;
+  // Special holidays (day numbers in current month)
+  specialHolidays?: number[];
+  onSpecialHolidaysChange?: (days: number[]) => void;
 }
 
 const formatCurrency = (value: number) =>
@@ -84,7 +89,53 @@ export default function KPIChart(props: KPIChartProps) {
     remainingDailyTarget,
     dailyTargetPercentageForCurrentDay,
     currentRevenue,
+    onMonthlyTargetChange,
+    specialHolidays = [],
+    onSpecialHolidaysChange,
   } = props;
+  
+  const [isEditingTarget, setIsEditingTarget] = React.useState(false);
+  const [tempTarget, setTempTarget] = React.useState(monthlyTarget.toString());
+  
+  React.useEffect(() => {
+    setTempTarget(monthlyTarget.toString());
+  }, [monthlyTarget]);
+  
+  const handleTargetSave = () => {
+    const numValue = Number(tempTarget.replace(/[^\d]/g, ''));
+    if (numValue > 0 && onMonthlyTargetChange) {
+      onMonthlyTargetChange(numValue);
+      setIsEditingTarget(false);
+    }
+  };
+  
+  const handleTargetCancel = () => {
+    setTempTarget(monthlyTarget.toString());
+    setIsEditingTarget(false);
+  };
+  
+  const formatTargetInput = (value: string) => {
+    const num = value.replace(/[^\d]/g, '');
+    return num ? Number(num).toLocaleString('vi-VN') : '';
+  };
+
+  // Holidays input (comma-separated day numbers)
+  const [holidaysInput, setHolidaysInput] = React.useState<string>((specialHolidays || []).join(", "));
+  React.useEffect(() => {
+    setHolidaysInput((specialHolidays || []).join(", "));
+  }, [specialHolidays]);
+  const saveHolidays = () => {
+    if (!onSpecialHolidaysChange) return;
+    const parsed = holidaysInput
+      .split(/[,\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => Number(s))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    // unique and sorted
+    const unique = Array.from(new Set(parsed)).sort((a, b) => a - b);
+    onSpecialHolidaysChange(unique);
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -343,16 +394,34 @@ export default function KPIChart(props: KPIChartProps) {
           <div className="space-y-4 sm:space-y-6">
             <div className="relative">
               <div className="flex justify-between text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                {kpiViewMode === "monthly" ? (
-                  <>
-                    <span>0B</span>
-                    <span className="hidden sm:inline">2B</span>
-                    <span>4B</span>
-                    <span className="hidden sm:inline">6B</span>
-                    <span>8B</span>
-                    <span>9.75B</span>
-                  </>
-                ) : (
+                {kpiViewMode === "monthly" ? (() => {
+                  // Calculate scale labels dynamically based on monthlyTarget
+                  const targetInB = monthlyTarget / 1000000000;
+                  const scalePoints = [
+                    0,
+                    targetInB * 0.2,
+                    targetInB * 0.4,
+                    targetInB * 0.6,
+                    targetInB * 0.8,
+                    targetInB
+                  ];
+                  const formatB = (value: number) => {
+                    if (value >= 1) {
+                      return value % 1 === 0 ? `${value}B` : `${value.toFixed(2)}B`;
+                    }
+                    return `${(value * 1000).toFixed(0)}M`;
+                  };
+                  return (
+                    <>
+                      <span>{formatB(scalePoints[0])}</span>
+                      <span className="hidden sm:inline">{formatB(scalePoints[1])}</span>
+                      <span>{formatB(scalePoints[2])}</span>
+                      <span className="hidden sm:inline">{formatB(scalePoints[3])}</span>
+                      <span>{formatB(scalePoints[4])}</span>
+                      <span>{formatB(scalePoints[5])}</span>
+                    </>
+                  );
+                })() : (
                   <>
                     <span>0M</span>
                     <span className="hidden sm:inline">50M</span>
@@ -433,7 +502,7 @@ export default function KPIChart(props: KPIChartProps) {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pt-3 sm:pt-4 border-t border-gray-200">
-              <div className="text-center p-2 bg-white/50 rounded-lg">
+              <div className="text-center p-2 bg-white/50 rounded-lg relative">
                 <p className="text-xs sm:text-sm text-gray-600">
                   {kpiViewMode === "monthly"
                     ? "Mục tiêu tháng này"
@@ -442,14 +511,57 @@ export default function KPIChart(props: KPIChartProps) {
                 {(kpiViewMode === "monthly" && kpiMonthlyRevenueLoading) ||
                 (kpiViewMode === "daily" && dailyRevenueLoading) ? (
                   <div className="animate-pulse bg-gray-200 h-4 sm:h-6 w-16 sm:w-24 mx-auto rounded"></div>
+                ) : kpiViewMode === "monthly" && isEditingTarget ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={formatTargetInput(tempTarget)}
+                      onChange={(e) => setTempTarget(e.target.value.replace(/[^\d]/g, ''))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleTargetSave();
+                        if (e.key === 'Escape') handleTargetCancel();
+                      }}
+                      className="w-full px-2 py-1 text-sm sm:text-base font-bold text-[#0693e3] border-2 border-[#0693e3] rounded focus:outline-none focus:ring-2 focus:ring-[#0693e3] text-center"
+                      autoFocus
+                    />
+                    <div className="flex gap-1 justify-center">
+                      <button
+                        onClick={handleTargetSave}
+                        className="px-2 py-1 text-xs bg-[#0693e3] text-white rounded hover:bg-[#0582c4]"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={handleTargetCancel}
+                        className="px-2 py-1 text-xs bg-gray-400 text-white rounded hover:bg-gray-500"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <p className="text-sm sm:text-lg font-bold text-[#0693e3] break-all">
-                    {formatCurrency(
-                      kpiViewMode === "monthly"
-                        ? monthlyTarget
-                        : dailyTargetForCurrentDay
+                  <div className="group relative">
+                    <p 
+                      className="text-sm sm:text-lg font-bold text-[#0693e3] break-all cursor-pointer hover:underline"
+                      onClick={() => kpiViewMode === "monthly" && onMonthlyTargetChange && setIsEditingTarget(true)}
+                      title={kpiViewMode === "monthly" && onMonthlyTargetChange ? "Click để chỉnh sửa" : ""}
+                    >
+                      {formatCurrency(
+                        kpiViewMode === "monthly"
+                          ? monthlyTarget
+                          : dailyTargetForCurrentDay
+                      )}
+                    </p>
+                    {kpiViewMode === "monthly" && onMonthlyTargetChange && (
+                      <button
+                        onClick={() => setIsEditingTarget(true)}
+                        className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity text-[#0693e3] text-xs hover:text-[#0582c4]"
+                        title="Chỉnh sửa mục tiêu"
+                      >
+                        ✏️
+                      </button>
                     )}
-                  </p>
+                  </div>
                 )}
               </div>
               <div className="text-center p-2 bg-white/50 rounded-lg">
@@ -488,6 +600,36 @@ export default function KPIChart(props: KPIChartProps) {
                   </p>
                 )}
               </div>
+            </div>
+
+            {/* Special holidays editor */}
+            <div className="mt-3 sm:mt-4 border-t border-gray-200 pt-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <label className="text-xs sm:text-sm font-medium text-gray-700">
+                  Ngày lễ đặc biệt (dd trong tháng, cách nhau bởi dấu phẩy)
+                </label>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <input
+                    type="text"
+                    className="flex-1 sm:w-72 px-2 py-1 text-sm border rounded"
+                    value={holidaysInput}
+                    onChange={(e) => setHolidaysInput(e.target.value)}
+                    placeholder="1, 2, 20"
+                  />
+                  <button
+                    onClick={saveHolidays}
+                    className="px-3 py-1 text-sm rounded bg-[#00b894] text-white hover:bg-[#00a082]"
+                    disabled={!onSpecialHolidaysChange}
+                  >
+                    Lưu
+                  </button>
+                </div>
+              </div>
+              {specialHolidays && specialHolidays.length > 0 && (
+                <div className="mt-2 text-xs text-gray-600">
+                  Đã đặt: {specialHolidays.join(", ")}
+                </div>
+              )}
             </div>
 
             <div className="pt-3 sm:pt-4 border-t border-gray-200">

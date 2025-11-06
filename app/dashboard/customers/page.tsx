@@ -1,15 +1,10 @@
 "use client";
 import React, { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
-import {
-  today,
-  getLocalTimeZone,
-  parseDate,
-} from "@internationalized/date";
+import { today, getLocalTimeZone, parseDate } from "@internationalized/date";
 import CustomerFacilityHourTable from "./CustomerFacilityHourTable";
 import CustomerFilters from "./CustomerFilters";
 import CustomerAccordionCard from "./CustomerAccordionCard";
-import CustomerGenderPie from "./CustomerGenderPie";
 import CustomerNewChart from "./CustomerNewChart";
 import CustomerTypeTrendChart from "./CustomerTypeTrendChart";
 import CustomerSourceBarChart from "./CustomerSourceBarChart";
@@ -165,15 +160,24 @@ export default function CustomerReportPage() {
   // Cross-tab search support
   useEffect(() => {
     const url = new URL(window.location.href);
-    const q = url.searchParams.get('q');
-    const hash = window.location.hash.replace('#','');
-    const scrollToRefWithRetry = (refKey: string, attempts = 25, delayMs = 120) => {
+    const q = url.searchParams.get("q");
+    const hash = window.location.hash.replace("#", "");
+    const scrollToRefWithRetry = (
+      refKey: string,
+      attempts = 25,
+      delayMs = 120
+    ) => {
       const tryOnce = (left: number) => {
-        const el = document.querySelector(`[data-search-ref='${refKey}']`) as HTMLElement | null;
+        const el = document.querySelector(
+          `[data-search-ref='${refKey}']`
+        ) as HTMLElement | null;
         if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          el.classList.add('ring-2','ring-[#41d1d9]','rounded-lg');
-          window.setTimeout(() => el.classList.remove('ring-2','ring-[#41d1d9]','rounded-lg'), 1500);
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          el.classList.add("ring-2", "ring-[#41d1d9]", "rounded-lg");
+          window.setTimeout(
+            () => el.classList.remove("ring-2", "ring-[#41d1d9]", "rounded-lg"),
+            1500
+          );
           return;
         }
         if (left > 0) window.setTimeout(() => tryOnce(left - 1), delayMs);
@@ -181,9 +185,11 @@ export default function CustomerReportPage() {
       tryOnce(attempts);
     };
     if (q) {
-      window.dispatchEvent(new CustomEvent('global-search', { detail: { query: q } }));
-      url.searchParams.delete('q');
-      window.history.replaceState({}, '', url.toString());
+      window.dispatchEvent(
+        new CustomEvent("global-search", { detail: { query: q } })
+      );
+      url.searchParams.delete("q");
+      window.history.replaceState({}, "", url.toString());
     } else if (hash) {
       scrollToRefWithRetry(hash);
     }
@@ -192,22 +198,30 @@ export default function CustomerReportPage() {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { query?: string };
       const query = String(detail?.query || "");
-      const map = SEARCH_TARGETS.filter(t => t.route === 'customers').map(t => ({
-        keys: [normalizeKey(t.label), ...t.keywords.map(k => normalizeKey(k))],
-        refKey: t.refKey,
-      }));
-      const found = map.find(m => m.keys.some(k => normalizeKey(query).includes(k)));
+      const map = SEARCH_TARGETS.filter((t) => t.route === "customers").map(
+        (t) => ({
+          keys: [
+            normalizeKey(t.label),
+            ...t.keywords.map((k) => normalizeKey(k)),
+          ],
+          refKey: t.refKey,
+        })
+      );
+      const found = map.find((m) =>
+        m.keys.some((k) => normalizeKey(query).includes(k))
+      );
       if (!found) return;
       scrollToRefWithRetry(found.refKey);
     };
-    window.addEventListener('global-search', handler as EventListener);
+    window.addEventListener("global-search", handler as EventListener);
     const jumpHandler = (ev: Event) => {
       const refKey = (ev as CustomEvent).detail?.refKey as string | undefined;
       if (!refKey) return;
       scrollToRefWithRetry(refKey);
     };
-    window.addEventListener('jump-to-ref', jumpHandler as EventListener);
-    return () => window.removeEventListener('global-search', handler as EventListener);
+    window.addEventListener("jump-to-ref", jumpHandler as EventListener);
+    return () =>
+      window.removeEventListener("global-search", handler as EventListener);
   }, []);
   // CSS để đảm bảo dropdown hiển thị đúng
   useEffect(() => {
@@ -253,7 +267,15 @@ export default function CustomerReportPage() {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
   // Use global date context instead of local state
-  const { startDate, endDate, setStartDate, setEndDate, fromDate, toDate, isLoaded: dateLoaded } = useDateRange();
+  const {
+    startDate,
+    endDate,
+    setStartDate,
+    setEndDate,
+    fromDate,
+    toDate,
+    isLoaded: dateLoaded,
+  } = useDateRange();
 
   const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] =
     useLocalStorageState<string[]>("customer-selectedRegions", []);
@@ -369,7 +391,6 @@ export default function CustomerReportPage() {
   // Format date cho API calls - đơn giản như trang service
   // fromDate and toDate are now provided by the global date context
 
-  
   const {
     data: newCustomerRaw,
     loading: newCustomerLoading,
@@ -471,16 +492,16 @@ export default function CustomerReportPage() {
   );
 
   // Memoize extraBody để tránh re-render không cần thiết
-  const bookingCompletionExtraBody = useMemo(
-    () => {
-      const status = bookingCompletionStatus || "Khách đến";
-      console.log("🔍 Debug - bookingCompletionExtraBody:", { status, bookingCompletionStatus });
-      return {
-        status,
-      };
-    },
-    [bookingCompletionStatus]
-  );
+  const bookingCompletionExtraBody = useMemo(() => {
+    const status = bookingCompletionStatus || "Khách đến";
+    console.log("🔍 Debug - bookingCompletionExtraBody:", {
+      status,
+      bookingCompletionStatus,
+    });
+    return {
+      status,
+    };
+  }, [bookingCompletionStatus]);
 
   const {
     data: bookingCompletionRaw,
@@ -716,12 +737,14 @@ export default function CustomerReportPage() {
       newCustomerRawKeys: newCustomerRaw ? Object.keys(newCustomerRaw) : [],
       newCustomerRawValue: newCustomerRaw,
     });
-    
+
     if (!newCustomerRaw) {
-      console.log("🔍 Debug - newCustomerRaw is null/undefined, returning empty array");
+      console.log(
+        "🔍 Debug - newCustomerRaw is null/undefined, returning empty array"
+      );
       return [];
     }
-    
+
     const current = Array.isArray(
       (
         newCustomerRaw as {
@@ -748,14 +771,14 @@ export default function CustomerReportPage() {
           }
         ).previousRange || []
       : [];
-      
+
     console.log("🔍 Debug - newCustomerChartData processing:", {
       currentLength: current.length,
       previousLength: previous.length,
       currentSample: current.slice(0, 2),
       previousSample: previous.slice(0, 2),
     });
-    
+
     const result = current.map(
       (item: { date: string; count: number }, idx: number) => ({
         date: item.date || "",
@@ -763,12 +786,12 @@ export default function CustomerReportPage() {
         value2: previous[idx]?.count ?? 0,
       })
     );
-    
+
     console.log("🔍 Debug - newCustomerChartData result:", {
       resultLength: result.length,
       resultSample: result.slice(0, 2),
     });
-    
+
     return result;
   }, [newCustomerRaw]);
 
@@ -781,19 +804,19 @@ export default function CustomerReportPage() {
       male: genderRatioRaw?.male,
       female: genderRatioRaw?.female,
     });
-    
+
     if (!genderRatioRaw) return [];
-    
+
     const result = [
       { gender: "Nam", count: genderRatioRaw.male || 0 },
       { gender: "Nữ", count: genderRatioRaw.female || 0 },
     ];
-    
+
     console.log("🔍 Debug - genderRatioData result:", {
       resultLength: result.length,
       result,
     });
-    
+
     return result;
   }, [genderRatioRaw]);
 
@@ -805,12 +828,14 @@ export default function CustomerReportPage() {
       customerTypeRawKeys: customerTypeRaw ? Object.keys(customerTypeRaw) : [],
       customerTypeRawValue: customerTypeRaw,
     });
-    
+
     if (!customerTypeRaw) {
-      console.log("🔍 Debug - customerTypeRaw is null/undefined, returning empty array");
+      console.log(
+        "🔍 Debug - customerTypeRaw is null/undefined, returning empty array"
+      );
       return [];
     }
-    
+
     const allDatesSet = new Set();
     Object.values(customerTypeRaw).forEach((arr) => {
       (arr as Array<{ date: string; count: number }>).forEach((item) => {
@@ -819,14 +844,14 @@ export default function CustomerReportPage() {
     });
     const allDates = Array.from(allDatesSet).sort();
     const allTypes = Object.keys(customerTypeRaw);
-    
+
     console.log("🔍 Debug - customerTypeTrendData processing:", {
       allDatesLength: allDates.length,
       allTypesLength: allTypes.length,
       allDates: allDates.slice(0, 5),
       allTypes: allTypes,
     });
-    
+
     const result = allDates.map((date) => {
       const row: Record<string, string | number> = { date: String(date) };
       allTypes.forEach((type) => {
@@ -839,12 +864,12 @@ export default function CustomerReportPage() {
       });
       return row;
     });
-    
+
     console.log("🔍 Debug - customerTypeTrendData result:", {
       resultLength: result.length,
       resultSample: result.slice(0, 2),
     });
-    
+
     return result;
   }, [customerTypeRaw]);
 
@@ -853,29 +878,33 @@ export default function CustomerReportPage() {
     console.log("🔍 Debug - Processing customerOldTypeTrendData:", {
       customerOldTypeRaw: !!customerOldTypeRaw,
       customerOldTypeRawType: typeof customerOldTypeRaw,
-      customerOldTypeRawKeys: customerOldTypeRaw ? Object.keys(customerOldTypeRaw) : [],
+      customerOldTypeRawKeys: customerOldTypeRaw
+        ? Object.keys(customerOldTypeRaw)
+        : [],
       customerOldTypeRawValue: customerOldTypeRaw,
     });
-    
+
     if (!customerOldTypeRaw) {
-      console.log("🔍 Debug - customerOldTypeRaw is null/undefined, returning empty array");
+      console.log(
+        "🔍 Debug - customerOldTypeRaw is null/undefined, returning empty array"
+      );
       return [];
     }
-    
+
     const current = Array.isArray(customerOldTypeRaw.currentRange)
       ? customerOldTypeRaw.currentRange
       : [];
     const previous = Array.isArray(customerOldTypeRaw.previousRange)
       ? customerOldTypeRaw.previousRange
       : [];
-      
+
     console.log("🔍 Debug - customerOldTypeTrendData processing:", {
       currentLength: current.length,
       previousLength: previous.length,
       currentSample: current.slice(0, 2),
       previousSample: previous.slice(0, 2),
     });
-    
+
     const result = current.map(
       (item: { date: string; count: number }, idx: number) => ({
         date: item.date || "",
@@ -883,12 +912,12 @@ export default function CustomerReportPage() {
         "Khách cũ tháng trước": previous[idx]?.count ?? 0,
       })
     );
-    
+
     console.log("🔍 Debug - customerOldTypeTrendData result:", {
       resultLength: result.length,
       resultSample: result.slice(0, 2),
     });
-    
+
     return result;
   }, [customerOldTypeRaw]);
 
@@ -897,15 +926,19 @@ export default function CustomerReportPage() {
     console.log("🔍 Debug - Processing customerSourceTrendData:", {
       customerSourceRaw: !!customerSourceRaw,
       customerSourceRawType: typeof customerSourceRaw,
-      customerSourceRawKeys: customerSourceRaw ? Object.keys(customerSourceRaw) : [],
+      customerSourceRawKeys: customerSourceRaw
+        ? Object.keys(customerSourceRaw)
+        : [],
       customerSourceRawValue: customerSourceRaw,
     });
-    
+
     if (!customerSourceRaw) {
-      console.log("🔍 Debug - customerSourceRaw is null/undefined, returning empty array");
+      console.log(
+        "🔍 Debug - customerSourceRaw is null/undefined, returning empty array"
+      );
       return [];
     }
-    
+
     const allDatesSet = new Set();
     Object.values(customerSourceRaw).forEach((arr) => {
       (arr as Array<{ date: string; count: number }>).forEach((item) => {
@@ -913,34 +946,35 @@ export default function CustomerReportPage() {
       });
     });
     const allDates = Array.from(allDatesSet).sort();
-    
+
     // Mapping để gộp các nguồn theo yêu cầu - dựa trên dữ liệu API thực tế
     const sourceMapping: Record<string, string> = {
-      'Fanpage': 'Fanpage',
-      'Facebook': 'Fanpage',
-      'app': 'App',
-      'web': 'App',
-      'Shoppe': 'Ecommerce',
-      'TT Shop': 'Ecommerce',
-      'Không có': 'Vãng lai',
-      'Vãng lai': 'Vãng lai'
+      Fanpage: "Fanpage",
+      Facebook: "Fanpage",
+      app: "App",
+      web: "App",
+      Shoppe: "Ecommerce",
+      "TT Shop": "Ecommerce",
+      "Không có": "Vãng lai",
+      "Vãng lai": "Vãng lai",
     };
-    
+
     // Tạo map để gộp dữ liệu
     const groupedData = new Map<string, Record<string, number>>();
-    
+
     allDates.forEach((date) => {
       groupedData.set(date as string, {
-        'Fanpage': 0,
-        'App': 0,
-        'Ecommerce': 0,
-        'Vãng lai': 0
+        Fanpage: 0,
+        App: 0,
+        Ecommerce: 0,
+        "Vãng lai": 0,
       });
     });
-    
+
     // Gộp dữ liệu theo mapping
     Object.entries(customerSourceRaw).forEach(([sourceType, data]) => {
-      const mappedType = sourceMapping[sourceType as string] || sourceType as string;
+      const mappedType =
+        sourceMapping[sourceType as string] || (sourceType as string);
       console.log(`🔍 Debug - Mapping: ${sourceType} → ${mappedType}`);
       (data as Array<{ date: string; count: number }>).forEach((item) => {
         const date = item.date.slice(0, 10);
@@ -948,35 +982,41 @@ export default function CustomerReportPage() {
         if (existing && mappedType in existing) {
           const oldValue = existing[mappedType as keyof typeof existing];
           existing[mappedType as keyof typeof existing] += item.count;
-          console.log(`🔍 Debug - ${date}: ${sourceType}(${item.count}) → ${mappedType}: ${oldValue} + ${item.count} = ${existing[mappedType as keyof typeof existing]}`);
+          console.log(
+            `🔍 Debug - ${date}: ${sourceType}(${
+              item.count
+            }) → ${mappedType}: ${oldValue} + ${item.count} = ${
+              existing[mappedType as keyof typeof existing]
+            }`
+          );
         }
       });
     });
-    
+
     console.log("🔍 Debug - customerSourceTrendData processing:", {
       allDatesLength: allDates.length,
       groupedDataSize: groupedData.size,
       sampleGroupedData: Array.from(groupedData.entries()).slice(0, 2),
     });
-    
+
     const result = allDates.map((date) => {
       const data = groupedData.get(date as string) || {
-        'Fanpage': 0,
-        'App': 0,
-        'Ecommerce': 0,
-        'Vãng lai': 0
+        Fanpage: 0,
+        App: 0,
+        Ecommerce: 0,
+        "Vãng lai": 0,
       };
       return {
         date: String(date),
-        ...data
+        ...data,
       };
     });
-    
+
     console.log("🔍 Debug - customerSourceTrendData result:", {
       resultLength: result.length,
       resultSample: result.slice(0, 2),
     });
-    
+
     return result;
   }, [customerSourceRaw]);
 
@@ -985,22 +1025,26 @@ export default function CustomerReportPage() {
     console.log("🔍 Debug - Processing appDownloadStatusData:", {
       appDownloadStatusRaw: !!appDownloadStatusRaw,
       appDownloadStatusRawType: typeof appDownloadStatusRaw,
-      appDownloadStatusRawKeys: appDownloadStatusRaw ? Object.keys(appDownloadStatusRaw) : [],
+      appDownloadStatusRawKeys: appDownloadStatusRaw
+        ? Object.keys(appDownloadStatusRaw)
+        : [],
       appDownloadStatusRawValue: appDownloadStatusRaw,
     });
-    
+
     if (!appDownloadStatusRaw) {
-      console.log("🔍 Debug - appDownloadStatusRaw is null/undefined, returning empty array");
+      console.log(
+        "🔍 Debug - appDownloadStatusRaw is null/undefined, returning empty array"
+      );
       return [];
     }
-    
+
     const result = Object.values(appDownloadStatusRaw).flat();
-    
+
     console.log("🔍 Debug - appDownloadStatusData result:", {
       resultLength: result.length,
       resultSample: result.slice(0, 2),
     });
-    
+
     return result;
   }, [appDownloadStatusRaw]);
 
@@ -1012,22 +1056,24 @@ export default function CustomerReportPage() {
       appDownloadRawKeys: appDownloadRaw ? Object.keys(appDownloadRaw) : [],
       appDownloadRawValue: appDownloadRaw,
     });
-    
+
     if (!appDownloadRaw) {
-      console.log("🔍 Debug - appDownloadRaw is null/undefined, returning empty array");
+      console.log(
+        "🔍 Debug - appDownloadRaw is null/undefined, returning empty array"
+      );
       return [];
     }
-    
+
     const result = [
       { name: "Đã tải app", value: appDownloadRaw.totalNew || 0 },
       { name: "Chưa tải app", value: appDownloadRaw.totalOld || 0 },
     ];
-    
+
     console.log("🔍 Debug - appDownloadPieData result:", {
       resultLength: result.length,
       result,
     });
-    
+
     return result;
   }, [appDownloadRaw]);
 
@@ -1061,30 +1107,34 @@ export default function CustomerReportPage() {
     console.log("🔍 Debug - Processing allHourRanges:", {
       facilityHourServiceRaw: !!facilityHourServiceRaw,
       facilityHourServiceRawType: typeof facilityHourServiceRaw,
-      facilityHourServiceRawLength: facilityHourServiceRaw ? facilityHourServiceRaw.length : 0,
+      facilityHourServiceRawLength: facilityHourServiceRaw
+        ? facilityHourServiceRaw.length
+        : 0,
       facilityHourServiceRawValue: facilityHourServiceRaw,
     });
-    
+
     if (!facilityHourServiceRaw) {
-      console.log("🔍 Debug - facilityHourServiceRaw is null/undefined, returning empty array");
+      console.log(
+        "🔍 Debug - facilityHourServiceRaw is null/undefined, returning empty array"
+      );
       return [];
     }
-    
+
     const set = new Set<string>();
     facilityHourServiceRaw.forEach((item) => {
       Object.keys(item.hourlyCounts).forEach((hour) => set.add(hour));
     });
-    
+
     const result = Array.from(set).sort((a, b) => {
       const getStart = (s: string) => parseInt(s.split("-")[0], 10);
       return getStart(a) - getStart(b);
     });
-    
+
     console.log("🔍 Debug - allHourRanges result:", {
       resultLength: result.length,
       resultSample: result.slice(0, 5),
     });
-    
+
     return result;
   }, [facilityHourServiceRaw]);
 
@@ -1218,7 +1268,7 @@ export default function CustomerReportPage() {
 
   const customerSourceKeys = React.useMemo(() => {
     // Sử dụng các nhóm cố định theo yêu cầu
-    return ['Fanpage', 'App', 'Ecommerce', 'Vãng lai'];
+    return ["Fanpage", "App", "Ecommerce", "Vãng lai"];
   }, []);
 
   // Helper for cell color scale - memoized
@@ -1313,9 +1363,9 @@ export default function CustomerReportPage() {
           </div>
 
           {/* Filter */}
-          <CustomerFilters
-                            startDate={startDate}
-                endDate={endDate}
+          {/* <CustomerFilters
+            startDate={startDate}
+            endDate={endDate}
             setStartDate={setStartDate}
             setEndDate={setEndDate}
             today={today}
@@ -1341,7 +1391,7 @@ export default function CustomerReportPage() {
             showBranchDropdown={showBranchDropdown}
             setShowBranchDropdown={setShowBranchDropdown}
             allBranches={allBranches}
-          />
+          /> */}
 
           {/* Accordion Card tổng số khách */}
           <Suspense
@@ -1387,8 +1437,8 @@ export default function CustomerReportPage() {
 
           {/* Bảng tổng hợp khách mới/cũ: tổng số và thực đi */}
           <div className="mt-5">
-          <CustomerNewOldSummaryTable
-            data-search-ref="customers_summary"
+            <CustomerNewOldSummaryTable
+              data-search-ref="customers_summary"
               data={customerSummaryRaw}
               loading={customerSummaryLoading}
               error={customerSummaryError}
@@ -1433,20 +1483,24 @@ export default function CustomerReportPage() {
                 data: !!customerOldTypeRaw,
                 loading: customerOldTypeLoading,
                 error: customerOldTypeError,
-                dataKeys: customerOldTypeRaw ? Object.keys(customerOldTypeRaw) : [],
+                dataKeys: customerOldTypeRaw
+                  ? Object.keys(customerOldTypeRaw)
+                  : [],
               });
-              
+
               if (customerOldTypeLoading) {
                 return (
                   <div className="bg-white rounded-xl shadow p-6">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                      <p className="mt-2 text-gray-600">Đang tải dữ liệu khách cũ...</p>
+                      <p className="mt-2 text-gray-600">
+                        Đang tải dữ liệu khách cũ...
+                      </p>
                     </div>
                   </div>
                 );
               }
-              
+
               if (customerOldTypeError) {
                 return (
                   <div className="bg-white rounded-xl shadow p-6">
@@ -1456,7 +1510,7 @@ export default function CustomerReportPage() {
                   </div>
                 );
               }
-              
+
               if (!customerOldTypeRaw) {
                 return (
                   <div className="bg-white rounded-xl shadow p-6">
@@ -1466,7 +1520,7 @@ export default function CustomerReportPage() {
                   </div>
                 );
               }
-              
+
               return (
                 <CustomerOldStatCard
                   data-search-ref="customers_old_stat"

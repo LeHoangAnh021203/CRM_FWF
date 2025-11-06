@@ -1650,7 +1650,7 @@ export default function CustomerReportPage() {
               </div>
             }
           >
-            <LazyOrderFilter
+            {/* <LazyOrderFilter
               selectedRegions={selectedRegions}
               setSelectedRegions={setSelectedRegions}
               regionOptions={regionOptions}
@@ -1669,7 +1669,7 @@ export default function CustomerReportPage() {
               showLocationDropdown={showLocationDropdown}
               setShowLocationDropdown={setShowLocationDropdown}
               locationDropdownRef={locationDropdownRef}
-            />
+            /> */}
           </Suspense>
         </div>
 
