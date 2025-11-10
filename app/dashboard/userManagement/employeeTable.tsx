@@ -9,12 +9,12 @@ import { getRoleLabel } from "./employeeForm"
 interface EmployeeTableProps {
   employees: Employee[]
   onEdit: (employee: Employee) => void
-  onDelete: (id: string) => void
+  onRequestDelete: (employee: Employee) => void
   onToggleStatus: (id: string) => void | Promise<void>
   togglingStatus?: string | null
 }
 
-export default function EmployeeTable({ employees, onEdit, onDelete, onToggleStatus, togglingStatus = null }: EmployeeTableProps) {
+export default function EmployeeTable({ employees, onEdit, onRequestDelete, onToggleStatus, togglingStatus = null }: EmployeeTableProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("vi-VN")
   }
@@ -78,11 +78,7 @@ export default function EmployeeTable({ employees, onEdit, onDelete, onToggleSta
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      if (confirm(`Bạn có chắc muốn xóa ${employee.name}?`)) {
-                        onDelete(employee.id)
-                      }
-                    }}
+                    onClick={() => onRequestDelete(employee)}
                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                   >
                     <Trash2 size={18} />

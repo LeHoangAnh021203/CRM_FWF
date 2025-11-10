@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Plus, Search, Users, CheckCircle2, XCircle, Loader2 } from "lucide-react"
 import { Button } from "@/app/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
@@ -53,16 +54,20 @@ interface ApiResponse {
 }
 
 export default function Dashboard() {
+  const router = useRouter()
   const { getValidToken } = useAuth()
   const { notification, showSuccess, showError, hideNotification } = useNotification()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hasAccess, setHasAccess] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [togglingStatus, setTogglingStatus] = useState<string | null>(null) // Track which user is being toggled
+  const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState("")
   
   // Pagination state
   const [pageNumber, setPageNumber] = useState(0)
@@ -138,6 +143,7 @@ export default function Dashboard() {
     try {
       setLoading(true)
       setError(null)
+      setHasAccess(true)
       
       const token = await getValidToken()
       if (!token) {
@@ -162,6 +168,12 @@ export default function Dashboard() {
         
         // Parse error message to provide better feedback
         const errorMessage = apiError instanceof Error ? apiError.message : String(apiError)
+        // Access check: 403 or forbidden
+        if (/403|forbidden|access is denied/i.test(errorMessage)) {
+          setHasAccess(false)
+          setLoading(false)
+          return
+        }
         const isConnectionError = 
           errorMessage.includes("fetch failed") ||
           errorMessage.includes("ECONNREFUSED") ||
@@ -198,6 +210,11 @@ export default function Dashboard() {
           })
 
           if (!response.ok) {
+            if (response.status === 403) {
+              setHasAccess(false)
+              setLoading(false)
+              return
+            }
             const errorText = await response.text()
             console.error("Direct API error:", response.status, errorText)
             throw new Error(
@@ -421,10 +438,39 @@ export default function Dashboard() {
     }
   }
 
-  const handleDeleteEmployee = (id: string) => {
-    setEmployees(employees.filter((emp) => emp.id !== id))
-    // Optionally refresh data from API
-    // fetchUsers()
+  const handleDeleteEmployee = async () => {
+    if (!deletingEmployee) return
+    const expected = `tôi muốn xoá ${deletingEmployee.name}`.toLowerCase().trim()
+    if (deleteConfirmText.toLowerCase().trim() !== expected) {
+      showError(`Vui lòng nhập chính xác: "${expected}"`)
+      return
+    }
+    try {
+      const token = await getValidToken()
+      if (!token) throw new Error("No valid token available")
+      const res = await fetch(`/api/proxy/user/delete-user/${encodeURIComponent(deletingEmployee.id)}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      if (!res.ok) {
+        const txt = await res.text()
+        throw new Error(txt || "Xóa người dùng thất bại")
+      }
+      showSuccess(`Đã xóa: ${deletingEmployee.name}`)
+      setDeletingEmployee(null)
+      setDeleteConfirmText("")
+      await fetchUsers()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Không thể xóa người dùng"
+      showError(msg)
+    }
+  }
+
+  const openDeleteDialog = (employee: Employee) => {
+    setDeletingEmployee(employee)
+    setDeleteConfirmText("")
   }
 
   const handleToggleStatus = async (id: string) => {
@@ -598,6 +644,33 @@ export default function Dashboard() {
         isVisible={notification.isVisible}
         onClose={hideNotification}
       />
+      {!hasAccess ? (
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Quản lý nhân viên</h1>
+            <p className="text-gray-600">Quản lý thông tin nhân viên và dữ liệu công ty</p>
+          </div>
+          <Card className="bg-white border-red-200">
+            <CardHeader>
+              <CardTitle className="text-red-600">Bạn không có quyền truy cập</CardTitle>
+              <CardDescription>
+                Tài khoản hiện tại không có quyền truy cập vào trang này hoặc dữ liệu liên quan.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button variant="outline" onClick={() => router.push("/dashboard")}>
+                  Quay lại trang Dashboard
+                </Button>
+                <Button onClick={() => router.push("/login")}>
+                  Đăng nhập lại vào tài khoản có quyền truy cập
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+      <>
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="mb-6">
@@ -711,7 +784,7 @@ export default function Dashboard() {
             <EmployeeTable
               employees={filteredEmployees}
               onEdit={handleEditEmployee}
-              onDelete={handleDeleteEmployee}
+              onRequestDelete={openDeleteDialog}
               onToggleStatus={handleToggleStatus}
               togglingStatus={togglingStatus}
             />
@@ -769,6 +842,34 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deletingEmployee} onOpenChange={(open) => { if (!open) setDeletingEmployee(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa người dùng</DialogTitle>
+            <DialogDescription>
+              Hành động này không thể hoàn tác. Để xác nhận, vui lòng nhập chính xác:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-sm text-gray-700">
+              {deletingEmployee ? `tôi muốn xoá ${deletingEmployee.name}` : ""}
+            </div>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Nhập xác nhận..."
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setDeletingEmployee(null)}>Hủy</Button>
+              <Button variant="destructive" onClick={handleDeleteEmployee}>Xóa</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      </>
+      )}
     </div>
   )
 }
