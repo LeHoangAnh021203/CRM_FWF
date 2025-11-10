@@ -182,6 +182,19 @@ video {
 }
 
 /* Animated gradient border for date picker */
+@keyframes scale {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.animate-scale {
+  animation: scale 2s ease-in-out infinite;
+}
+
 @keyframes gradient-x {
   0%, 100% {
     background-position: 0% 50%;

@@ -58,7 +58,11 @@ export function LoginForm() {
       }
     } catch (error) {
       console.error("[LoginForm] Login error:", error);
-      setError("An error occurred during login");
+      // Extract meaningful error message from error object
+      const errorMessage = error instanceof Error 
+        ? error.message.replace(/^Login failed: \d+ - /, '') // Remove status prefix
+        : "An error occurred during login";
+      setError(errorMessage || "Invalid username or password");
     } finally {
       setIsLoading(false);
     }

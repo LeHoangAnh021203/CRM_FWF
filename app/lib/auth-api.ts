@@ -55,55 +55,99 @@ export class AuthAPI {
       console.log('AuthAPI.login response ok:', response.ok)
       console.log('AuthAPI.login response headers:', Object.fromEntries(response.headers.entries()))
 
-      if (!response.ok) {
-        let errorData: Record<string, unknown> = {}
-        try {
-          const contentType = response.headers.get('content-type')
-          if (contentType && contentType.includes('application/json')) {
-            errorData = await response.json()
-          } else {
-            const errorText = await response.text()
-            errorData = { error: errorText || 'Unknown error' }
-          }
-        } catch (parseError) {
-          console.warn('Failed to parse error response:', parseError)
-          errorData = { error: `HTTP ${response.status}: ${response.statusText}` }
-        }
-
-        // Fallback if server returned an empty JSON object
-        if (
-          !errorData ||
-          (typeof errorData === 'object' && Object.keys(errorData).length === 0)
-        ) {
-          errorData = { error: `HTTP ${response.status}: ${response.statusText}` }
-        }
-        
-        console.error('AuthAPI.login error details:', errorData)
-        const errMsg =
-          (errorData && typeof errorData === 'object' && (
-            (errorData as any).error || (errorData as any).details || (errorData as any).message
-          )) || `HTTP ${response.status}: ${response.statusText}`
-        throw new Error(`Login failed: ${response.status} - ${errMsg}`)
-      }
-
-      console.log('AuthAPI.login parsing response...')
-      
-      // Check if response has content
+      // Read response body once - it can only be read once
       const responseText = await response.text()
       console.log('AuthAPI.login response text:', responseText)
       
+      if (!response.ok) {
+        let errorData: Record<string, unknown> = {}
+        let errMsg = ''
+        
+        // Try to parse as JSON first
+        if (responseText) {
+          try {
+            errorData = JSON.parse(responseText)
+          } catch {
+            // Not JSON, treat as text
+            errorData = { error: responseText }
+          }
+        }
+
+        // Determine error message from various possible fields
+        if (errorData && typeof errorData === 'object' && Object.keys(errorData).length > 0) {
+          errMsg = (
+            (errorData as any).message ||
+            (errorData as any).error ||
+            (errorData as any).details ||
+            (errorData as any).detail ||
+            (errorData as any).status ||
+            ''
+          ) as string
+        }
+        
+        // Fallback to response text if no structured error message found
+        if (!errMsg && responseText) {
+          errMsg = responseText
+        }
+        
+        // Final fallback to HTTP status
+        if (!errMsg || errMsg.trim() === '') {
+          errMsg = response.status === 401 
+            ? 'Invalid username or password' 
+            : `HTTP ${response.status}: ${response.statusText || 'Request failed'}`
+        }
+        
+        // Log more informative error details
+        console.error('AuthAPI.login error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage: errMsg,
+          errorData: Object.keys(errorData).length > 0 ? errorData : 'Empty response',
+          responseText: responseText || 'No response body'
+        })
+        
+        throw new Error(`Login failed: ${response.status} - ${errMsg}`)
+      }
+      
+      // Success path
       if (!responseText) {
         throw new Error('Empty response body')
       }
       
       // Parse JSON from text
-      const data = JSON.parse(responseText)
-      console.log('AuthAPI.login success:', data)
-      console.log('AuthAPI.login returning data')
-      return data
+      try {
+        const data = JSON.parse(responseText)
+        console.log('AuthAPI.login success:', data)
+        console.log('AuthAPI.login returning data')
+        return data
+      } catch (parseError) {
+        console.error('AuthAPI.login JSON parse error:', {
+          error: parseError,
+          responseText: responseText?.substring(0, 200) || 'No response text'
+        })
+        throw new Error(`Failed to parse login response: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`)
+      }
     } catch (error) {
-      console.error('AuthAPI.login error:', error)
-      throw error
+      // Handle errors that occur before response parsing
+      if (error instanceof Error && error.message.startsWith('Login failed:')) {
+        // This is already a formatted error from above, just re-throw
+        throw error
+      }
+      
+      // Handle network/other errors
+      console.error('AuthAPI.login network/other error:', {
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        } : error,
+        errorType: error instanceof Error ? error.constructor.name : typeof error
+      })
+      
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'An unexpected error occurred during login'
+      throw new Error(errorMessage)
     }
   }
 

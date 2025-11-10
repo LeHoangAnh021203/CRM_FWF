@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { Search, User, Settings, LogOut, HelpCircle } from "lucide-react";
+import { Search, User, Settings, LogOut, HelpCircle, Users } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
@@ -198,6 +198,10 @@ export function Header() {
               <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>
                 <User className="mr-2 h-4 w-4" />
                 Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/dashboard/userManagement')}>
+                <Users className="mr-2 h-4 w-4" />
+              User Management
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <Settings className="mr-2 h-4 w-4" />

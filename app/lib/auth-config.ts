@@ -14,7 +14,7 @@ export const AUTH_CONFIG = {
   FORCE_MOCK_MODE: false,
   
   // API Configuration
-  API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://192.168.1.140:8080',
+  API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'https://backend.facewashfox.com',
   // Optional API prefix (e.g. "/api"). Defaults to "/api" if not set, empty string if explicitly set to empty.
   // If env var is not set at all, use default "/api". If set to empty string or empty quotes, use "".
   API_PREFIX: process.env.NEXT_PUBLIC_API_PREFIX === undefined 
