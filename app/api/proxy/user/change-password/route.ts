@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getApiEndpoint, AUTH_CONFIG } from '@/app/lib/auth-config'
+import { getApiEndpoint } from '@/app/lib/auth-config'
 
 // API endpoint configuration
 const CHANGE_PASSWORD_ENDPOINT = getApiEndpoint('user/change-password');
@@ -7,22 +7,53 @@ const CHANGE_PASSWORD_ENDPOINT = getApiEndpoint('user/change-password');
 // In development, disable SSL certificate verification for testing
 // WARNING: This is only for development. Never use in production!
 if (process.env.NODE_ENV === 'development') {
-  // @ts-ignore - Node env var
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
 
 // Temporary fix for SSL certificate mismatch in production
 // WARNING: This bypasses SSL verification - only use temporarily!
 if (process.env.NODE_ENV === 'production' && process.env.ALLOW_INSECURE_SSL === 'true') {
-  // @ts-ignore - Node env var
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
   console.warn('⚠️ SSL verification disabled in production - this is insecure!')
 }
 
+type ChangePasswordPayload = {
+  currentPassword?: string;
+  newPassword?: string;
+  confirmPassword?: string;
+};
+
+type ApiMessageResponse = {
+  message?: string;
+  error?: string;
+  [key: string]: unknown;
+};
+
+const parseJsonSafe = <T>(text: string): T | null => {
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+};
+
+const buildErrorResponse = (responseText: string, status: number) => {
+  const errorData = parseJsonSafe<ApiMessageResponse>(responseText);
+  const errorMessage = errorData?.message || errorData?.error || responseText || 'Change password failed';
+
+  return NextResponse.json(
+    {
+      error: errorMessage,
+      details: errorData ?? undefined,
+    },
+    { status }
+  );
+};
+
 export async function POST(request: NextRequest) {
   try {
     // Parse request body with error handling
-    let body: { currentPassword?: string; newPassword?: string; confirmPassword?: string } = {};
+    let body: ChangePasswordPayload = {};
     try {
       body = await request.json();
     } catch (parseError) {
@@ -67,17 +98,11 @@ export async function POST(request: NextRequest) {
       console.log('📡 API Response Status:', apiResponse.status, apiResponse.statusText)
 
       if (!apiResponse.ok) {
-        let errorData: any = null;
-        try { errorData = JSON.parse(responseText) } catch {}
-        return NextResponse.json(
-          { error: (errorData?.message || errorData?.error || responseText || 'Change password failed'), details: errorData || undefined },
-          { status: apiResponse.status }
-        )
+        return buildErrorResponse(responseText, apiResponse.status);
       }
 
-      let data: any;
-      try { data = JSON.parse(responseText) } catch { data = { message: responseText } }
-      return NextResponse.json(data)
+      const data = parseJsonSafe<ApiMessageResponse>(responseText);
+      return NextResponse.json(data ?? { message: responseText });
     } catch (apiError) {
       console.error('❌ API Connection failed:', apiError)
       if (apiError instanceof Error && apiError.name === 'AbortError') {
@@ -99,7 +124,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    let body: { currentPassword?: string; newPassword?: string; confirmPassword?: string } = {};
+    let body: ChangePasswordPayload = {};
     try {
       body = await request.json();
     } catch (parseError) {
@@ -134,17 +159,11 @@ export async function PATCH(request: NextRequest) {
 
       const responseText = await apiResponse.text();
       if (!apiResponse.ok) {
-        let errorData: any = null;
-        try { errorData = JSON.parse(responseText) } catch {}
-        return NextResponse.json(
-          { error: (errorData?.message || errorData?.error || responseText || 'Change password failed'), details: errorData || undefined },
-          { status: apiResponse.status }
-        )
+        return buildErrorResponse(responseText, apiResponse.status);
       }
 
-      let data: any;
-      try { data = JSON.parse(responseText) } catch { data = { message: responseText } }
-      return NextResponse.json(data)
+      const data = parseJsonSafe<ApiMessageResponse>(responseText);
+      return NextResponse.json(data ?? { message: responseText });
     } catch (apiError) {
       console.error('❌ API Connection failed:', apiError)
       if (apiError instanceof Error && apiError.name === 'AbortError') {
