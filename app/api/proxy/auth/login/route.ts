@@ -72,6 +72,63 @@ export async function POST(request: NextRequest) {
         let errorBody: unknown = null
         try { errorBody = await apiResponse.json() } catch {}
         console.warn('⚠️ Primary login endpoint failed:', { status, errorBody })
+        
+        // Check if error indicates email is not verified before trying fallback
+        const primaryError = (typeof errorBody === 'object' && errorBody !== null) ? errorBody as Record<string, unknown> : {}
+        // Backend may use 'message', 'error', or 'details' fields, also check 'statusCode'
+        const primaryErrorMsg = (primaryError['error'] ?? primaryError['message'] ?? primaryError['statusCode'] ?? '') as string
+        const primaryErrorDetails = (primaryError['details'] ?? primaryError['detail'] ?? '') as string
+        const combinedErrorText = `${primaryErrorMsg} ${primaryErrorDetails}`.toLowerCase()
+        
+        console.log('🔍 Checking for verification error:', {
+          status,
+          primaryErrorMsg,
+          primaryErrorDetails,
+          combinedErrorText,
+          primaryError: Object.keys(primaryError)
+        })
+        
+        // Check for verification errors in status code, fields, message, or details
+        const isEmailNotVerifiedPrimary = status === 403 || 
+                                          status === 423 ||
+                                          primaryError['emailVerified'] === false ||
+                                          primaryError['email_verified'] === false ||
+                                          primaryError['verified'] === false ||
+                                          combinedErrorText.includes("verify") ||
+                                          combinedErrorText.includes("verification") ||
+                                          combinedErrorText.includes("unverified") ||
+                                          combinedErrorText.includes("not verified") ||
+                                          combinedErrorText.includes("account is not verified") ||
+                                          combinedErrorText.includes("verification token expired") ||
+                                          combinedErrorText.includes("token expired") ||
+                                          combinedErrorText.includes("link has expired") ||
+                                          combinedErrorText.includes("chưa xác thực") ||
+                                          combinedErrorText.includes("cần được xác thực") ||
+                                          combinedErrorText.includes("mail đã tồn tại nhưng cần được xác thực")
+        
+        console.log('🔍 Verification check result:', {
+          isEmailNotVerifiedPrimary,
+          hasVerifyKeyword: combinedErrorText.includes("verify"),
+          hasNotVerified: combinedErrorText.includes("not verified"),
+          hasAccountNotVerified: combinedErrorText.includes("account is not verified")
+        })
+        
+        // If email not verified, return immediately without trying fallback
+        if (isEmailNotVerifiedPrimary) {
+          console.log('✅ Email not verified detected, returning verification error response')
+          const email = (primaryError['email'] ?? (username.includes("@") ? username : null)) as string | null
+          // Use details if available (it usually has the specific message), otherwise use message
+          const errorMessage = primaryErrorDetails || primaryErrorMsg || 'Email chưa được xác thực'
+          const response = {
+            error: String(primaryError['error'] ?? primaryError['message'] ?? 'Email chưa được xác thực'),
+            details: String(errorMessage),
+            message: String(errorMessage),
+            emailVerified: false,
+            ...(email && { email })
+          }
+          console.log('📤 Returning verification error response:', response)
+          return NextResponse.json(response, { status })
+        }
 
         // Build a fallback endpoint by toggling the prefix presence
         const hasPrefix = (AUTH_CONFIG.API_PREFIX || '').trim() !== ''
@@ -95,10 +152,42 @@ export async function POST(request: NextRequest) {
           const fb = (typeof fbError === 'object' && fbError !== null) ? fbError as Record<string, unknown> : {}
           const primary = (typeof errorBody === 'object' && errorBody !== null) ? errorBody as Record<string, unknown> : {}
           const errorMsg = (fb['error'] ?? primary['error'] ?? 'Login failed') as string
-          const detailsMsg = (fb['details'] ?? fb['message'] ?? primary['message'] ?? 'Please check your credentials and try again') as string
+          const detailsMsg = (fb['details'] ?? fb['message'] ?? primary['details'] ?? primary['message'] ?? 'Please check your credentials and try again') as string
+          const combinedMsg = `${errorMsg} ${detailsMsg}`.toLowerCase()
+          
+          // Check if error indicates email is not verified
+          const isEmailNotVerified = status === 403 || 
+                                     status === 423 ||
+                                     fallbackResp.status === 403 ||
+                                     fallbackResp.status === 423 ||
+                                     (fb['emailVerified'] === false) ||
+                                     (primary['emailVerified'] === false) ||
+                                     (fb['email_verified'] === false) ||
+                                     (primary['email_verified'] === false) ||
+                                     (fb['verified'] === false) ||
+                                     (primary['verified'] === false) ||
+                                     combinedMsg.includes("verify") ||
+                                     combinedMsg.includes("verification") ||
+                                     combinedMsg.includes("unverified") ||
+                                     combinedMsg.includes("not verified") ||
+                                     combinedMsg.includes("account is not verified") ||
+                                     combinedMsg.includes("verification token expired") ||
+                                     combinedMsg.includes("token expired") ||
+                                     combinedMsg.includes("link has expired") ||
+                                     combinedMsg.includes("chưa xác thực") ||
+                                     combinedMsg.includes("cần được xác thực") ||
+                                     combinedMsg.includes("mail đã tồn tại nhưng cần được xác thực")
 
-        return NextResponse.json(
-            { error: String(errorMsg), details: String(detailsMsg) },
+          // Extract email from error response if available
+          const email = (fb['email'] ?? primary['email'] ?? (username.includes("@") ? username : null)) as string | null
+
+          return NextResponse.json(
+            { 
+              error: String(errorMsg), 
+              details: String(detailsMsg),
+              message: String(detailsMsg || errorMsg),
+              ...(isEmailNotVerified && { emailVerified: false, email })
+            },
             { status: fallbackResp.status }
           )
         }
@@ -126,8 +215,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(data);
     } catch (apiError) {
       console.error("❌ API Connection failed:", apiError);
-        return NextResponse.json(
-          {
+      
+      // Check if error response contains email verification info
+      if (apiError instanceof Response && !apiError.ok) {
+        try {
+          const errorData = await apiError.json();
+          const status = apiError.status;
+          const errorMsg = (errorData?.error || errorData?.message || "Connection failed") as string;
+          
+          // Check if error indicates email is not verified
+          const isEmailNotVerified = status === 403 || 
+                                     status === 423 ||
+                                     errorData?.emailVerified === false ||
+                                     errorData?.email_verified === false ||
+                                     (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes("email") && 
+                                      (errorMsg.toLowerCase().includes("verify") || 
+                                       errorMsg.toLowerCase().includes("verification") ||
+                                       errorMsg.toLowerCase().includes("unverified") ||
+                                       errorMsg.toLowerCase().includes("not verified") ||
+                                       errorMsg.toLowerCase().includes("chưa xác thực") ||
+                                       errorMsg.toLowerCase().includes("cần được xác thực") ||
+                                       errorMsg.toLowerCase().includes("mail đã tồn tại nhưng cần được xác thực")))
+
+          const email = (errorData?.email ?? (username.includes("@") ? username : null)) as string | null
+
+          if (isEmailNotVerified) {
+            return NextResponse.json(
+              {
+                error: String(errorMsg),
+                details: errorData?.details || errorData?.message || "Email chưa được xác thực",
+                emailVerified: false,
+                ...(email && { email })
+              },
+              { status }
+            );
+          }
+        } catch {
+          // If parsing fails, continue with default error handling
+        }
+      }
+      
+      return NextResponse.json(
+        {
           error: "Connection failed",
           details: "Unable to connect to authentication server. Please check if the API is running.",
         },

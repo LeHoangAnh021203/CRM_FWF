@@ -184,6 +184,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("[AuthContext] Login error caught:", error)
       console.error("[AuthContext] Error details:", error instanceof Error ? error.message : error)
+      console.error("[AuthContext] Error type:", error instanceof Error ? error.constructor.name : typeof error)
+      
+      // Check for email verification error
+      if (error instanceof Error) {
+        const errorAny = error as any
+        
+        // Check if error has isEmailNotVerified property
+        const isEmailNotVerified = errorAny?.isEmailNotVerified === true || 
+                                   errorAny?.isEmailNotVerified === 'true' ||
+                                   Object.prototype.hasOwnProperty.call(errorAny, 'isEmailNotVerified') && errorAny.isEmailNotVerified
+        
+        console.log("[AuthContext] Checking error properties:", {
+          isEmailNotVerified: errorAny?.isEmailNotVerified,
+          isEmailNotVerifiedType: typeof errorAny?.isEmailNotVerified,
+          email: errorAny?.email,
+          details: errorAny?.details,
+          message: error.message,
+          hasOwnProperty: Object.prototype.hasOwnProperty.call(errorAny, 'isEmailNotVerified'),
+          keys: errorAny ? Object.keys(errorAny) : [],
+          isEmailNotVerifiedCheck: isEmailNotVerified
+        })
+        
+        // Re-throw error if it's an email verification error so login form can handle it
+        if (isEmailNotVerified) {
+          console.log("[AuthContext] Email not verified detected, re-throwing error")
+          console.log("[AuthContext] Error properties:", {
+            isEmailNotVerified: errorAny.isEmailNotVerified,
+            email: errorAny.email,
+            details: errorAny.details,
+            message: error.message
+          })
+          // Ensure properties are preserved when re-throwing
+          throw error
+        }
+      }
+      
+      console.log("[AuthContext] Not a verification error, returning false")
       return false
     }
   }

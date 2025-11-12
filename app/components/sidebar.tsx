@@ -18,6 +18,18 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "../contexts/AuthContext";
 
+// Define route permissions mapping
+const ROUTE_PERMISSIONS: Record<string, string[]> = {
+  "/": [], // Dashboard home - accessible to all authenticated users
+  "/dashboard/customers": ["ROLE_ADMIN", "ROLE_CEO"],
+  "/dashboard/orders": ["ROLE_ADMIN", "ROLE_CEO"],
+  "/dashboard/services": ["ROLE_ADMIN", "ROLE_CEO"],
+  "/dashboard/accounting": ["ROLE_ADMIN", "ROLE_CEO"],
+  "/dashboard/calendar": ["ROLE_ADMIN", "ROLE_CEO"],
+  "/dashboard/generateAI": ["ROLE_ADMIN", "ROLE_CEO"],
+  "/dashboard/userManagement": ["ROLE_ADMIN", "ROLE_CEO"],
+};
+
 const menuItems = [
   {
     icon: LayoutDashboard,
@@ -28,32 +40,38 @@ const menuItems = [
     icon: Users,
     label: "Customer",
     href: "/dashboard/customers",
+    requiredPermissions: ["ROLE_ADMIN", "ROLE_CEO"],
   },
 
   {
     icon: ShoppingCart,
     label: "Orders",
     href: "/dashboard/orders",
+    requiredPermissions: ["ROLE_ADMIN", "ROLE_CEO"],
   },
   {
     icon: BarChart3,
     label: "Services",
     href: "/dashboard/services",
+    requiredPermissions: ["ROLE_ADMIN", "ROLE_CEO"],
   },
   {
     icon: Radical,
     label: "Accounts",
     href: "/dashboard/accounting",
+    requiredPermissions: ["ROLE_ADMIN", "ROLE_CEO"],
   },
   {
     icon: CalendarCheck2,
     label: "Calendar",
     href: "/dashboard/calendar",
+    requiredPermissions: ["ROLE_ADMIN", "ROLE_CEO"],
   },
   {
     icon: Sparkles,
     label: "Generate",
     href: "/dashboard/generateAI",
+    requiredPermissions: ["ROLE_ADMIN", "ROLE_CEO"],
   },
 ];
 
@@ -62,7 +80,29 @@ export function Sidebar() {
   const [isNavigating, setIsNavigating] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, permissions, hasPermission } = useAuth();
+
+  // Check if user has access to a route
+  const hasRouteAccess = (href: string, requiredPermissions?: string[]) => {
+    // Dashboard home is accessible to all authenticated users
+    if (href === "/") return true;
+    
+    // If no permissions required, allow access
+    if (!requiredPermissions || requiredPermissions.length === 0) return true;
+    
+    // Check if user is admin or CEO (they have access to everything)
+    const isAdminOrCEO = permissions.includes("ROLE_ADMIN") || 
+                         permissions.includes("ROLE_CEO") ||
+                         user?.role === "ADMIN" ||
+                         user?.role === "CEO";
+    
+    if (isAdminOrCEO) return true;
+    
+    // Check if user has at least one of the required permissions
+    return requiredPermissions.some(permission => 
+      hasPermission(permission) || permissions.includes(permission)
+    );
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -109,11 +149,21 @@ export function Sidebar() {
             <div>
               {menuItems.map((item) => {
                 const isActive = pathname === item.href;
+                const hasAccess = hasRouteAccess(item.href, item.requiredPermissions);
+                
                 return (
                   <li key={item.label}>
                     <button
                       onClick={() => {
                         if (isNavigating) return; // Prevent multiple clicks
+                        
+                        // Check permission before navigation
+                        if (!hasAccess) {
+                          // Navigate to the route anyway - PermissionGuard will handle showing the denied page
+                          router.push(item.href, { scroll: false });
+                          return;
+                        }
+                        
                         console.log(`[Sidebar] Navigating to: ${item.href}`);
                         setIsNavigating(true);
                         
@@ -134,8 +184,10 @@ export function Sidebar() {
                         "w-full flex items-center j lg:justify-start px-2 lg:px-3 py-2 rounded-lg text-left transition-colors",
                         isActive
                           ? "bg-white text-[#f66035] shadow-md"
-                          : "text-white hover:bg-slate-700 hover:text-white"
+                          : "text-white hover:bg-slate-700 hover:text-white",
+                        !hasAccess && "opacity-50 cursor-not-allowed"
                       )}
+                      title={!hasAccess ? "Bạn không có quyền truy cập trang này" : ""}
                     >
                       <div className="flex items-center space-x-3">
                         {isNavigating && pathname === item.href ? (

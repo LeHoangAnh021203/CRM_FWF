@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { Label } from "@/app/components/ui/label";
+import { EmailVerificationModal } from "@/app/components/email-verification-modal";
 
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -23,6 +24,8 @@ export function LoginForm() {
     username: "",
     password: "",
   });
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
   const { login } = useAuth();
   const router = useRouter();
@@ -40,6 +43,8 @@ export function LoginForm() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setShowVerificationModal(false);
+    setUnverifiedEmail(null);
 
     try {
       console.log("[LoginForm] Attempting login...");
@@ -58,11 +63,73 @@ export function LoginForm() {
       }
     } catch (error) {
       console.error("[LoginForm] Login error:", error);
+      console.error("[LoginForm] Error type:", error instanceof Error ? error.constructor.name : typeof error);
+      
       // Extract meaningful error message from error object
-      const errorMessage = error instanceof Error 
-        ? error.message.replace(/^Login failed: \d+ - /, '') // Remove status prefix
-        : "An error occurred during login";
-      setError(errorMessage || "Invalid username or password");
+      let errorMessage = "An error occurred during login";
+      if (error instanceof Error) {
+        errorMessage = error.message.replace(/^Login failed: \d+ - /, '') // Remove status prefix
+      }
+      
+      // Check error object properties
+      const errorAny = error as any;
+      
+      // Get error details if available (from error object or error message)
+      const errorDetails = errorAny?.details || '';
+      const fullErrorText = `${errorMessage} ${errorDetails}`.toLowerCase();
+      
+      // Check if error has isEmailNotVerified property (multiple ways to check)
+      const hasVerificationFlag = errorAny?.isEmailNotVerified === true ||
+                                  errorAny?.isEmailNotVerified === 'true' ||
+                                  (typeof errorAny === 'object' && errorAny !== null && 
+                                   Object.prototype.hasOwnProperty.call(errorAny, 'isEmailNotVerified') && 
+                                   (errorAny.isEmailNotVerified === true || errorAny.isEmailNotVerified === 'true'));
+      
+      // Check for verification keywords in error message/details
+      // IMPORTANT: This is the fallback method that should work even if flag is lost
+      const hasVerificationKeywords = fullErrorText.includes("verify") || 
+                                      fullErrorText.includes("verification") ||
+                                      fullErrorText.includes("unverified") ||
+                                      fullErrorText.includes("not verified") ||
+                                      fullErrorText.includes("account is not verified") ||
+                                      fullErrorText.includes("your account is not verified") ||
+                                      fullErrorText.includes("verification token expired") ||
+                                      fullErrorText.includes("token expired") ||
+                                      fullErrorText.includes("link has expired") ||
+                                      fullErrorText.includes("chưa xác thực") ||
+                                      fullErrorText.includes("cần được xác thực") ||
+                                      fullErrorText.includes("mail đã tồn tại nhưng cần được xác thực");
+      
+      // Check if error is about verification (either flagged or contains keywords)
+      const isEmailNotVerified = hasVerificationFlag || hasVerificationKeywords;
+      
+      console.log("[LoginForm] Error analysis:", {
+        errorMessage,
+        errorDetails,
+        fullErrorText,
+        hasVerificationFlag,
+        hasVerificationKeywords,
+        isEmailNotVerified,
+        errorObjectKeys: errorAny ? Object.keys(errorAny) : [],
+        errorAnyIsEmailNotVerified: errorAny?.isEmailNotVerified
+      });
+      
+      if (isEmailNotVerified) {
+        console.log("[LoginForm] Email not verified detected, showing modal");
+        // Show verification modal instead of error message
+        setShowVerificationModal(true);
+        // Try to extract email from error object if available
+        const emailFromError = errorAny?.email;
+        // Use email from error, or check if username is an email, or use username as fallback
+        const emailToShow = emailFromError ||
+                           (formData.username.includes("@") ? formData.username : "");
+        console.log("[LoginForm] Email to show in modal:", emailToShow);
+        setUnverifiedEmail(emailToShow || "");
+        // Don't set error message, modal will be shown instead
+      } else {
+        console.log("[LoginForm] Regular error, showing error message:", errorMessage);
+        setError(errorMessage || "Invalid username or password");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -324,6 +391,17 @@ export function LoginForm() {
           </div>
         </div>
       </div>
+
+      {/* Email Verification Modal */}
+      <EmailVerificationModal
+        open={showVerificationModal}
+        onClose={() => {
+          setShowVerificationModal(false);
+          setUnverifiedEmail(null);
+        }}
+        username={formData.username}
+        email={unverifiedEmail || undefined}
+      />
     </div>
   );
 }
