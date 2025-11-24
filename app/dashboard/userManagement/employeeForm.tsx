@@ -69,6 +69,18 @@ export default function EmployeeForm({ initialData, onSubmit, onCancel, isSubmit
       : selectedRole.toUpperCase()
     if (!finalPosition) {
       newErrors.position = "Vui lòng chọn hoặc nhập vị trí"
+    } else {
+      // Validate role format and length
+      // Role should only contain letters, numbers, and underscores
+      // Maximum length is typically 20 characters for database columns (VARCHAR(20))
+      const MAX_ROLE_LENGTH = 20
+      const ROLE_PATTERN = /^[A-Z0-9_]+$/
+      
+      if (finalPosition.length > MAX_ROLE_LENGTH) {
+        newErrors.position = `Vị trí không được vượt quá ${MAX_ROLE_LENGTH} ký tự`
+      } else if (!ROLE_PATTERN.test(finalPosition)) {
+        newErrors.position = "Vị trí chỉ được chứa chữ cái in hoa, số và dấu gạch dưới (_)"
+      }
     }
    
     if (!formData.joinDate) {

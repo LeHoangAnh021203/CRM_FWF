@@ -10,7 +10,7 @@ interface EmployeeTableProps {
   employees: Employee[]
   onEdit: (employee: Employee) => void
   onRequestDelete: (employee: Employee) => void
-  onToggleStatus: (id: string) => void | Promise<void>
+  onToggleStatus: (employee: Employee) => void | Promise<void>
   togglingStatus?: string | null
 }
 
@@ -47,7 +47,7 @@ export default function EmployeeTable({ employees, onEdit, onRequestDelete, onTo
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => onToggleStatus(employee.id)}
+                  onClick={() => onToggleStatus(employee)}
                   disabled={togglingStatus === employee.id}
                   className={`${
                     employee.isActive

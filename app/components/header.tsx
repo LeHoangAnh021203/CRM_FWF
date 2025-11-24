@@ -183,15 +183,35 @@ export function Header() {
                   <Image src="/logo.png" alt="FB Network Logo" width={32} height={32} className="w-full h-full" />
                 </div>
                 <span className="text-sm font-medium hidden sm:inline">
-                  {user?.firstname ? `${user.firstname} ${user.lastname}` : "User"}
+                  {(() => {
+                    // Logic giống profile page: ưu tiên firstname + lastname, nếu không có thì dùng username
+                    const fullName = `${user?.firstname || ''} ${user?.lastname || ''}`.trim();
+                    if (fullName) {
+                      return fullName;
+                    }
+                    // Nếu không có tên đầy đủ, dùng username (giống profile page hiển thị @username)
+                    return user?.username || "User";
+                  })()}
                 </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44 sm:w-56">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{user?.firstname ? `${user.firstname} ${user.lastname}` : "User"}</p>
-                  <p className="text-xs text-gray-500">{user?.email || "user@example.com"}</p>
+                  <p className="text-sm font-medium">
+                    {(() => {
+                      // Logic giống profile page: ưu tiên firstname + lastname, nếu không có thì dùng username
+                      const fullName = `${user?.firstname || ''} ${user?.lastname || ''}`.trim();
+                      if (fullName) {
+                        return fullName;
+                      }
+                      // Nếu không có tên đầy đủ, dùng username (giống profile page hiển thị @username)
+                      return user?.username || "User";
+                    })()}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {user?.email || (user?.username ? `@${user.username}` : "user@example.com")}
+                  </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

@@ -188,7 +188,7 @@ function VerifyContent() {
                   <p className="text-sm text-orange-200 mb-3">
                     Enter the email you used to register. We will resend a fresh verification link.
                   </p>
-                  <div className="space-y-3">
+              <div className="space-y-3">
                     <Input
                       type="email"
                       value={email}
@@ -211,12 +211,12 @@ function VerifyContent() {
                           "Resend verification email"
                         )}
                       </Button>
-                      <Link
-                        href="/login"
+                <Link
+                  href="/login"
                         className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-all"
-                      >
-                        Back to Login
-                      </Link>
+                >
+                  Back to Login
+                </Link>
                     </div>
                     {resendStatus === "success" && (
                       <p className="text-sm text-green-300">{resendMessage}</p>

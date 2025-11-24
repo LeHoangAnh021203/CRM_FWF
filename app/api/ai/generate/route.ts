@@ -57,9 +57,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ result });
   } catch (error) {
     console.error('AI generation error:', error);
+    const message = error instanceof Error ? error.message : 'AI generation failed';
+    const isTimeout = /timeout|aborted/i.test(message);
+    
     return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'AI generation failed' 
-    }, { status: 500 });
+      error: message,
+      details: isTimeout ? 'AI generation request timed out. Please try again.' : undefined
+    }, { status: isTimeout ? 504 : 500 });
   }
 }
 
@@ -89,6 +93,7 @@ async function generateWithStability(imageBlob: string, prompt: string, strength
       'Accept': 'application/json',
     },
     body: formData,
+    signal: AbortSignal.timeout(60000), // 60 second timeout for AI generation
   });
 
   if (!response2.ok) {
@@ -120,6 +125,7 @@ async function generateWithReplicate(imageBlob: string, prompt: string, strength
         strength: strength
       }
     }),
+    signal: AbortSignal.timeout(60000), // 60 second timeout for AI generation
   });
 
   if (!response.ok) {
@@ -143,6 +149,7 @@ async function generateWithOpenAI(imageBlob: string, prompt: string, strength: n
       n: 1,
       size: "1024x1024"
     }),
+    signal: AbortSignal.timeout(60000), // 60 second timeout for AI generation
   });
 
   if (!response.ok) {

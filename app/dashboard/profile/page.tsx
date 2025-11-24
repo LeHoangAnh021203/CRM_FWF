@@ -145,13 +145,25 @@ export default function ProfilePage() {
             <div className="flex items-center gap-3">
               <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                 <span className="text-white text-xl font-bold">
-                  {user.firstname?.[0]}
-                  {user.lastname?.[0]}
+                  {(() => {
+                    // Lấy chữ cái đầu từ firstname và lastname, nếu không có thì lấy từ username
+                    const firstInitial = user.firstname?.[0] || '';
+                    const lastInitial = user.lastname?.[0] || '';
+                    if (firstInitial || lastInitial) {
+                      return `${firstInitial}${lastInitial}`.toUpperCase();
+                    }
+                    // Nếu không có firstname/lastname, lấy 2 chữ cái đầu của username
+                    return (user.username || 'U').substring(0, 2).toUpperCase();
+                  })()}
                 </span>
               </div>
               <div>
                 <h3 className="text-lg font-semibold">
-                  {user.firstname} {user.lastname}
+                  {(() => {
+                    // Hiển thị tên đầy đủ nếu có, nếu không thì dùng username
+                    const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim();
+                    return fullName || user.username || "User";
+                  })()}
                 </h3>
                 <p className="text-gray-500">@{user.username}</p>
               </div>
@@ -162,7 +174,9 @@ export default function ProfilePage() {
                 <Mail className="h-4 w-4 text-gray-400" />
                 <div>
                   <p className="text-sm font-medium">Email</p>
-                  <p className="text-sm text-gray-600">{user.email}</p>
+                  <p className="text-sm text-gray-600">
+                    {user.email || "Not provided"}
+                  </p>
                 </div>
               </div>
 

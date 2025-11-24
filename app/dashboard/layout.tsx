@@ -17,7 +17,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         <Header />
         <main className='flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 '>
           <PermissionGuard>
-            {children}
+          {children}
           </PermissionGuard>
         </main>
       </div>

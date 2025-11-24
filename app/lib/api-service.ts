@@ -166,6 +166,41 @@ export class ApiService {
     return this.get('dashboard/insights', token)
   }
 
+  // Get user info by username from get-all-users API
+  static async getUserByUsername(username: string, token?: string): Promise<unknown | null> {
+    try {
+      // Call get-all-users API with username filter
+      const response = await this.get(`user/get-all-users?pageNumber=0&pageSize=100&sortBy=username&sortDir=asc`, token) as {
+        content?: Array<{
+          id: number
+          firstname: string
+          lastname: string
+          username: string
+          email: string
+          phoneNumber: string
+          role: string
+          active: boolean
+        }>
+        totalElements?: number
+      }
+      
+      if (response && response.content && Array.isArray(response.content)) {
+        // Find user by username
+        const user = response.content.find(u => u.username === username)
+        if (user) {
+          console.log('[ApiService] Found user by username:', user)
+          return user
+        }
+      }
+      
+      console.warn('[ApiService] User not found by username:', username)
+      return null
+    } catch (error) {
+      console.error('[ApiService] Error fetching user by username:', error)
+      return null
+    }
+  }
+
   static async patch(endpoint: string, data: unknown, token?: string): Promise<unknown> {
     const validToken = token || await TokenService.getValidAccessToken()
     

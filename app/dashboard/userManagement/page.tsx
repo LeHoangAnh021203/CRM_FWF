@@ -55,7 +55,7 @@ interface ApiResponse {
 
 export default function Dashboard() {
   const router = useRouter()
-  const { getValidToken } = useAuth()
+  const { user: authUser, getValidToken } = useAuth()
   const { notification, showSuccess, showError, hideNotification } = useNotification()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
@@ -68,6 +68,7 @@ export default function Dashboard() {
   const [togglingStatus, setTogglingStatus] = useState<string | null>(null) // Track which user is being toggled
   const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(null)
   const [deleteConfirmText, setDeleteConfirmText] = useState("")
+  const [toggleConfirmEmployee, setToggleConfirmEmployee] = useState<Employee | null>(null)
   
   // Pagination state
   const [pageNumber, setPageNumber] = useState(0)
@@ -315,6 +316,23 @@ export default function Dashboard() {
         const originalRole = role
         const roleTrimmed = role.trim().toUpperCase() // Always use uppercase
         
+        // Validate role format before sending
+        // Database role column is typically VARCHAR(20), so limit to 20 characters
+        const MAX_ROLE_LENGTH = 20
+        const ROLE_PATTERN = /^[A-Z0-9_]+$/
+        
+        if (roleTrimmed.length > MAX_ROLE_LENGTH) {
+          showError(`Vị trí "${originalRole}" quá dài (tối đa ${MAX_ROLE_LENGTH} ký tự). Vui lòng chọn lại.`)
+          setIsUpdating(false)
+          return
+        }
+        
+        if (!ROLE_PATTERN.test(roleTrimmed)) {
+          showError(`Vị trí "${originalRole}" chứa ký tự không hợp lệ. Chỉ được chứa chữ cái in hoa, số và dấu gạch dưới (_).`)
+          setIsUpdating(false)
+          return
+        }
+        
         // Backend expects role in request body
         // Based on logs: body format { role: 'USER' } works, query parameter doesn't
         // COMMON_ROLES uses underscores (STORE_LEADER, AREA_MANAGER)
@@ -412,8 +430,15 @@ export default function Dashboard() {
           const errorText = String(lastError)
           const isInvalidRole = errorMessage.includes("Invalid role name") || errorText.includes("Invalid role name")
           const isNullRole = errorMessage.includes("getRole() is null") || errorText.includes("getRole() is null")
+          const isDataTruncated = errorMessage.includes("Data truncated") || errorText.includes("Data truncated") || 
+                                  errorMessage.includes("data truncated") || errorText.includes("data truncated")
 
-          if (isInvalidRole) {
+          if (isDataTruncated) {
+            showError(
+              `Vị trí "${originalRole}" quá dài hoặc không đúng định dạng cho database. ` +
+              `Vui lòng chọn một vị trí ngắn hơn hoặc kiểm tra lại định dạng (chỉ chữ cái in hoa, số và dấu gạch dưới).`
+            )
+          } else if (isInvalidRole) {
             showError(`Vị trí "${originalRole}" không hợp lệ. Backend không chấp nhận role này.`)
           } else if (isNullRole) {
             showError(`Không thể cập nhật vị trí "${originalRole}". Backend không nhận được role từ request.`)
@@ -488,30 +513,16 @@ export default function Dashboard() {
       }
 
       const newActiveStatus = !employee.isActive
-      const endpoint = newActiveStatus ? `user/unbanUser/${id}` : `user/banUser/${id}`
-      
-      // Call API to ban/unban user
-      // Try unbanUser for activating, banUser for deactivating
+      // Always use banUser endpoint with body { active }
       try {
-        await ApiService.patch(endpoint, {}, token)
-        console.log('✅ User ban status updated successfully')
+        await ApiService.patch(`user/banUser/${id}`, { active: newActiveStatus }, token)
         showSuccess(
           newActiveStatus
             ? "Đã mở khóa tài khoản nhân viên thành công" 
             : "Đã khóa tài khoản nhân viên thành công"
         )
-      } catch (apiError) {
-        console.error('Error updating user ban status:', apiError)
-        
-        // If unbanUser doesn't exist, try banUser with active status in body
-        if (newActiveStatus) {
-          try {
-            // Try sending active status in body
-            await ApiService.patch(`user/banUser/${id}`, { active: true }, token)
-            console.log('✅ User unban status updated successfully via banUser with active=true')
-            showSuccess("Đã mở khóa tài khoản nhân viên thành công")
-          } catch {
-            // Fallback: try direct fetch
+      } catch (primaryErr) {
+        console.warn('Primary banUser call failed, retrying via proxy fetch...', primaryErr)
             const response = await fetch(`/api/proxy/user/banUser/${id}`, {
               method: 'PATCH',
               headers: {
@@ -520,7 +531,6 @@ export default function Dashboard() {
               },
               body: JSON.stringify({ active: newActiveStatus }),
             })
-
             if (!response.ok) {
               const errorText = await response.text()
               throw new Error(`Failed to update user ban status: ${response.status} - ${errorText}`)
@@ -530,24 +540,6 @@ export default function Dashboard() {
                 ? "Đã mở khóa tài khoản nhân viên thành công" 
                 : "Đã khóa tài khoản nhân viên thành công"
             )
-          }
-        } else {
-          // For banning, try with active: false in body
-          const response = await fetch(`/api/proxy/user/banUser/${id}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ active: false }),
-          })
-
-          if (!response.ok) {
-            const errorText = await response.text()
-            throw new Error(`Failed to update user ban status: ${response.status} - ${errorText}`)
-          }
-          showSuccess("Đã khóa tài khoản nhân viên thành công")
-        }
       }
 
       // Update local state optimistically
@@ -562,6 +554,16 @@ export default function Dashboard() {
     } finally {
       setTogglingStatus(null)
     }
+  }
+
+  const openToggleConfirmDialog = (employee: Employee) => {
+    setToggleConfirmEmployee(employee)
+  }
+
+  const handleConfirmToggle = async () => {
+    if (!toggleConfirmEmployee) return
+    await handleToggleStatus(toggleConfirmEmployee.id)
+    setToggleConfirmEmployee(null)
   }
 
   const handleEditEmployee = (employee: Employee) => {
@@ -676,6 +678,9 @@ export default function Dashboard() {
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Quản lý nhân viên</h1>
           <p className="text-gray-600">Quản lý thông tin nhân viên và dữ liệu công ty</p>
+          {authUser && (
+            <p className="text-xs text-gray-400 mt-1">Người thao tác: {authUser.username || authUser.email}</p>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -785,7 +790,7 @@ export default function Dashboard() {
               employees={filteredEmployees}
               onEdit={handleEditEmployee}
               onRequestDelete={openDeleteDialog}
-              onToggleStatus={handleToggleStatus}
+              onToggleStatus={openToggleConfirmDialog}
               togglingStatus={togglingStatus}
             />
 
@@ -864,6 +869,32 @@ export default function Dashboard() {
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDeletingEmployee(null)}>Hủy</Button>
               <Button variant="destructive" onClick={handleDeleteEmployee}>Xóa</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!toggleConfirmEmployee} onOpenChange={(open) => { if (!open) setToggleConfirmEmployee(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {toggleConfirmEmployee?.isActive ? "Khoá tài khoản nhân viên" : "Mở khoá tài khoản nhân viên"}
+            </DialogTitle>
+            <DialogDescription>
+              {toggleConfirmEmployee?.isActive
+                ? "Bạn có chắc chắn muốn khoá tài khoản nhân viên này không? Họ sẽ không thể đăng nhập cho đến khi được mở khoá lại."
+                : "Bạn có chắc chắn muốn mở khoá tài khoản nhân viên này không? Họ sẽ có thể đăng nhập trở lại."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-sm text-gray-700">
+              {toggleConfirmEmployee?.name} ({toggleConfirmEmployee?.email || "Không có email"})
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setToggleConfirmEmployee(null)}>Huỷ</Button>
+              <Button onClick={handleConfirmToggle} disabled={togglingStatus === toggleConfirmEmployee?.id}>
+                {toggleConfirmEmployee?.isActive ? "Khoá tài khoản" : "Mở khoá tài khoản"}
+              </Button>
             </div>
           </div>
         </DialogContent>

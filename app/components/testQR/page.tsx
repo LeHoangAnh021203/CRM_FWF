@@ -211,7 +211,6 @@ export default function TestQRPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [resolving, setResolving] = useState(false)
 
   const handleParse = () => {
     if (!rawText.trim()) {
@@ -262,26 +261,6 @@ export default function TestQRPage() {
       setError(msg)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const tryResolveAccountName = async (bin?: string, account?: string) => {
-    if (!bin || !account) return
-    if (parsed?.accountName) return
-    try {
-      setResolving(true)
-      const res = await fetch(`/api/proxy/vietqr/account-info?bin=${encodeURIComponent(bin)}&account=${encodeURIComponent(account)}`)
-      if (res.status === 204) return
-      if (!res.ok) return
-      const data = await res.json()
-      const name = (data?.accountName || data?.data?.accountName || data?.data?.ownerName) as string | undefined
-      if (name) {
-        setParsed((prev) => (prev ? { ...prev, accountName: name } : prev))
-      }
-    } catch {
-      // ignore
-    } finally {
-      setResolving(false)
     }
   }
 
