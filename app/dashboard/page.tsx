@@ -355,6 +355,7 @@ export default function Dashboard() {
     useNotification();
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
+  const { fromDate, toDate } = useDateRange();
   
   // Track which data sections have been loaded and notified
   const notifiedDataRef = useRef<Set<string>>(new Set());
@@ -366,9 +367,6 @@ export default function Dashboard() {
   } = usePageStatus("dashboard");
 
   const { loading, error, apiErrors, apiSuccesses } = useDashboardData();
-
-  // Use the same date range format as orders page
-  const { fromDate, toDate } = useDateRange();
   
   // Memoize date strings to prevent unnecessary re-renders
   const fromDateStr = React.useMemo(() => {
@@ -1371,7 +1369,10 @@ export default function Dashboard() {
 
   const [highlightKey, setHighlightKey] = React.useState<string | null>(null);
 
-  const endDateObj = toDate ? new Date(toDate.split("T")[0]) : null;
+  const endDateObj = React.useMemo(() => {
+    if (!toDate) return null;
+    return new Date(toDate.split("T")[0]);
+  }, [toDate]);
   const daysInMonth = endDateObj
     ? new Date(endDateObj.getFullYear(), endDateObj.getMonth() + 1, 0).getDate()
     : 0;
@@ -1385,26 +1386,10 @@ export default function Dashboard() {
   )}-${String(today.getDate()).padStart(2, "0")}`;
   const todayDay = today.getDate();
   
-  // Calculate weekend days (Saturday=6, Sunday=0) in the month
-  const getWeekendDaysInMonth = (year: number, month: number): number => {
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    let weekendCount = 0;
-    for (let day = 1; day <= lastDay.getDate(); day++) {
-      const date = new Date(year, month, day);
-      const dayOfWeek = date.getDay();
-      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
-        weekendCount++;
-      }
-    }
-    return weekendCount;
-  };
-  
   const weekendTargetPerDay = 500000000; // 500M per weekend day
   const holidayTargetPerDay = 600000000; // 600M per special holiday
   const year = endDateObj ? endDateObj.getFullYear() : new Date().getFullYear();
   const month = endDateObj ? endDateObj.getMonth() : new Date().getMonth();
-  const weekendDaysCountRaw = daysInMonth > 0 ? getWeekendDaysInMonth(year, month) : 0;
   const holidayDaysSet = new Set<number>(specialHolidays.map((d) => Math.max(1, Math.min(d, daysInMonth))));
   // Count holidays that fall on weekend to avoid double counting
   let holidayDaysCount = 0;

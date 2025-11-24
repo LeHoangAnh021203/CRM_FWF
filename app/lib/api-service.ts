@@ -1,6 +1,6 @@
 const API_BASE_URL = "/api/proxy"
 import { TokenService } from './token-service'
-import { AUTH_CONFIG, getApiEndpoint } from './auth-config'
+import { AUTH_CONFIG } from './auth-config'
 
 export class ApiService {
   static async get(endpoint: string, token?: string): Promise<unknown> {
