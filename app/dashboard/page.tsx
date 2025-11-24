@@ -430,8 +430,8 @@ export default function Dashboard() {
           endDate,
         });
 
-        // Use ApiService with authentication and proxy
-        const data = (await ApiService.get(
+        // Use direct fetch from client to avoid Vercel proxy timeout
+        const data = (await ApiService.getDirect(
           `real-time/sales-summary-copied?dateStart=${startDate}&dateEnd=${endDate}`
         )) as {
           totalRevenue: string;
@@ -607,7 +607,7 @@ export default function Dashboard() {
         const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
         const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
-        const data = (await ApiService.get(
+        const data = (await ApiService.getDirect(
           `real-time/service-summary?dateStart=${startDate}&dateEnd=${endDate}`
         )) as {
           totalServices: string;
@@ -658,7 +658,7 @@ export default function Dashboard() {
         const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
         const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
-        const data = (await ApiService.get(
+        const data = (await ApiService.getDirect(
           `real-time/get-new-customer?dateStart=${startDate}&dateEnd=${endDate}`
         )) as Array<{
           count: number;
@@ -699,7 +699,7 @@ export default function Dashboard() {
         const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
         const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
-        const data = (await ApiService.get(
+        const data = (await ApiService.getDirect(
           `real-time/get-old-customer?dateStart=${startDate}&dateEnd=${endDate}`
         )) as Array<{
           count: number;
@@ -793,7 +793,7 @@ export default function Dashboard() {
           endDate,
         });
 
-        const data = (await ApiService.get(
+        const data = (await ApiService.getDirect(
           `real-time/get-sales-by-hour?dateStart=${startDate}&dateEnd=${endDate}`
         )) as Array<{
           date: string;
@@ -831,8 +831,8 @@ export default function Dashboard() {
         const dayStr = toDdMmYyyy(today);
         const startMonthStr = toDdMmYyyy(firstDay);
         const [dayValue, mtdValue] = await Promise.all([
-          ApiService.get(`real-time/get-actual-revenue?dateStart=${dayStr}&dateEnd=${dayStr}`),
-          ApiService.get(`real-time/get-actual-revenue?dateStart=${startMonthStr}&dateEnd=${dayStr}`),
+          ApiService.getDirect(`real-time/get-actual-revenue?dateStart=${dayStr}&dateEnd=${dayStr}`),
+          ApiService.getDirect(`real-time/get-actual-revenue?dateStart=${startMonthStr}&dateEnd=${dayStr}`),
         ]);
         setActualRevenueToday(Number(dayValue || 0));
         setActualRevenueMTD(Number(mtdValue || 0));
@@ -859,7 +859,7 @@ export default function Dashboard() {
         };
         const start = toDdMmYyyy(fromDateStr + "T00:00:00");
         const end = toDdMmYyyy(toDateStr + "T23:59:59");
-        const data = (await ApiService.get(
+        const data = (await ApiService.getDirect(
           `real-time/get-booking-by-hour?dateStart=${start}&dateEnd=${end}`
         )) as Array<{ count: number; type: string }>;
         setBookingByHourData(data || []);
@@ -946,7 +946,7 @@ export default function Dashboard() {
         const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
         const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
-        const data = (await ApiService.get(
+        const data = (await ApiService.getDirect(
           `real-time/sales-detail?dateStart=${startDate}&dateEnd=${endDate}`
         )) as Array<{
           productName: string;
@@ -1002,7 +1002,7 @@ export default function Dashboard() {
           endDate,
         });
 
-        const data = (await ApiService.get(
+        const data = (await ApiService.getDirect(
           `real-time/booking?dateStart=${startDate}&dateEnd=${endDate}`
         )) as {
           notConfirmed: string;
@@ -1045,7 +1045,7 @@ export default function Dashboard() {
 
         console.log("🔄 Fetching daily revenue for today:", todayStr);
 
-        const data = (await ApiService.get(
+        const data = (await ApiService.getDirect(
           `real-time/sales-summary?dateStart=${todayStr}&dateEnd=${todayStr}`
         )) as {
           totalRevenue: string;
@@ -1104,7 +1104,7 @@ export default function Dashboard() {
           { startDate, endDate }
         );
 
-        const data = (await ApiService.get(
+        const data = (await ApiService.getDirect(
           `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}`
         )) as {
           totalRevenue: string;
@@ -1191,7 +1191,7 @@ export default function Dashboard() {
         const fetchPromises = dates.map(async (d) => {
           const ddmmyyyy = toDdMmYyyy(d);
           try {
-            const data = (await ApiService.get(
+            const data = (await ApiService.getDirect(
               `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}`
             )) as {
               cash: string;
@@ -1973,9 +1973,11 @@ export default function Dashboard() {
     };
 
     try {
-      const res = await ApiService.get(
+      console.log(`[Dashboard] Fetching sales data for ${monthKey}:`, { startDate, endDate })
+      const res = await ApiService.getDirect(
         `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}`
       );
+      console.log(`[Dashboard] Successfully fetched sales data for ${monthKey}`)
       const parsed = res as {
         cash?: string | number;
         transfer?: string | number;
