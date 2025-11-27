@@ -132,12 +132,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser(user)
             }
             
-            // Also ensure token is in cookie for middleware
-            if (typeof document !== 'undefined') {
-              document.cookie = `token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict`
-              console.log('[AuthContext] Token saved to cookie for middleware access')
-            }
-            
             // Get permissions from token with error handling
             try {
               const userPermissions = AuthAPI.getUserPermissions(token)
@@ -198,6 +192,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Store tokens and user data
       localStorage.setItem("access_token", response.access_token)
       localStorage.setItem("refresh_token", response.refresh_token)
+
+      if (typeof window !== "undefined" && response.refresh_token) {
+        const cookieParts = [
+          `refresh_token=${encodeURIComponent(response.refresh_token)}`,
+          "path=/",
+          "SameSite=Strict",
+          `Max-Age=${30 * 24 * 60 * 60}`,
+        ];
+        if (window.location.protocol === "https:") {
+          cookieParts.push("Secure");
+        }
+        document.cookie = cookieParts.join("; ");
+      }
       
       // Derive user data if backend doesn't return it
       const maybeUser = (response as { user?: User }).user
@@ -291,9 +298,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("user_data", JSON.stringify(userFromResponse))
       }
       
-      // Also store token in cookie for middleware access
-      document.cookie = `token=${response.access_token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict`
-      
       console.log('[AuthContext] Tokens stored, setting user state...')
       console.log('[AuthContext] User data:', response.user)
       
@@ -316,12 +320,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[AuthContext] Setting user state...');
       if (userFromResponse) {
         setUser(userFromResponse)
-      }
-      
-      // Ensure token is in cookie before returning
-      if (typeof document !== 'undefined') {
-        document.cookie = `token=${response.access_token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict`
-        console.log('[AuthContext] Token saved to cookie for middleware access')
       }
       
       console.log('[AuthContext] User state set, isAuthenticated should be true now')
@@ -396,15 +394,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Always clear local tokens and state
       console.log('[AuthContext] Clearing local authentication data...')
       TokenService.clearTokens()
-      
-      // Clear all cookies that might contain authentication data
-      const cookiesToClear = ['token', 'auth_token', 'auth_user', 'access_token', 'refresh_token', 'user_data']
-      cookiesToClear.forEach(cookieName => {
-        document.cookie = `${cookieName}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
-        document.cookie = `${cookieName}=; path=/; domain=.localhost; expires=Thu, 01 Jan 1970 00:00:00 GMT`
-        document.cookie = `${cookieName}=; path=/; domain=localhost; expires=Thu, 01 Jan 1970 00:00:00 GMT`
-      })
-      console.log('[AuthContext] All cookies cleared')
+      if (typeof window !== "undefined") {
+        document.cookie = "refresh_token=; path=/; Max-Age=0; SameSite=Strict";
+      }
       
       // Clear state
       setUser(null)

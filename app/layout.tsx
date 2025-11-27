@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/app/contexts/AuthContext"
 import { DateProvider } from "@/app/contexts/DateContext"
+import { BranchProvider } from "@/app/contexts/BranchContext"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -22,7 +23,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <DateProvider>
-            {children}
+            <BranchProvider>
+              {children}
+            </BranchProvider>
           </DateProvider>
         </AuthProvider>
       </body>

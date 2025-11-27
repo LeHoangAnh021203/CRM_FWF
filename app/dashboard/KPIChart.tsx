@@ -157,6 +157,11 @@ export default function KPIChart(props: KPIChartProps) {
             <div className="h-[200px] sm:h-[280px] flex items-center justify-center text-red-600 text-xs sm:text-sm px-2">
               Lỗi tải dữ liệu: {kpiDailySeriesError}
             </div>
+          ) : !dailyKpiGrowthData || dailyKpiGrowthData.length === 0 ? (
+            <div className="h-[200px] sm:h-[280px] flex flex-col items-center justify-center text-gray-500 text-xs sm:text-sm px-2">
+              <p className="mb-2">Không có dữ liệu để hiển thị</p>
+              <p className="text-xs text-gray-400">Vui lòng kiểm tra lại filter hoặc khoảng thời gian</p>
+            </div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <LineChart

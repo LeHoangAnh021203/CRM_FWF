@@ -5,6 +5,7 @@ import { CalendarDate, today, getLocalTimeZone } from '@internationalized/date';
 import { useLocalStorageState } from '@/app/hooks/useLocalStorageState';
 import { ApiService } from '@/app/lib/api-service';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/app/contexts/AuthContext';
 import {
   Dialog,
   DialogContent,
@@ -98,6 +99,7 @@ export function DateProvider({
   storageKey = 'global-date-range'
 }: DateProviderProps) {
   const pathname = usePathname();
+  const { isAuthenticated, getValidToken } = useAuth();
   const [startDate, setStartDate, startDateLoaded] = useLocalStorageState<CalendarDate>(
     `${storageKey}-startDate`,
     defaultStartDate
@@ -124,16 +126,39 @@ export function DateProvider({
   }, [pathname]);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchRangeAlert = async () => {
+      if (!isAuthenticated) {
+        return;
+      }
+
       try {
-        const data = (await ApiService.getDirect("customer-sale/range-time-alert")) as RangeAlertResponse;
-        setRangeAlert(data);
+        const token = await getValidToken();
+        if (!token) {
+          console.warn("[DateContext] Skipping range-time-alert fetch: no valid token");
+          return;
+        }
+
+        const data = (await ApiService.getDirect(
+          "customer-sale/range-time-alert",
+          token
+        )) as RangeAlertResponse;
+
+        if (isMounted) {
+          setRangeAlert(data);
+        }
       } catch (error) {
         console.error("Failed to fetch range-time-alert:", error);
       }
     };
+
     fetchRangeAlert();
-  }, []);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, getValidToken]);
 
   const calendarToDate = (date?: CalendarDate): Date | null => {
     if (!date) return null;

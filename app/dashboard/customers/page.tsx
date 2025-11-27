@@ -1,9 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
-import { today, getLocalTimeZone, parseDate } from "@internationalized/date";
 import CustomerFacilityHourTable from "./CustomerFacilityHourTable";
-import CustomerFilters from "./CustomerFilters";
 import CustomerAccordionCard from "./CustomerAccordionCard";
 import CustomerNewChart from "./CustomerNewChart";
 import CustomerTypeTrendChart from "./CustomerTypeTrendChart";
@@ -14,6 +12,8 @@ import CustomerOldTypeTrendChart from "./CustomerOldTypeTrendChart";
 import CustomerFacilityBookingTable from "./CustomerFacilityBookingHour";
 import CustomerOldStatCard from "./CustomerOldStatCard";
 import CustomerNewOldSummaryTable from "./CustomerNewOldSummaryTable";
+import CustomerRangeTrendChart from "./CustomerRangeTrendChart";
+import CustomerBreakdownAnalysisChart from "./CustomerBreakdownAnalysisChart";
 import { Notification, useNotification } from "@/app/components/notification";
 import {
   useLocalStorageState,
@@ -33,11 +33,6 @@ interface LineChartRanges {
 }
 
 type TrendSeriesMap = Record<string, DateCountPoint[]>;
-
-interface GenderRatio {
-  male?: number;
-  female?: number;
-}
 
 interface AppDownloadPie {
   totalNew?: number;
@@ -66,16 +61,25 @@ interface UniqueCustomersComparison {
   changePercentFemale?: number;
 }
 
-interface GenderRevenueSummary {
-  avgActualRevenueMale?: number;
-  avgFoxieRevenueMale?: number;
-  avgActualRevenueFemale?: number;
-  avgFoxieRevenueFemale?: number;
-}
-
 // Customer summary pass-through type (structure used by child)
 // If shape is unknown, keep as unknown but not assign to stricter type
 type CustomerSummaryRaw = Record<string, unknown>;
+
+type CustomerRecord = Record<string, unknown>;
+
+interface CustomerAllResponse extends Record<string, unknown> {
+  content?: CustomerRecord[];
+  totalElements?: number;
+  totalCustomers?: number;
+  totalPages?: number;
+  number?: number;
+  size?: number;
+  numberOfElements?: number;
+  pageable?: {
+    pageSize?: number;
+    pageNumber?: number;
+  };
+}
 
 // Function để clear tất cả filter state
 
@@ -127,6 +131,34 @@ function useApiData<T>(
         setLoading(false);
       });
   }, [url, fromDate, toDate, extraBody]);
+
+  return { data, loading, error };
+}
+
+function useApiGetData<T>(url: string) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+
+    const endpoint = url
+      .replace(API_BASE_URL, "")
+      .replace("/api", "")
+      .replace(/^\/+/, "");
+
+    ApiService.get(endpoint)
+      .then((resp: unknown) => {
+        setData(resp as T);
+        setLoading(false);
+      })
+      .catch((err: Error) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, [url]);
 
   return { data, loading, error };
 }
@@ -263,26 +295,14 @@ export default function CustomerReportPage() {
     useLocalStorageState<string[]>("customer-selectedType", []);
   const [selectedStatus, setSelectedStatus, selectedStatusLoaded] =
     useLocalStorageState<string | null>("customer-selectedStatus", null);
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
   // Use global date context instead of local state
-  const {
-    startDate,
-    endDate,
-    setStartDate,
-    setEndDate,
-    fromDate,
-    toDate,
-    isLoaded: dateLoaded,
-  } = useDateRange();
+  const { fromDate, toDate, isLoaded: dateLoaded, rangeAlert } = useDateRange();
 
   const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] =
     useLocalStorageState<string[]>("customer-selectedRegions", []);
-  const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const [selectedBranches, setSelectedBranches, selectedBranchesLoaded] =
     useLocalStorageState<string[]>("customer-selectedBranches", []);
-  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
 
   // Filter status riêng cho bảng "thời gian đơn hàng hoàn thành"
   const [
@@ -381,13 +401,6 @@ export default function CustomerReportPage() {
     ],
     []
   );
-
-  const allRegions = useMemo(
-    () => ["Đã đóng cửa", "Đà Nẵng", "Nha Trang", "Hà Nội", "HCM"],
-    []
-  );
-  const allBranches = useMemo(() => ["Branch 1", "Branch 2", "Branch 3"], []);
-
   // Format date cho API calls - đơn giản như trang service
   // fromDate and toDate are now provided by the global date context
 
@@ -397,16 +410,6 @@ export default function CustomerReportPage() {
     error: newCustomerError,
   } = useApiData<LineChartRanges>(
     `${API_BASE_URL}/api/customer-sale/new-customer-lineChart`,
-    fromDate,
-    toDate
-  );
-
-  const {
-    data: genderRatioRaw,
-    loading: genderRatioLoading,
-    error: genderRatioError,
-  } = useApiData<GenderRatio>(
-    `${API_BASE_URL}/api/customer-sale/gender-ratio`,
     fromDate,
     toDate
   );
@@ -472,16 +475,6 @@ export default function CustomerReportPage() {
   );
 
   const {
-    data: genderRevenueRaw,
-    loading: genderRevenueLoading,
-    error: genderRevenueError,
-  } = useApiData<GenderRevenueSummary>(
-    `${API_BASE_URL}/api/customer-sale/gender-revenue`,
-    fromDate,
-    toDate
-  );
-
-  const {
     data: uniqueCustomersComparisonRaw,
     loading: uniqueCustomersLoading,
     error: uniqueCustomersError,
@@ -489,6 +482,42 @@ export default function CustomerReportPage() {
     `${API_BASE_URL}/api/customer-sale/unique-customers-comparison`,
     fromDate,
     toDate
+  );
+
+  const {
+    data: rangedCustomersRaw,
+    loading: rangedCustomersLoading,
+    error: rangedCustomersError,
+  } = useApiData<CustomerAllResponse>(
+    `${API_BASE_URL}/api/customer-sale/get-all-customer`,
+    fromDate,
+    toDate
+  );
+
+  const customerDatasetKey = "customer_sale_record";
+
+  const allCustomersFromDate = React.useMemo(() => {
+    return (
+      rangeAlert?.minMap?.[customerDatasetKey] ??
+      rangeAlert?.globalMin ??
+      fromDate
+    );
+  }, [rangeAlert, customerDatasetKey, fromDate]);
+
+  const allCustomersToDate = React.useMemo(() => {
+    return (
+      rangeAlert?.maxMap?.[customerDatasetKey] ??
+      rangeAlert?.globalMax ??
+      toDate
+    );
+  }, [rangeAlert, customerDatasetKey, toDate]);
+
+  const {
+    data: allCustomersRaw,
+    loading: allCustomersLoading,
+    error: allCustomersError,
+  } = useApiGetData<CustomerAllResponse | number>(
+    `${API_BASE_URL}/api/customer-sale/get-all-customer-no-range-time`
   );
 
   // Memoize extraBody để tránh re-render không cần thiết
@@ -549,6 +578,265 @@ export default function CustomerReportPage() {
     toDate
   );
 
+  const customerAllList = React.useMemo<CustomerRecord[]>(() => {
+    if (!allCustomersRaw) return [];
+    if (typeof allCustomersRaw === "number") return [];
+    if (Array.isArray(allCustomersRaw)) return allCustomersRaw;
+    if (Array.isArray(allCustomersRaw.content)) {
+      return allCustomersRaw.content;
+    }
+    return [];
+  }, [allCustomersRaw]);
+
+  const totalExistingCustomers = React.useMemo(() => {
+    if (!allCustomersRaw) return 0;
+    if (typeof allCustomersRaw === "number") return allCustomersRaw;
+    if (
+      typeof (allCustomersRaw as { totalCustomers?: number }).totalCustomers ===
+      "number"
+    ) {
+      return (allCustomersRaw as { totalCustomers: number }).totalCustomers;
+    }
+    if (
+      typeof (allCustomersRaw as { totalElements?: number }).totalElements ===
+      "number"
+    ) {
+      return (allCustomersRaw as { totalElements: number }).totalElements;
+    }
+    if (Array.isArray(allCustomersRaw)) return allCustomersRaw.length;
+    if (Array.isArray(allCustomersRaw.content)) {
+      const totalFromPayload = (allCustomersRaw as {
+        totalElements?: number;
+      }).totalElements;
+      return typeof totalFromPayload === "number"
+        ? totalFromPayload
+        : allCustomersRaw.content.length;
+    }
+    return 0;
+  }, [allCustomersRaw]);
+
+  const customerAllMeta = React.useMemo(() => {
+    if (
+      !allCustomersRaw ||
+      typeof allCustomersRaw === "number" ||
+      Array.isArray(allCustomersRaw)
+    )
+      return null;
+    const pageSize =
+      typeof allCustomersRaw.size === "number"
+        ? allCustomersRaw.size
+        : typeof allCustomersRaw.pageable?.pageSize === "number"
+        ? allCustomersRaw.pageable.pageSize
+        : undefined;
+    const pageNumber =
+      typeof allCustomersRaw.number === "number"
+        ? allCustomersRaw.number + 1
+        : typeof allCustomersRaw.pageable?.pageNumber === "number"
+        ? allCustomersRaw.pageable.pageNumber + 1
+        : undefined;
+    const numberOfElements =
+      typeof allCustomersRaw.numberOfElements === "number"
+        ? allCustomersRaw.numberOfElements
+        : undefined;
+    const totalPages =
+      typeof allCustomersRaw.totalPages === "number"
+        ? allCustomersRaw.totalPages
+        : undefined;
+    return {
+      pageSize,
+      pageNumber,
+      numberOfElements,
+      totalPages,
+    };
+  }, [allCustomersRaw]);
+
+  const customerAllBreakdowns = React.useMemo(
+    () => {
+      if (!customerAllList.length) return [];
+
+      const configs: Array<{
+        label: string;
+        keys: string[];
+      }> = [
+        {
+          label: "Theo trạng thái",
+          keys: ["status", "customerStatus", "bookingStatus"],
+        },
+        {
+          label: "Theo loại khách",
+          keys: ["customerType", "type"],
+        },
+        {
+          label: "Theo khu vực",
+          keys: ["region", "regionName", "area"],
+        },
+        {
+          label: "Theo chi nhánh",
+          keys: ["branch", "branchName", "shopName"],
+        },
+      ];
+
+      return configs
+        .map((config) => {
+          const activeKey = config.keys.find((key) =>
+            customerAllList.some(
+              (item) => typeof item[key] === "string" && item[key] !== ""
+            )
+          );
+          if (!activeKey) return null;
+          const counts = customerAllList.reduce<Record<string, number>>(
+            (acc, item) => {
+              const raw = item[activeKey];
+              if (typeof raw !== "string") return acc;
+              const value = raw.trim();
+              if (!value) return acc;
+              acc[value] = (acc[value] || 0) + 1;
+              return acc;
+            },
+            {}
+          );
+          const rows = Object.entries(counts)
+            .sort((a, b) => b[1] - a[1])
+            .map(([label, value]) => ({ label, value }));
+          if (!rows.length) return null;
+          return {
+            label: config.label,
+            key: activeKey,
+            rows,
+          };
+        })
+        .filter(Boolean) as Array<{
+        label: string;
+        key: string;
+        rows: { label: string; value: number }[];
+      }>;
+    },
+    [customerAllList]
+  );
+
+  const customerAllDateRangeLabel = React.useMemo(() => {
+    const format = (value: string) => {
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    };
+    return `${format(allCustomersFromDate)} → ${format(allCustomersToDate)}`;
+  }, [allCustomersFromDate, allCustomersToDate]);
+
+  const totalCustomersInRange = React.useMemo(() => {
+    if (!rangedCustomersRaw) return 0;
+    if (typeof rangedCustomersRaw === "number") return rangedCustomersRaw;
+    if (
+      typeof (rangedCustomersRaw as { totalCustomers?: number }).totalCustomers ===
+      "number"
+    ) {
+      return (rangedCustomersRaw as { totalCustomers: number }).totalCustomers;
+    }
+    if (
+      typeof (rangedCustomersRaw as { totalElements?: number }).totalElements ===
+      "number"
+    ) {
+      return (rangedCustomersRaw as { totalElements: number }).totalElements;
+    }
+    if (Array.isArray(rangedCustomersRaw)) {
+      return rangedCustomersRaw.length;
+    }
+    if (Array.isArray(rangedCustomersRaw.content)) {
+      const totalFromPayload = (rangedCustomersRaw as {
+        totalElements?: number;
+      }).totalElements;
+      return typeof totalFromPayload === "number"
+        ? totalFromPayload
+        : rangedCustomersRaw.content.length;
+    }
+    return 0;
+  }, [rangedCustomersRaw]);
+
+  const customerRangePercent = React.useMemo(() => {
+    if (!totalExistingCustomers) return 0;
+    const percent =
+      (totalCustomersInRange / Math.max(1, totalExistingCustomers)) * 100;
+    return Math.min(100, Math.max(0, Math.round(percent)));
+  }, [totalCustomersInRange, totalExistingCustomers]);
+
+  // Tính breakdown từ ranged customers nếu có dữ liệu chi tiết
+  const rangedCustomersList = React.useMemo<CustomerRecord[]>(() => {
+    if (!rangedCustomersRaw) return [];
+    if (typeof rangedCustomersRaw === "number") return [];
+    if (Array.isArray(rangedCustomersRaw)) return rangedCustomersRaw;
+    if (Array.isArray((rangedCustomersRaw as { content?: CustomerRecord[] }).content)) {
+      return (rangedCustomersRaw as { content: CustomerRecord[] }).content;
+    }
+    return [];
+  }, [rangedCustomersRaw]);
+
+  // Breakdown từ ranged customers
+  const rangedCustomersBreakdowns = React.useMemo(() => {
+    if (!rangedCustomersList.length) return [];
+
+    const configs: Array<{
+      label: string;
+      keys: string[];
+    }> = [
+      {
+        label: "Theo trạng thái",
+        keys: ["status", "customerStatus", "bookingStatus"],
+      },
+      {
+        label: "Theo loại khách",
+        keys: ["customerType", "type"],
+      },
+      {
+        label: "Theo khu vực",
+        keys: ["region", "regionName", "area"],
+      },
+      {
+        label: "Theo chi nhánh",
+        keys: ["branch", "branchName", "shopName"],
+      },
+    ];
+
+    return configs
+      .map((config) => {
+        const activeKey = config.keys.find((key) =>
+          rangedCustomersList.some(
+            (item) => typeof item[key] === "string" && item[key] !== ""
+          )
+        );
+        if (!activeKey) return null;
+        const counts = rangedCustomersList.reduce<Record<string, number>>(
+          (acc, item) => {
+            const raw = item[activeKey];
+            if (typeof raw !== "string") return acc;
+            const value = raw.trim();
+            if (!value) return acc;
+            acc[value] = (acc[value] || 0) + 1;
+            return acc;
+          },
+          {}
+        );
+        const rows = Object.entries(counts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([label, value]) => ({ label, value }));
+        if (!rows.length) return null;
+        return {
+          label: config.label,
+          key: activeKey,
+          rows,
+        };
+      })
+      .filter(Boolean) as Array<{
+      label: string;
+      key: string;
+      rows: { label: string; value: number }[];
+    }>;
+  }, [rangedCustomersList]);
+
   // Reset data khi thay đổi date range để tránh hiển thị data cũ
   const [currentDateRange, setCurrentDateRange] = useState(
     `${fromDate}-${toDate}`
@@ -558,15 +846,15 @@ export default function CustomerReportPage() {
   // Cập nhật loading states - sử dụng tất cả loading states
   const allLoadingStates = [
     newCustomerLoading,
-    genderRatioLoading,
     customerTypeLoading,
     customerOldTypeLoading,
     customerSourceLoading,
     appDownloadStatusLoading,
     appDownloadLoading,
     customerSummaryLoading,
-    genderRevenueLoading,
     uniqueCustomersLoading,
+    rangedCustomersLoading,
+    allCustomersLoading,
     bookingCompletionLoading,
     facilityHourServiceLoading,
   ];
@@ -574,29 +862,29 @@ export default function CustomerReportPage() {
   const allErrorStates = useMemo(
     () => [
       newCustomerError,
-      genderRatioError,
       customerTypeError,
       customerOldTypeError,
       customerSourceError,
       appDownloadStatusError,
       appDownloadError,
       customerSummaryError,
-      genderRevenueError,
       uniqueCustomersError,
+      rangedCustomersError,
+      allCustomersError,
       bookingCompletionError,
       facilityHourServiceError,
     ],
     [
       newCustomerError,
-      genderRatioError,
       customerTypeError,
       customerOldTypeError,
       customerSourceError,
       appDownloadStatusError,
       appDownloadError,
       customerSummaryError,
-      genderRevenueError,
       uniqueCustomersError,
+      rangedCustomersError,
+      allCustomersError,
       bookingCompletionError,
       facilityHourServiceError,
     ]
@@ -727,98 +1015,6 @@ export default function CustomerReportPage() {
       hasShownError.current = true;
     }
   }, [hasError, showError, allErrorStates]);
-
-  // Data processing from API
-  // 1. Số khách tạo mới
-  const newCustomerChartData = React.useMemo(() => {
-    console.log("🔍 Debug - Processing newCustomerChartData:", {
-      newCustomerRaw: !!newCustomerRaw,
-      newCustomerRawType: typeof newCustomerRaw,
-      newCustomerRawKeys: newCustomerRaw ? Object.keys(newCustomerRaw) : [],
-      newCustomerRawValue: newCustomerRaw,
-    });
-
-    if (!newCustomerRaw) {
-      console.log(
-        "🔍 Debug - newCustomerRaw is null/undefined, returning empty array"
-      );
-      return [];
-    }
-
-    const current = Array.isArray(
-      (
-        newCustomerRaw as {
-          currentRange?: Array<{ date: string; count: number }>;
-        }
-      ).currentRange
-    )
-      ? (
-          newCustomerRaw as {
-            currentRange?: Array<{ date: string; count: number }>;
-          }
-        ).currentRange || []
-      : [];
-    const previous = Array.isArray(
-      (
-        newCustomerRaw as {
-          previousRange?: Array<{ date: string; count: number }>;
-        }
-      ).previousRange
-    )
-      ? (
-          newCustomerRaw as {
-            previousRange?: Array<{ date: string; count: number }>;
-          }
-        ).previousRange || []
-      : [];
-
-    console.log("🔍 Debug - newCustomerChartData processing:", {
-      currentLength: current.length,
-      previousLength: previous.length,
-      currentSample: current.slice(0, 2),
-      previousSample: previous.slice(0, 2),
-    });
-
-    const result = current.map(
-      (item: { date: string; count: number }, idx: number) => ({
-        date: item.date || "",
-        value: item.count,
-        value2: previous[idx]?.count ?? 0,
-      })
-    );
-
-    console.log("🔍 Debug - newCustomerChartData result:", {
-      resultLength: result.length,
-      resultSample: result.slice(0, 2),
-    });
-
-    return result;
-  }, [newCustomerRaw]);
-
-  // 2. Tỷ lệ nam/nữ
-  const genderRatioData = React.useMemo(() => {
-    console.log("🔍 Debug - Processing genderRatioData:", {
-      genderRatioRaw: !!genderRatioRaw,
-      genderRatioRawType: typeof genderRatioRaw,
-      genderRatioRawKeys: genderRatioRaw ? Object.keys(genderRatioRaw) : [],
-      male: genderRatioRaw?.male,
-      female: genderRatioRaw?.female,
-    });
-
-    if (!genderRatioRaw) return [];
-
-    const result = [
-      { gender: "Nam", count: genderRatioRaw.male || 0 },
-      { gender: "Nữ", count: genderRatioRaw.female || 0 },
-    ];
-
-    console.log("🔍 Debug - genderRatioData result:", {
-      resultLength: result.length,
-      result,
-    });
-
-    return result;
-  }, [genderRatioRaw]);
 
   // 3. Số khách tới chia theo loại
   const customerTypeTrendData = React.useMemo(() => {
@@ -1076,29 +1272,6 @@ export default function CustomerReportPage() {
 
     return result;
   }, [appDownloadRaw]);
-
-  const customerTypes = useMemo(
-    () => [
-      "KH trải nghiệm",
-      "Khách hàng Thành viên",
-      "Khách hàng Bạc",
-      "Khách hàng Vàng",
-      "Khách hàng Bạch Kim",
-      "Khách hàng Kim cương",
-    ],
-    []
-  );
-
-  const customerStatus = useMemo(
-    () => [
-      "Đã xác nhận",
-      "Từ chối đặt lịch",
-      "Khách đến",
-      "Chưa xác nhận",
-      "Khách không đến",
-    ],
-    []
-  );
 
   const windowWidth = useWindowWidth();
   const isMobile = windowWidth < 640;
@@ -1362,37 +1535,6 @@ export default function CustomerReportPage() {
             </button>
           </div>
 
-          {/* Filter */}
-          {/* <CustomerFilters
-            startDate={startDate}
-            endDate={endDate}
-            setStartDate={setStartDate}
-            setEndDate={setEndDate}
-            today={today}
-            getLocalTimeZone={getLocalTimeZone}
-            parseDate={parseDate}
-            selectedType={selectedType}
-            setSelectedType={setSelectedType}
-            showTypeDropdown={showTypeDropdown}
-            setShowTypeDropdown={setShowTypeDropdown}
-            customerTypes={customerTypes}
-            selectedStatus={selectedStatus}
-            setSelectedStatus={setSelectedStatus}
-            showStatusDropdown={showStatusDropdown}
-            setShowStatusDropdown={setShowStatusDropdown}
-            customerStatus={customerStatus}
-            selectedRegions={selectedRegions}
-            setSelectedRegions={setSelectedRegions}
-            showRegionDropdown={showRegionDropdown}
-            setShowRegionDropdown={setShowRegionDropdown}
-            allRegions={allRegions}
-            selectedBranches={selectedBranches}
-            setSelectedBranches={setSelectedBranches}
-            showBranchDropdown={showBranchDropdown}
-            setShowBranchDropdown={setShowBranchDropdown}
-            allBranches={allBranches}
-          /> */}
-
           {/* Accordion Card tổng số khách */}
           <Suspense
             fallback={
@@ -1445,19 +1587,28 @@ export default function CustomerReportPage() {
             />
           </div>
 
-          {/* Số khách tạo mới và tỷ lệ nam nữ/khách mới tạo */}
-          {/* <div className="mt-5 ">
-            <CustomerGenderPie
-              isMobile={isMobile}
-              loadingNewCustomer={newCustomerLoading}
-              errorNewCustomer={newCustomerError}
-              newCustomerChartData={newCustomerChartData}
-              loadingGenderRatio={genderRatioLoading}
-              errorGenderRatio={genderRatioError}
-              genderRatioData={genderRatioData}
-              COLORS={COLORS}
+          {/* Tổng khách trong khoảng ngày - Area Chart */}
+          <CustomerRangeTrendChart
+            fromDate={fromDate}
+            toDate={toDate}
+            totalCustomersInRange={totalCustomersInRange}
+            totalExistingCustomers={totalExistingCustomers}
+            loading={rangedCustomersLoading}
+            error={rangedCustomersError}
+          />
+
+          {/* Phân tích đa chiều khách trong khoảng ngày */}
+          {rangedCustomersBreakdowns.length > 0 && (
+            <CustomerBreakdownAnalysisChart
+              breakdowns={rangedCustomersBreakdowns}
+              totalCustomers={totalCustomersInRange}
+              loading={rangedCustomersLoading}
+              error={rangedCustomersError}
             />
-          </div> */}
+          )}
+
+          {/* Tổng số khách tồn tại */}
+          
 
           {/* Khách cũ */}
           <CustomerOldTypeTrendChart

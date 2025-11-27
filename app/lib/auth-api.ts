@@ -68,6 +68,7 @@ export class AuthAPI {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(credentials),
+        credentials: "include",
       })
 
       console.log('AuthAPI.login response status:', response.status)
@@ -343,13 +344,14 @@ export class AuthAPI {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/logout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken}`,
-        },
-      })
+    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`,
+      },
+      credentials: "include",
+    })
 
       if (!response.ok) {
         console.warn(`Logout API failed: ${response.status} - ${response.statusText}`)

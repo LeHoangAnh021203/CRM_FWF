@@ -17,6 +17,7 @@ import { SmartNotifications } from "./smart-notifications";
 import { useAuth } from "../contexts/AuthContext";
 import { usePathname, useRouter } from "next/navigation";
 import { GlobalDatePicker } from "./global-date-picker";
+import { BranchFilter } from "./branch-filter";
 import { SEARCH_TARGETS, normalize } from "../lib/search-targets";
 
 export function Header() {
@@ -165,9 +166,10 @@ export function Header() {
           </div>
         </div>
 
-        {/* Global Date Picker */}
-        <div className="flex items-center text-xs  ">
-          <GlobalDatePicker compact={true}  className="flex text-xs"/>
+        {/* Global Date Picker + Branch Filter */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <GlobalDatePicker compact={true} className="flex text-xs" />
+          <BranchFilter />
         </div>
 
         <div className="flex items-center space-x-2 sm:space-x-4 justify-end w-full sm:w-auto">

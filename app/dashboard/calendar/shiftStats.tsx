@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -9,6 +10,7 @@ import {
 import { Progress } from "@/app/components/ui/progress";
 import { Users, Clock, CheckCircle, AlertCircle, Calendar } from "lucide-react";
 import type { Shift, Employee } from "./types";
+import { ApiService } from "@/app/lib/api-service";
 
 interface ShiftStatsProps {
   shifts: Shift[];
@@ -57,6 +59,59 @@ export function ShiftStats({
     acc[shift.employeeName] = (acc[shift.employeeName] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+
+  const [remoteShifts, setRemoteShifts] = useState<Shift[]>([]);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteError, setRemoteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!detailed) return;
+
+    let isMounted = true;
+    const fetchShifts = async () => {
+      try {
+        setRemoteLoading(true);
+        setRemoteError(null);
+        const data = (await ApiService.get(
+          "shift/get-all-shift"
+        )) as unknown;
+
+        if (!isMounted) return;
+
+        let parsed: Shift[] = [];
+        if (Array.isArray(data)) {
+          parsed = data as Shift[];
+        } else if (
+          data &&
+          typeof data === "object" &&
+          Array.isArray((data as { content?: Shift[] }).content)
+        ) {
+          parsed = (data as { content: Shift[] }).content;
+        } else if (
+          data &&
+          typeof data === "object" &&
+          Array.isArray((data as { data?: Shift[] }).data)
+        ) {
+          parsed = (data as { data: Shift[] }).data;
+        }
+
+        setRemoteShifts(parsed);
+      } catch (error) {
+        if (!isMounted) return;
+        setRemoteError(
+          error instanceof Error ? error.message : "Không thể tải dữ liệu ca làm"
+        );
+      } finally {
+        if (isMounted) setRemoteLoading(false);
+      }
+    };
+
+    fetchShifts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [detailed]);
 
   const basicStats = [
     {
@@ -203,6 +258,84 @@ export function ShiftStats({
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+            <CardTitle>Danh sách ca làm việc từ hệ thống</CardTitle>
+            <p className='text-sm text-gray-500'>
+              Nguồn: api/shift/get-all-shift
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {remoteLoading ? (
+            <div className='flex justify-center items-center h-40 text-gray-500'>
+              Đang tải dữ liệu...
+            </div>
+          ) : remoteError ? (
+            <div className='text-red-500 text-sm'>{remoteError}</div>
+          ) : remoteShifts.length === 0 ? (
+            <div className='text-gray-500 text-sm'>
+              Chưa có dữ liệu ca làm từ API
+            </div>
+          ) : (
+            <div className='overflow-x-auto'>
+              <table className='min-w-full text-sm'>
+                <thead>
+                  <tr className='text-left text-gray-600 border-b'>
+                    <th className='py-2 pr-4'>Nhân viên</th>
+                    <th className='py-2 pr-4'>Ngày</th>
+                    <th className='py-2 pr-4'>Giờ làm</th>
+                    <th className='py-2 pr-4'>Vị trí</th>
+                    <th className='py-2 pr-4'>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {remoteShifts.slice(0, 20).map((shift) => (
+                    <tr key={shift.id} className='border-b last:border-b-0'>
+                      <td className='py-2 pr-4 font-medium text-gray-900'>
+                        {shift.employeeName || "—"}
+                      </td>
+                      <td className='py-2 pr-4 text-gray-700'>
+                        {shift.date
+                          ? new Date(shift.date).toLocaleDateString("vi-VN")
+                          : "—"}
+                      </td>
+                      <td className='py-2 pr-4 text-gray-700'>
+                        {shift.startTime && shift.endTime
+                          ? `${shift.startTime} - ${shift.endTime}`
+                          : "—"}
+                      </td>
+                      <td className='py-2 pr-4 text-gray-700'>
+                        {shift.position || "—"}
+                      </td>
+                      <td className='py-2 pr-4'>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            shift.status === "approved"
+                              ? "bg-green-100 text-green-700"
+                              : shift.status === "rejected"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-yellow-100 text-yellow-700"
+                          }`}
+                        >
+                          {shift.status || "—"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {remoteShifts.length > 20 && (
+                <p className='mt-3 text-xs text-gray-500'>
+                  Hiển thị 20 ca gần nhất (tổng {remoteShifts.length.toLocaleString("vi-VN")} ca).
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

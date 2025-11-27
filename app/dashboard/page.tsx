@@ -6,6 +6,8 @@ import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
 import { useDashboardData } from "@/app/hooks/useDashboardData";
 import { useDateRange } from "@/app/contexts/DateContext";
+import { useBranchFilter } from "@/app/contexts/BranchContext";
+import { getActualStockIds, parseNumericValue } from "@/app/constants/branches";
 import { ApiService } from "@/app/lib/api-service";
 
 import { QuickActions } from "@/app/components/quick-actions";
@@ -356,6 +358,25 @@ export default function Dashboard() {
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
   const { fromDate, toDate } = useDateRange();
+  const { stockId: selectedStockId } = useBranchFilter();
+  
+  // Get actual stockIds (can be multiple for region/city filters)
+  const actualStockIds = React.useMemo(() => {
+    return getActualStockIds(selectedStockId || "");
+  }, [selectedStockId]);
+  
+  // Create query param - if multiple stockIds, we'll call multiple APIs and aggregate
+  const stockQueryParam = React.useMemo(() => {
+    if (actualStockIds.length === 0) {
+      return "&stockId="; // All branches require blank stockId param
+    } else if (actualStockIds.length === 1) {
+      return `&stockId=${actualStockIds[0]}`;
+    } else {
+      // Multiple stockIds - for now, try comma-separated
+      // If backend doesn't support, we'll need to aggregate manually
+      return `&stockId=${actualStockIds.join(",")}`;
+    }
+  }, [actualStockIds]);
   
   // Track which data sections have been loaded and notified
   const notifiedDataRef = useRef<Set<string>>(new Set());
@@ -428,10 +449,8 @@ export default function Dashboard() {
           endDate,
         });
 
-        // Use direct fetch from client to avoid Vercel proxy timeout
-        const data = (await ApiService.getDirect(
-          `real-time/sales-summary-copied?dateStart=${startDate}&dateEnd=${endDate}`
-        )) as {
+        // If multiple stockIds, fetch each one and aggregate
+        let data: {
           totalRevenue: string;
           cash: string;
           transfer: string;
@@ -443,9 +462,76 @@ export default function Dashboard() {
           debt: string;
         };
 
-        
+        if (actualStockIds.length > 1) {
+          // Multiple stockIds - fetch each and aggregate
+          console.log(`🔄 Fetching ${actualStockIds.length} branches and aggregating...`);
+          const results = await Promise.all(
+            actualStockIds.map((sid) =>
+              ApiService.getDirect(
+                `real-time/sales-summary-copied?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
+              ) as Promise<{
+                totalRevenue?: string | number;
+                cash?: string | number;
+                transfer?: string | number;
+                card?: string | number;
+                actualRevenue?: string | number;
+                foxieUsageRevenue?: string | number;
+                walletUsageRevenue?: string | number;
+                toPay?: string | number;
+                debt?: string | number;
+              }>
+            )
+          );
 
-        console.log("✅ Sales summary data received:", data);
+          // Aggregate all results
+          data = {
+            totalRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.totalRevenue), 0)
+              .toString(),
+            cash: results
+              .reduce((sum, r) => sum + parseNumericValue(r.cash), 0)
+              .toString(),
+            transfer: results
+              .reduce((sum, r) => sum + parseNumericValue(r.transfer), 0)
+              .toString(),
+            card: results
+              .reduce((sum, r) => sum + parseNumericValue(r.card), 0)
+              .toString(),
+            actualRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.actualRevenue), 0)
+              .toString(),
+            foxieUsageRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.foxieUsageRevenue), 0)
+              .toString(),
+            walletUsageRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.walletUsageRevenue), 0)
+              .toString(),
+            toPay: results
+              .reduce((sum, r) => sum + parseNumericValue(r.toPay), 0)
+              .toString(),
+            debt: results
+              .reduce((sum, r) => sum + parseNumericValue(r.debt), 0)
+              .toString(),
+          };
+          console.log(`✅ Aggregated data from ${actualStockIds.length} branches:`, data);
+        } else {
+          // Single stockId or all branches - use existing query param
+          data = (await ApiService.getDirect(
+            `real-time/sales-summary-copied?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+          )) as {
+            totalRevenue: string;
+            cash: string;
+            transfer: string;
+            card: string;
+            actualRevenue: string;
+            foxieUsageRevenue: string;
+            walletUsageRevenue: string;
+            toPay: string;
+            debt: string;
+          };
+          console.log("✅ Sales summary data received:", data);
+        }
+
         console.log("🔍 Debug - Data structure check:", {
           hasTotalRevenue: !!data.totalRevenue,
           hasCash: !!data.cash,
@@ -467,7 +553,7 @@ export default function Dashboard() {
     };
 
     fetchSalesSummary();
-  }, [fromDateStr, toDateStr]);
+  }, [fromDateStr, toDateStr, stockQueryParam, actualStockIds]);
 
   const [kpiViewMode, setKpiViewMode] = useState<"monthly" | "daily">(
     "monthly"
@@ -606,7 +692,7 @@ export default function Dashboard() {
         const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
         const data = (await ApiService.getDirect(
-          `real-time/service-summary?dateStart=${startDate}&dateEnd=${endDate}`
+          `real-time/service-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
         )) as {
           totalServices: string;
           totalServicesServing: string;
@@ -634,7 +720,7 @@ export default function Dashboard() {
     };
 
     fetchServiceSummary();
-  }, [fromDateStr, toDateStr]);
+  }, [fromDateStr, toDateStr, stockQueryParam]);
 
   // Fetch new customers by source (real-time) using ApiService via proxy
   React.useEffect(() => {
@@ -657,7 +743,7 @@ export default function Dashboard() {
         const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
         const data = (await ApiService.getDirect(
-          `real-time/get-new-customer?dateStart=${startDate}&dateEnd=${endDate}`
+          `real-time/get-new-customer?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
         )) as Array<{
           count: number;
           type: string;
@@ -675,7 +761,7 @@ export default function Dashboard() {
     };
 
     fetchNewCustomers();
-  }, [fromDateStr, toDateStr]);
+  }, [fromDateStr, toDateStr, stockQueryParam]);
 
   // Fetch old customers by source (real-time) using ApiService via proxy
   React.useEffect(() => {
@@ -698,7 +784,7 @@ export default function Dashboard() {
         const endDate = formatDateForAPI(toDateStr + "T23:59:59");
 
         const data = (await ApiService.getDirect(
-          `real-time/get-old-customer?dateStart=${startDate}&dateEnd=${endDate}`
+          `real-time/get-old-customer?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
         )) as Array<{
           count: number;
           type: string;
@@ -716,7 +802,7 @@ export default function Dashboard() {
     };
 
     fetchOldCustomers();
-  }, [fromDateStr, toDateStr]);
+  }, [fromDateStr, toDateStr, stockQueryParam]);
 
   // Fetch Foxie balance using ApiService via proxy
   React.useEffect(() => {
@@ -792,7 +878,7 @@ export default function Dashboard() {
         });
 
         const data = (await ApiService.getDirect(
-          `real-time/get-sales-by-hour?dateStart=${startDate}&dateEnd=${endDate}`
+          `real-time/get-sales-by-hour?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
         )) as Array<{
           date: string;
           totalSales: number;
@@ -812,7 +898,7 @@ export default function Dashboard() {
     };
 
     fetchSalesByHour();
-  }, [fromDateStr, toDateStr]);
+  }, [fromDateStr, toDateStr, stockQueryParam]);
 
   // Fetch Actual Revenue for KPI (day and month-to-date)
   React.useEffect(() => {
@@ -828,18 +914,40 @@ export default function Dashboard() {
         };
         const dayStr = toDdMmYyyy(today);
         const startMonthStr = toDdMmYyyy(firstDay);
+
+        const fetchActualRevenue = async (startDate: string, endDate: string) => {
+          if (actualStockIds.length > 1) {
+            const results = await Promise.all(
+              actualStockIds.map((sid) =>
+                ApiService.getDirect(
+                  `real-time/get-actual-revenue?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
+                ) as Promise<number | string | null | undefined>
+              )
+            );
+            return results.reduce(
+              (sum: number, value) => sum + parseNumericValue(value),
+              0
+            );
+          }
+
+          const value = (await ApiService.getDirect(
+            `real-time/get-actual-revenue?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+          )) as number | string | null | undefined;
+          return parseNumericValue(value);
+        };
+
         const [dayValue, mtdValue] = await Promise.all([
-          ApiService.getDirect(`real-time/get-actual-revenue?dateStart=${dayStr}&dateEnd=${dayStr}`),
-          ApiService.getDirect(`real-time/get-actual-revenue?dateStart=${startMonthStr}&dateEnd=${dayStr}`),
+          fetchActualRevenue(dayStr, dayStr),
+          fetchActualRevenue(startMonthStr, dayStr),
         ]);
-        setActualRevenueToday(Number(dayValue || 0));
-        setActualRevenueMTD(Number(mtdValue || 0));
+        setActualRevenueToday(dayValue ?? null);
+        setActualRevenueMTD(mtdValue ?? null);
       } catch {
         // ignore
       }
     };
     run();
-  }, [fromDateStr, toDateStr]);
+  }, [fromDateStr, toDateStr, stockQueryParam, actualStockIds]);
 
   // Fetch booking by hour (real-time)
   React.useEffect(() => {
@@ -858,7 +966,7 @@ export default function Dashboard() {
         const start = toDdMmYyyy(fromDateStr + "T00:00:00");
         const end = toDdMmYyyy(toDateStr + "T23:59:59");
         const data = (await ApiService.getDirect(
-          `real-time/get-booking-by-hour?dateStart=${start}&dateEnd=${end}`
+          `real-time/get-booking-by-hour?dateStart=${start}&dateEnd=${end}${stockQueryParam}`
         )) as Array<{ count: number; type: string }>;
         setBookingByHourData(data || []);
       } catch (err) {
@@ -869,7 +977,7 @@ export default function Dashboard() {
       }
     };
     fetchBookingByHour();
-  }, [fromDateStr, toDateStr]);
+  }, [fromDateStr, toDateStr, stockQueryParam]);
 
   const newCustomerTotal = React.useMemo(() => {
     if (!newCustomerData || newCustomerData.length === 0) return 0;
@@ -1001,7 +1109,7 @@ export default function Dashboard() {
         });
 
         const data = (await ApiService.getDirect(
-          `real-time/booking?dateStart=${startDate}&dateEnd=${endDate}`
+          `real-time/booking?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
         )) as {
           notConfirmed: string;
           confirmed: string;
@@ -1025,7 +1133,7 @@ export default function Dashboard() {
     };
 
     fetchBookingData();
-  }, [fromDateStr, toDateStr]);
+  }, [fromDateStr, toDateStr, stockQueryParam]);
 
   // Fetch daily revenue (current day only) using ApiService via proxy
   React.useEffect(() => {
@@ -1044,7 +1152,7 @@ export default function Dashboard() {
         console.log("🔄 Fetching daily revenue for today:", todayStr);
 
         const data = (await ApiService.getDirect(
-          `real-time/sales-summary?dateStart=${todayStr}&dateEnd=${todayStr}`
+          `real-time/sales-summary?dateStart=${todayStr}&dateEnd=${todayStr}${stockQueryParam}`
         )) as {
           totalRevenue: string;
           cash: string;
@@ -1070,7 +1178,7 @@ export default function Dashboard() {
     };
 
     fetchDailyRevenue();
-  }, []); // Empty dependency array - only fetch once on mount
+  }, [stockQueryParam]); // Refetch when branch changes
 
   // Fetch KPI monthly revenue (for Target KPI only - cumulative from start of month)
   React.useEffect(() => {
@@ -1099,12 +1207,10 @@ export default function Dashboard() {
 
         console.log(
           "🔄 Fetching KPI monthly revenue (cumulative from start of month):",
-          { startDate, endDate }
+          { startDate, endDate, actualStockIds: actualStockIds.length }
         );
 
-        const data = (await ApiService.getDirect(
-          `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}`
-        )) as {
+        let data: {
           totalRevenue: string;
           cash: string;
           transfer: string;
@@ -1116,7 +1222,75 @@ export default function Dashboard() {
           debt: string;
         };
 
-        console.log("✅ KPI monthly revenue data received:", data);
+        if (actualStockIds.length > 1) {
+          // Multiple stockIds - fetch each and aggregate
+          console.log(`🔄 Fetching ${actualStockIds.length} branches for KPI monthly revenue and aggregating...`);
+          const results = await Promise.all(
+            actualStockIds.map((sid) =>
+              ApiService.getDirect(
+                `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
+              ) as Promise<{
+                totalRevenue?: string | number;
+                cash?: string | number;
+                transfer?: string | number;
+                card?: string | number;
+                actualRevenue?: string | number;
+                foxieUsageRevenue?: string | number;
+                walletUsageRevenue?: string | number;
+                toPay?: string | number;
+                debt?: string | number;
+              }>
+            )
+          );
+
+          // Aggregate all results
+          data = {
+            totalRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.totalRevenue), 0)
+              .toString(),
+            cash: results
+              .reduce((sum, r) => sum + parseNumericValue(r.cash), 0)
+              .toString(),
+            transfer: results
+              .reduce((sum, r) => sum + parseNumericValue(r.transfer), 0)
+              .toString(),
+            card: results
+              .reduce((sum, r) => sum + parseNumericValue(r.card), 0)
+              .toString(),
+            actualRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.actualRevenue), 0)
+              .toString(),
+            foxieUsageRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.foxieUsageRevenue), 0)
+              .toString(),
+            walletUsageRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.walletUsageRevenue), 0)
+              .toString(),
+            toPay: results
+              .reduce((sum, r) => sum + parseNumericValue(r.toPay), 0)
+              .toString(),
+            debt: results
+              .reduce((sum, r) => sum + parseNumericValue(r.debt), 0)
+              .toString(),
+          };
+          console.log(`✅ Aggregated KPI monthly revenue from ${actualStockIds.length} branches:`, data);
+        } else {
+          // Single stockId or all branches - use existing query param
+          data = (await ApiService.getDirect(
+            `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+          )) as {
+            totalRevenue: string;
+            cash: string;
+            transfer: string;
+            card: string;
+            actualRevenue: string;
+            foxieUsageRevenue: string;
+            walletUsageRevenue: string;
+            toPay: string;
+            debt: string;
+          };
+          console.log("✅ KPI monthly revenue data received:", data);
+        }
         // setKpiMonthlyRevenueData(data); // This line is removed
       } catch (err) {
         const errorMessage =
@@ -1131,18 +1305,31 @@ export default function Dashboard() {
     };
 
     fetchKpiMonthlyRevenue();
-  }, []); // Empty dependency - fetch once on mount
+  }, [stockQueryParam, actualStockIds]);
 
   // Fetch daily KPI series (TM+CK+QT per day) from start of month to today
-  // Only fetch once on mount - this data doesn't depend on date range
-  const hasFetchedKpiSeries = React.useRef(false);
+  const kpiSeriesStockRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (hasFetchedKpiSeries.current) return;
-    hasFetchedKpiSeries.current = true;
+    // Create a unique key from all relevant dependencies
+    const currentKey = `${selectedStockId}-${stockQueryParam}-${actualStockIds.join(',')}`;
+    if (kpiSeriesStockRef.current === currentKey) return;
+    kpiSeriesStockRef.current = currentKey;
+    let isCancelled = false;
+
     const fetchDailySeries = async () => {
       try {
         setKpiDailySeriesLoading(true);
         setKpiDailySeriesError(null);
+
+        console.log(`📊 KPI Daily Series: Starting fetch for stockId="${selectedStockId}", actualStockIds=[${actualStockIds.join(', ')}] (count: ${actualStockIds.length})`);
+        
+        // Debug: Log if actualStockIds is empty when it shouldn't be
+        if (selectedStockId && selectedStockId.startsWith('region:') && actualStockIds.length === 0) {
+          console.error(`❌ KPI Daily Series: Region filter "${selectedStockId}" resulted in empty actualStockIds!`);
+          setKpiDailySeriesError(`Không tìm thấy chi nhánh cho khu vực "${selectedStockId}". Vui lòng kiểm tra lại cấu hình.`);
+          setKpiDailySeriesLoading(false);
+          return;
+        }
 
         const today = new Date();
         const firstDayOfMonth = new Date(
@@ -1169,8 +1356,7 @@ export default function Dashboard() {
           isoDate: string;
           total: number;
         }> = [];
-        
-        // Create array of all dates from first day of month to today
+
         const dates: Date[] = [];
         for (
           let d = new Date(firstDayOfMonth);
@@ -1180,26 +1366,148 @@ export default function Dashboard() {
           dates.push(new Date(d));
         }
 
-        // Fetch all dates in parallel for better performance
-        const parseCurrency = (v: unknown) =>
-          typeof v === "string"
-            ? Number(v.replace(/[^0-9.-]/g, "")) || 0
-            : Number(v) || 0;
+        const parseCurrency = (v: unknown) => {
+          if (v === null || v === undefined) return 0;
+          if (typeof v === "number") return isNaN(v) ? 0 : v;
+          if (typeof v === "string") {
+            const cleaned = v.replace(/[^0-9.-]/g, "");
+            const parsed = Number(cleaned);
+            return isNaN(parsed) ? 0 : parsed;
+          }
+          // Try to convert to number
+          const num = Number(v);
+          return isNaN(num) ? 0 : num;
+        };
 
-        const fetchPromises = dates.map(async (d) => {
+        // Batch requests to avoid overwhelming the API (max 5 concurrent requests per batch)
+        const BATCH_SIZE = 5;
+        const fetchPromises = dates.map(async (d, dateIndex) => {
           const ddmmyyyy = toDdMmYyyy(d);
           try {
-            const data = (await ApiService.getDirect(
-              `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}`
-            )) as {
-              cash: string;
-              transfer: string;
-              card: string;
-            };
-            const total =
-              parseCurrency(data.cash) +
-              parseCurrency(data.transfer) +
-              parseCurrency(data.card);
+            // Add small delay to batch requests
+            if (dateIndex > 0 && dateIndex % BATCH_SIZE === 0) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            let total = 0;
+            let hasError = false;
+            let errorCount = 0;
+
+            if (actualStockIds.length > 1) {
+              // Multiple stockIds - fetch each and aggregate
+              console.log(`📊 KPI Daily Series [${ddmmyyyy}]: Fetching ${actualStockIds.length} branches and aggregating...`);
+              
+              // Batch branch requests too (max 10 concurrent)
+              const BRANCH_BATCH_SIZE = 10;
+              const branchResults: Array<{
+                cash?: string | number;
+                transfer?: string | number;
+                card?: string | number;
+              }> = [];
+
+              for (let i = 0; i < actualStockIds.length; i += BRANCH_BATCH_SIZE) {
+                const batch = actualStockIds.slice(i, i + BRANCH_BATCH_SIZE);
+                const batchResults = await Promise.allSettled(
+                  batch.map(async (sid) => {
+                    try {
+                      const data = await ApiService.getDirect(
+                        `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}&stockId=${sid}`
+                      ) as {
+                        cash?: string | number;
+                        transfer?: string | number;
+                        card?: string | number;
+                      };
+                      // Log successful fetch for debugging
+                      const dayTotal = parseCurrency(data.cash) + parseCurrency(data.transfer) + parseCurrency(data.card);
+                      if (dayTotal > 0) {
+                        console.log(`  ✓ Branch ${sid}: ${dayTotal.toLocaleString('vi-VN')} VND`);
+                      }
+                      return { sid, data, success: true };
+                    } catch (err) {
+                      const errorMsg = err instanceof Error ? err.message : String(err);
+                      console.error(`❌ KPI Daily Series: Error fetching branch ${sid} for ${ddmmyyyy}:`, errorMsg);
+                      errorCount++;
+                      return { sid, data: { cash: 0, transfer: 0, card: 0 }, success: false };
+                    }
+                  })
+                );
+
+                batchResults.forEach((result, idx) => {
+                  if (result.status === 'fulfilled') {
+                    const value = result.value;
+                    if (value && value.data) {
+                      branchResults.push(value.data);
+                      if (!value.success) hasError = true;
+                    } else {
+                      console.warn(`⚠️ KPI Daily Series: Unexpected result structure for batch item ${idx}:`, result);
+                      branchResults.push({ cash: 0, transfer: 0, card: 0 });
+                      hasError = true;
+                    }
+                  } else {
+                    console.error(`❌ KPI Daily Series: Promise rejected for batch item ${idx}:`, result.reason);
+                    branchResults.push({ cash: 0, transfer: 0, card: 0 });
+                    hasError = true;
+                    errorCount++;
+                  }
+                });
+
+                // Small delay between batches
+                if (i + BRANCH_BATCH_SIZE < actualStockIds.length) {
+                  await new Promise(resolve => setTimeout(resolve, 50));
+                }
+              }
+
+              // Aggregate all results
+              total = branchResults.reduce((sum, r) => {
+                const cash = parseCurrency(r.cash);
+                const transfer = parseCurrency(r.transfer);
+                const card = parseCurrency(r.card);
+                const dayTotal = cash + transfer + card;
+                return sum + dayTotal;
+              }, 0);
+
+              if (hasError) {
+                console.warn(`⚠️ KPI Daily Series [${ddmmyyyy}]: ${errorCount}/${actualStockIds.length} branches failed, but continuing with available data. Total: ${total.toLocaleString('vi-VN')} VND`);
+              } else {
+                console.log(`✅ KPI Daily Series [${ddmmyyyy}]: Aggregated total: ${total.toLocaleString('vi-VN')} VND from ${actualStockIds.length} branches (${branchResults.length} results)`);
+              }
+              
+              // Additional debug: if total is 0 and we have branches, log more details
+              if (total === 0 && actualStockIds.length > 0 && branchResults.length > 0) {
+                console.warn(`⚠️ KPI Daily Series [${ddmmyyyy}]: Total is 0 but we have ${branchResults.length} branch results. Sample:`, branchResults.slice(0, 3));
+              }
+            } else if (actualStockIds.length === 1) {
+              // Single stockId
+              console.log(`📊 KPI Daily Series [${ddmmyyyy}]: Fetching single branch ${actualStockIds[0]}...`);
+              const data = (await ApiService.getDirect(
+                `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}&stockId=${actualStockIds[0]}`
+              )) as {
+                cash?: string | number;
+                transfer?: string | number;
+                card?: string | number;
+              };
+              total =
+                parseCurrency(data.cash) +
+                parseCurrency(data.transfer) +
+                parseCurrency(data.card);
+              console.log(`✅ KPI Daily Series [${ddmmyyyy}]: Single branch total: ${total.toLocaleString('vi-VN')} VND`);
+            } else {
+              // All branches - still need to send blank stockId param
+              console.log(`📊 KPI Daily Series [${ddmmyyyy}]: Fetching all branches (stockId=blank)...`);
+              const data = (await ApiService.getDirect(
+                `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}${stockQueryParam}`
+              )) as {
+                cash?: string | number;
+                transfer?: string | number;
+                card?: string | number;
+              };
+              total =
+                parseCurrency(data.cash) +
+                parseCurrency(data.transfer) +
+                parseCurrency(data.card);
+              console.log(`✅ KPI Daily Series [${ddmmyyyy}]: All branches total: ${total.toLocaleString('vi-VN')} VND`);
+            }
+
             return {
               dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
                 d.getMonth() + 1
@@ -1208,8 +1516,7 @@ export default function Dashboard() {
               total,
             };
           } catch (err) {
-            // Return zero for failed requests
-            console.error(`Failed to fetch data for ${ddmmyyyy}:`, err);
+            console.error(`❌ Failed to fetch data for ${ddmmyyyy}:`, err);
             return {
               dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
                 d.getMonth() + 1
@@ -1220,25 +1527,56 @@ export default function Dashboard() {
           }
         });
 
-        // Wait for all requests to complete in parallel
         const fetchedResults = await Promise.all(fetchPromises);
-        results.push(...fetchedResults);
-
-        setKpiDailySeries(results);
+        if (!isCancelled) {
+          results.push(...fetchedResults);
+          const totalRevenue = results.reduce((sum, r) => sum + r.total, 0);
+          console.log(`📊 KPI Daily Series: Fetched ${results.length} days of data`);
+          console.log(`📊 KPI Daily Series: Total revenue sum: ${totalRevenue.toLocaleString('vi-VN')} VND`);
+          
+          if (results.length === 0) {
+            console.warn('⚠️ KPI Daily Series: No data fetched! Check API responses.');
+            setKpiDailySeriesError('Không có dữ liệu cho khoảng thời gian này');
+            setKpiDailySeries([]);
+          } else if (totalRevenue === 0 && actualStockIds.length > 0) {
+            // If we have stockIds but got all zeros, there might be an issue
+            console.warn(`⚠️ KPI Daily Series: All data is zero for ${actualStockIds.length} branches. This might indicate an API issue.`);
+            console.warn(`  Selected stockId: "${selectedStockId}", actualStockIds: [${actualStockIds.join(', ')}]`);
+            // Don't set error if it's a valid region - might just be no sales data
+            // Only set error if it's a specific branch
+            if (selectedStockId && !selectedStockId.startsWith('region:') && !selectedStockId.startsWith('city:')) {
+              setKpiDailySeriesError('Không có dữ liệu doanh thu cho chi nhánh này. Vui lòng kiểm tra lại.');
+            }
+            setKpiDailySeries(results);
+          } else {
+            // Clear any previous errors if we have data
+            setKpiDailySeriesError(null);
+            setKpiDailySeries(results);
+            console.log(`✅ KPI Daily Series: Successfully set ${results.length} days of data with total revenue: ${totalRevenue.toLocaleString('vi-VN')} VND`);
+          }
+        }
       } catch (err) {
         const message =
           err instanceof Error
             ? err.message
             : "Failed to fetch daily KPI series";
-        setKpiDailySeriesError(message);
+        if (!isCancelled) {
+          setKpiDailySeriesError(message);
+          setKpiDailySeries([]);
+        }
         console.error("❌ Daily KPI series fetch error:", err);
       } finally {
-        setKpiDailySeriesLoading(false);
+        if (!isCancelled) {
+          setKpiDailySeriesLoading(false);
+        }
       }
     };
 
     fetchDailySeries();
-  }, []);
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedStockId, stockQueryParam, actualStockIds]);
 
   // Process sales summary data similar to orders page
   const paymentMethods = React.useMemo(() => {
@@ -1484,7 +1822,13 @@ export default function Dashboard() {
 
   const dailyKpiGrowthData = React.useMemo(() => {
     const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-    if (!kpiDailySeries) return [];
+    if (!kpiDailySeries || kpiDailySeries.length === 0) {
+      console.log('⚠️ dailyKpiGrowthData: kpiDailySeries is empty or null', {
+        kpiDailySeries,
+        length: kpiDailySeries?.length
+      });
+      return [];
+    }
     
     // Helper to get target for a specific date
     const getTargetForDate = (dateStr: string): number => {
@@ -1497,7 +1841,7 @@ export default function Dashboard() {
       return weekdayTargetPerDay;
     };
     
-    return kpiDailySeries.map((d) => {
+    const result = kpiDailySeries.map((d) => {
       const [yyyy, mm, dd] = d.isoDate.split("-");
       const jsDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
       const targetForThisDay = getTargetForDate(d.isoDate);
@@ -1513,6 +1857,14 @@ export default function Dashboard() {
         isToday: jsDate.toDateString() === new Date().toDateString(),
       };
     });
+    
+    console.log('✅ dailyKpiGrowthData calculated:', {
+      length: result.length,
+      sample: result.slice(0, 3),
+      totalRevenue: result.reduce((sum, r) => sum + r.revenue, 0)
+    });
+    
+    return result;
   }, [kpiDailySeries, weekendTargetPerDay, weekdayTargetPerDay]);
 
   // Status logic cho hiển thị trạng thái (dùng selected day target)
@@ -1904,6 +2256,11 @@ export default function Dashboard() {
     timestamp: number;
   }>>(new Map());
 
+  React.useEffect(() => {
+    monthCacheRef.current.clear();
+    setPaymentGrowthByMonth([]);
+  }, [selectedStockId]);
+
   // Monitor growth by payment success (placed after state declarations)
   useEffect(() => {
     if (
@@ -1960,7 +2317,7 @@ export default function Dashboard() {
     try {
       console.log(`[Dashboard] Fetching sales data for ${monthKey}:`, { startDate, endDate })
       const res = await ApiService.getDirect(
-        `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}`
+        `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
       );
       console.log(`[Dashboard] Successfully fetched sales data for ${monthKey}`)
       const parsed = res as {
@@ -2007,7 +2364,7 @@ export default function Dashboard() {
         vi: 0,
       };
     }
-  }, []);
+  }, [stockQueryParam]);
 
   // Fetch only current month and previous month (lazy loading)
   React.useEffect(() => {

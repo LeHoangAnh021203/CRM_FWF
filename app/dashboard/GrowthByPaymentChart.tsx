@@ -1,5 +1,7 @@
 import React from "react";
 import { ApiService } from "@/app/lib/api-service";
+import { useBranchFilter } from "@/app/contexts/BranchContext";
+import { getActualStockIds } from "@/app/constants/branches";
 import { useWindowWidth } from "@/app/hooks/useWindowWidth";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/app/components/ui/card";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from "recharts";
@@ -69,6 +71,24 @@ export default function GrowthByPaymentChart({
   setMonth2ToDay,
 }: GrowthByPaymentChartProps) {
   const width = useWindowWidth();
+  const { stockId: selectedStockId } = useBranchFilter();
+  const stockQueryParam = React.useMemo(() => {
+    if (!selectedStockId || selectedStockId === "") {
+      return "&stockId="; // All branches - blank
+    }
+    
+    const stockIds = getActualStockIds(selectedStockId);
+    
+    // If multiple stockIds, send as comma-separated
+    if (stockIds.length === 0) {
+      return "&stockId=";
+    } else if (stockIds.length === 1) {
+      return `&stockId=${stockIds[0]}`;
+    } else {
+      // Multiple stockIds - send as comma-separated
+      return `&stockId=${stockIds.join(",")}`;
+    }
+  }, [selectedStockId]);
   const isMobile = width < 640; // tailwind sm breakpoint
   const allMonths = React.useMemo(() => data.map(d => d.month), [data]);
   const currentMonth = allMonths.length > 0 ? allMonths[allMonths.length - 1] : "";
@@ -286,7 +306,7 @@ export default function GrowthByPaymentChart({
         const build = async (m: string, from: number, to: number) => {
           const start = toDateStr(m, from);
           const end = toDateStr(m, to);
-          const res = await ApiService.get(`real-time/sales-summary?dateStart=${start}&dateEnd=${end}`) as {
+          const res = await ApiService.get(`real-time/sales-summary?dateStart=${start}&dateEnd=${end}${stockQueryParam}`) as {
             cash?: string | number;
             transfer?: string | number;
             card?: string | number;
@@ -328,7 +348,7 @@ export default function GrowthByPaymentChart({
       const build = async (m: string) => {
         const start = toDateStr(m, from);
         const end = toDateStr(m, to);
-        const res = await ApiService.get(`real-time/sales-summary?dateStart=${start}&dateEnd=${end}`) as {
+        const res = await ApiService.get(`real-time/sales-summary?dateStart=${start}&dateEnd=${end}${stockQueryParam}`) as {
           cash?: string | number;
           transfer?: string | number;
           card?: string | number;

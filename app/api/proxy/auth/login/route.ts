@@ -2,6 +2,40 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiEndpoint, AUTH_CONFIG } from '@/app/lib/auth-config'
 // API endpoint configuration
 const LOGIN_ENDPOINT = getApiEndpoint('auth/login');
+const COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days
+
+const createLoginResponse = (data: Record<string, unknown>) => {
+  const response = NextResponse.json(data);
+  const baseCookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict" as const,
+    path: "/",
+  };
+
+  const accessToken = typeof data["access_token"] === "string" ? (data["access_token"] as string) : null;
+  const refreshToken = typeof data["refresh_token"] === "string" ? (data["refresh_token"] as string) : null;
+
+  if (accessToken) {
+    response.cookies.set("token", accessToken, {
+      ...baseCookieOptions,
+      maxAge: COOKIE_MAX_AGE,
+    });
+    response.cookies.set("access_token", accessToken, {
+      ...baseCookieOptions,
+      maxAge: COOKIE_MAX_AGE,
+    });
+  }
+
+  if (refreshToken) {
+    response.cookies.set("refresh_token", refreshToken, {
+      ...baseCookieOptions,
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+    });
+  }
+
+  return response;
+};
 
 // In development, disable SSL certificate verification for testing
 // WARNING: This is only for development. Never use in production!
@@ -200,7 +234,7 @@ export async function POST(request: NextRequest) {
           hasAccessToken: !!data.access_token,
           hasRefreshToken: !!data.refresh_token,
         })
-        return NextResponse.json(data)
+        return createLoginResponse(data)
       }
 
       // Parse successful response
@@ -212,7 +246,7 @@ export async function POST(request: NextRequest) {
         hasRefreshToken: !!data.refresh_token,
       });
 
-      return NextResponse.json(data);
+      return createLoginResponse(data);
     } catch (apiError) {
       console.error("❌ API Connection failed:", apiError);
       
