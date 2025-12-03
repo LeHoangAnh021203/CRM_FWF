@@ -452,7 +452,7 @@ export default function WorkSchedulePage() {
       </div>
 
       <div className='mb-6 '>
-        <ShiftStats shifts={shifts} employees={employees} />
+        <ShiftStats shifts={shifts} />
       </div>
 
       <Tabs defaultValue='calendar' className='space-y-6 '>
@@ -686,7 +686,6 @@ export default function WorkSchedulePage() {
             <CardContent>
               <ShiftStats
                 shifts={shifts}
-                employees={employees}
                 detailed={true}
               />
             </CardContent>

@@ -85,6 +85,47 @@ export function GlobalDatePicker({
     }
   }, [isOpen]);
 
+  // Helpers to detect active quick preset
+  const isSameDate = (a: CalendarDate | null, b: CalendarDate | null) => {
+    if (!a || !b) return false;
+    return a.year === b.year && a.month === b.month && a.day === b.day;
+  };
+
+  const isRange = (start: CalendarDate | null, end: CalendarDate | null) => {
+    return isSameDate(tempStartDate, start) && isSameDate(tempEndDate, end);
+  };
+
+  const getPresetState = (type: 'today' | 'yesterday' | '7days' | '30days' | '90days') => {
+    const todayDate = today(getLocalTimeZone());
+
+    switch (type) {
+      case 'today': {
+        return isRange(todayDate, todayDate);
+      }
+      case 'yesterday': {
+        const yesterdayDate = todayDate.subtract({ days: 1 });
+        return isRange(yesterdayDate, yesterdayDate);
+      }
+      case '7days': {
+        const start = todayDate.subtract({ days: 6 });
+        return isRange(start, todayDate);
+      }
+      case '30days': {
+        const start = todayDate.subtract({ days: 29 });
+        return isRange(start, todayDate);
+      }
+      case '90days': {
+        const start = todayDate.subtract({ days: 89 });
+        return isRange(start, todayDate);
+      }
+      default:
+        return false;
+    }
+  };
+
+  const presetBaseClasses =
+    "transition-all duration-150 active:scale-95 data-[active=true]:bg-[#f16a3f] data-[active=true]:text-white data-[active=true]:border-[#f16a3f]";
+
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       {!isLoaded ? (
@@ -141,6 +182,8 @@ export function GlobalDatePicker({
                 <Button
                   variant="outline"
                   size="sm"
+                  data-active={getPresetState('today')}
+                  className={presetBaseClasses}
                   onClick={() => {
                     const todayDate = today(getLocalTimeZone());
                     setTempStartDate(todayDate);
@@ -152,6 +195,8 @@ export function GlobalDatePicker({
                 <Button
                   variant="outline"
                   size="sm"
+                  data-active={getPresetState('yesterday')}
+                  className={presetBaseClasses}
                   onClick={() => {
                     const todayDate = today(getLocalTimeZone());
                     const yesterdayDate = todayDate.subtract({ days: 1 });
@@ -164,6 +209,8 @@ export function GlobalDatePicker({
                 <Button
                   variant="outline"
                   size="sm"
+                  data-active={getPresetState('7days')}
+                  className={presetBaseClasses}
                   onClick={() => {
                     const todayDate = today(getLocalTimeZone());
                     setTempStartDate(todayDate.subtract({ days: 6 }));
@@ -175,6 +222,8 @@ export function GlobalDatePicker({
                 <Button
                   variant="outline"
                   size="sm"
+                  data-active={getPresetState('30days')}
+                  className={presetBaseClasses}
                   onClick={() => {
                     const todayDate = today(getLocalTimeZone());
                     setTempStartDate(todayDate.subtract({ days: 29 }));
@@ -186,6 +235,8 @@ export function GlobalDatePicker({
                 <Button
                   variant="outline"
                   size="sm"
+                  data-active={getPresetState('90days')}
+                  className={presetBaseClasses}
                   onClick={() => {
                     const todayDate = today(getLocalTimeZone());
                     setTempStartDate(todayDate.subtract({ days: 89 }));

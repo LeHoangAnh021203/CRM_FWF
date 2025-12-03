@@ -2,8 +2,20 @@ const API_BASE_URL = "/api/proxy"
 import { TokenService } from './token-service'
 import { AUTH_CONFIG } from './auth-config'
 
+// Helper function to create AbortSignal with timeout
+function createTimeoutSignal(timeoutMs: number): AbortSignal {
+  if (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
+    // Modern browsers support AbortSignal.timeout()
+    return AbortSignal.timeout(timeoutMs)
+  }
+  // Fallback for older browsers
+  const controller = new AbortController()
+  setTimeout(() => controller.abort(), timeoutMs)
+  return controller.signal
+}
+
 export class ApiService {
-  static async get(endpoint: string, token?: string): Promise<unknown> {
+  static async get(endpoint: string, token?: string, timeoutMs: number = 30000): Promise<unknown> {
     const validToken = token || await TokenService.getValidAccessToken()
     
     if (!validToken) {
@@ -22,56 +34,66 @@ export class ApiService {
     let attempt = 0
     const maxRetries = 3
     while (true) {
-      const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
-        method: 'GET',
-        headers,
-      })
+      try {
+        const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+          method: 'GET',
+          headers,
+          signal: createTimeoutSignal(timeoutMs),
+        })
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Token expired, try to refresh
-          console.log('Token expired; refresh disabled -> logout')
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('auth-expired'))
-          }
-          throw new Error('Authentication failed - please login again')
-        }
-        if (response.status === 429 && attempt < maxRetries) {
-          const retryAfter = response.headers.get('Retry-After')
-          const delayMs = retryAfter ? Number(retryAfter) * 1000 : (2 ** attempt) * 500
-          await new Promise(r => setTimeout(r, delayMs))
-          attempt += 1
-          continue
-        }
-        
-        // Get error details from response
-        let errorDetails = ''
-        try {
-          const errorText = await response.text()
-          if (errorText) {
-            try {
-              const errorJson = JSON.parse(errorText)
-              errorDetails = errorJson.error || errorJson.message || errorText
-            } catch {
-              errorDetails = errorText
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Token expired, try to refresh
+            console.log('Token expired; refresh disabled -> logout')
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('auth-expired'))
             }
+            throw new Error('Authentication failed - please login again')
           }
-        } catch {
-          // Ignore errors when reading response
+          if (response.status === 429 && attempt < maxRetries) {
+            const retryAfter = response.headers.get('Retry-After')
+            const delayMs = retryAfter ? Number(retryAfter) * 1000 : (2 ** attempt) * 500
+            await new Promise(r => setTimeout(r, delayMs))
+            attempt += 1
+            continue
+          }
+          
+          // Get error details from response
+          let errorDetails = ''
+          try {
+            const errorText = await response.text()
+            if (errorText) {
+              try {
+                const errorJson = JSON.parse(errorText)
+                errorDetails = errorJson.error || errorJson.message || errorText
+              } catch {
+                errorDetails = errorText
+              }
+            }
+          } catch {
+            // Ignore errors when reading response
+          }
+          
+          const errorMessage = errorDetails 
+            ? `GET request failed: ${response.status} - ${errorDetails}`
+            : `GET request failed: ${response.status}`
+          
+          throw new Error(errorMessage)
         }
-        
-        const errorMessage = errorDetails 
-          ? `GET request failed: ${response.status} - ${errorDetails}`
-          : `GET request failed: ${response.status}`
-        
-        throw new Error(errorMessage)
-      }
 
-      return response.json()
+        return response.json()
+      } catch (error) {
+        // Handle timeout errors
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new Error(`Request timeout: API không phản hồi sau ${timeoutMs / 1000} giây. Vui lòng thử lại sau.`)
+        }
+        // Re-throw other errors
+        throw error
+      }
     }
   }
 
-  static async post(endpoint: string, data: unknown, token?: string): Promise<unknown> {
+  static async post(endpoint: string, data: unknown, token?: string, timeoutMs: number = 30000): Promise<unknown> {
     const validToken = token || await TokenService.getValidAccessToken()
     
     if (!validToken) {
@@ -98,34 +120,44 @@ export class ApiService {
     let attempt = 0
     const maxRetries = 3
     while (true) {
-      const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(data),
-      })
+      try {
+        const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(data),
+          signal: createTimeoutSignal(timeoutMs),
+        })
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Get response body for debugging
-          const errorText = await response.text()
-          console.log('🔍 401 Error Response:', errorText)
-          console.log('Token expired; refresh disabled -> logout')
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('auth-expired'))
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Get response body for debugging
+            const errorText = await response.text()
+            console.log('🔍 401 Error Response:', errorText)
+            console.log('Token expired; refresh disabled -> logout')
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('auth-expired'))
+            }
+            throw new Error('Authentication failed - please login again')
           }
-          throw new Error('Authentication failed - please login again')
+          if (response.status === 429 && attempt < maxRetries) {
+            const retryAfter = response.headers.get('Retry-After')
+            const delayMs = retryAfter ? Number(retryAfter) * 1000 : (2 ** attempt) * 500
+            await new Promise(r => setTimeout(r, delayMs))
+            attempt += 1
+            continue
+          }
+          throw new Error(`POST request failed: ${response.status}`)
         }
-        if (response.status === 429 && attempt < maxRetries) {
-          const retryAfter = response.headers.get('Retry-After')
-          const delayMs = retryAfter ? Number(retryAfter) * 1000 : (2 ** attempt) * 500
-          await new Promise(r => setTimeout(r, delayMs))
-          attempt += 1
-          continue
-        }
-        throw new Error(`POST request failed: ${response.status}`)
-      }
 
-      return response.json()
+        return response.json()
+      } catch (error) {
+        // Handle timeout errors
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new Error(`Request timeout: API không phản hồi sau ${timeoutMs / 1000} giây. Vui lòng thử lại sau.`)
+        }
+        // Re-throw other errors
+        throw error
+      }
     }
   }
 

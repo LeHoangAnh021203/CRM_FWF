@@ -44,6 +44,11 @@ interface ServiceSectionProps {
   bookingError: string | null;
   bookingData: BookingData | null;
   serviceSummaryData?: ServiceSummaryData | null;
+  topServiceItems?: Array<{
+    serviceName: string;
+    serviceUsageAmount: string;
+    serviceUsagePercentage: string;
+  }> | null;
 }
 
 export default function ServiceSection({
@@ -51,6 +56,7 @@ export default function ServiceSection({
   bookingError,
   bookingData,
   serviceSummaryData,
+  topServiceItems,
 }: ServiceSectionProps) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _ = { bookingLoading, bookingError, bookingData };
@@ -89,6 +95,7 @@ export default function ServiceSection({
   // Build a normalized grouping key and a short label for chart display
   const getNormalizedKeyAndShortLabel = React.useCallback((rawName: string) => {
     const upperNoAccent = removeDiacritics(rawName).toUpperCase();
+    const preColonRaw = rawName.split(":")[0].trim(); // full text before ":" (e.g. "COMBO 7")
 
     // Prioritize COMBO CS / COMBO CHUYEN SAU before generic COMBO
     const comboCsMatch = upperNoAccent.match(/COMBO\s*CS\s*(\d+)/);
@@ -96,26 +103,26 @@ export default function ServiceSection({
     if (comboCsMatch || comboChuyenSauMatch) {
       const num = (comboCsMatch?.[1] || comboChuyenSauMatch?.[1] || "").trim();
       const key = `COMBO_CS_${num || "UNK"}`;
-      const short = num ? `CS${num}` : "CS";
+      const short = preColonRaw || (num ? `CS ${num}` : "COMBO CS");
       return { key, short };
     }
 
     const comboMatch = upperNoAccent.match(/COMBO\s*(\d+)/);
     if (comboMatch) {
       const num = comboMatch[1].trim();
-      return { key: `COMBO_${num}`, short: `COMBO${num}` };
+      return { key: `COMBO_${num}`, short: preColonRaw || `COMBO ${num}` };
     }
 
     const dvMatch = upperNoAccent.match(/DV\s*(\d+)/);
     if (dvMatch) {
       const num = dvMatch[1].trim();
-      return { key: `DV_${num}`, short: `DV${num}` };
+      return { key: `DV_${num}`, short: preColonRaw || `DV ${num}` };
     }
 
     const ctMatch = upperNoAccent.match(/CT\s*(\d+)/);
     if (ctMatch) {
       const num = ctMatch[1].trim();
-      return { key: `CT_${num}`, short: `CT${num}` };
+      return { key: `CT_${num}`, short: preColonRaw || `CT ${num}` };
     }
 
     if (upperNoAccent.includes("QUA TANG")) {
@@ -128,7 +135,7 @@ export default function ServiceSection({
 
   // Aggregate services by normalized key to avoid duplicates, then compute Top 10
   const top10Data = React.useMemo(() => {
-    const items = serviceSummaryData?.items || [];
+    const items = (topServiceItems ?? serviceSummaryData?.items) || [];
     if (!items.length) return [] as Array<{ name: string; usage: number; percentage: number; fullName: string; color?: string }>;
 
     const grouped = new Map<string, { key: string; short: string; usage: number; fullName: string }>();
@@ -174,7 +181,7 @@ export default function ServiceSection({
     }));
 
     return colored;
-  }, [serviceSummaryData, getNormalizedKeyAndShortLabel, barColors]);
+  }, [topServiceItems, serviceSummaryData, getNormalizedKeyAndShortLabel, barColors]);
 
   interface XAxisTickProps {
     x: number;
@@ -198,7 +205,7 @@ export default function ServiceSection({
           textAnchor="end"
           fill={fill}
           fontSize={fontSize}
-        >
+        >``
           {value}
         </text>
       </g>
@@ -276,7 +283,12 @@ export default function ServiceSection({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={chartHeight}>
+          {!top10Data.length ? (
+            <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+              Không có dữ liệu Top 10 dịch vụ cho khoảng thời gian này.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={chartHeight}>
             <BarChart
               data={top10Data}
               margin={{ top: isMobile ? 16 : 20, right: isMobile ? 24 : 80, left: 20, bottom: isMobile ? 120 : 140 }}
@@ -409,6 +421,7 @@ export default function ServiceSection({
               />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
     </div>

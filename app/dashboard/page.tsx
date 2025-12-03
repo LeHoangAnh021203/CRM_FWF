@@ -578,6 +578,15 @@ export default function Dashboard() {
     }>;
   } | null>(null);
   const [serviceError, setServiceError] = useState<string | null>(null);
+  const [topServicesData, setTopServicesData] = useState<
+    Array<{
+      serviceName: string;
+      serviceUsageAmount: string;
+      serviceUsagePercentage: string;
+    }> | null
+  >(null);
+  const [topServicesLoading, setTopServicesLoading] = useState(true);
+  const [topServicesError, setTopServicesError] = useState<string | null>(null);
 
   // Auth expiration modal state
   const [authExpired, setAuthExpired] = useState(false);
@@ -720,6 +729,47 @@ export default function Dashboard() {
     };
 
     fetchServiceSummary();
+  }, [fromDateStr, toDateStr, stockQueryParam]);
+
+  React.useEffect(() => {
+    const fetchTopServices = async () => {
+      if (!fromDateStr || !toDateStr) return;
+
+      try {
+        setTopServicesLoading(true);
+        setTopServicesError(null);
+
+        const formatDateForAPI = (isoDateString: string) => {
+          const [datePart] = isoDateString.split("T");
+          const [year, month, day] = datePart.split("-");
+          return `${day}/${month}/${year}`;
+        };
+
+        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
+        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
+
+        const data = (await ApiService.getDirect(
+          `real-time/get-top-10-service?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+        )) as Array<{
+          serviceName: string;
+          serviceUsageAmount: string;
+          serviceUsagePercentage: string;
+        }>;
+
+        setTopServicesData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch top service usage";
+        setTopServicesError(errorMessage);
+        console.error("❌ Top services fetch error:", err);
+      } finally {
+        setTopServicesLoading(false);
+      }
+    };
+
+    fetchTopServices();
   }, [fromDateStr, toDateStr, stockQueryParam]);
 
   // Fetch new customers by source (real-time) using ApiService via proxy
@@ -2820,15 +2870,16 @@ export default function Dashboard() {
         >
           <LazyLoadingWrapper type="section" minHeight="400px">
             <ConditionalRender
-              loading={bookingLoading || !serviceSummaryData}
-              error={bookingError || serviceError}
-              data={serviceSummaryData || bookingData}
+              loading={bookingLoading || !serviceSummaryData || topServicesLoading}
+              error={bookingError || serviceError || topServicesError}
+              data={serviceSummaryData || topServicesData}
             >
               <ServiceSection
                 bookingLoading={bookingLoading}
                 bookingError={bookingError}
                 bookingData={bookingData}
                 serviceSummaryData={serviceSummaryData}
+                topServiceItems={topServicesData}
               />
             </ConditionalRender>
           </LazyLoadingWrapper>

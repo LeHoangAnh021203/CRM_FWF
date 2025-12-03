@@ -146,7 +146,7 @@ export function DateProvider({
         )) as RangeAlertResponse;
 
         if (isMounted) {
-          setRangeAlert(data);
+        setRangeAlert(data);
         }
       } catch (error) {
         console.error("Failed to fetch range-time-alert:", error);

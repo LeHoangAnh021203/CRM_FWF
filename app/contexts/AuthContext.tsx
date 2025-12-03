@@ -192,7 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Store tokens and user data
       localStorage.setItem("access_token", response.access_token)
       localStorage.setItem("refresh_token", response.refresh_token)
-
+      
       if (typeof window !== "undefined" && response.refresh_token) {
         const cookieParts = [
           `refresh_token=${encodeURIComponent(response.refresh_token)}`,
