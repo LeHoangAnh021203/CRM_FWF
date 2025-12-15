@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface RevenueSummaryData {
   totalRevenue: number;
@@ -19,7 +19,7 @@ export function useRevenueSummary(fromDate?: string, toDate?: string): UseRevenu
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -45,11 +45,11 @@ export function useRevenueSummary(fromDate?: string, toDate?: string): UseRevenu
     } finally {
       setLoading(false);
     }
-  };
+  }, [fromDate, toDate]);
 
   useEffect(() => {
     fetchData();
-  }, [fromDate, toDate, fetchData]);
+  }, [fetchData]);
 
   return {
     data,
@@ -58,4 +58,3 @@ export function useRevenueSummary(fromDate?: string, toDate?: string): UseRevenu
     refetch: fetchData,
   };
 }
-

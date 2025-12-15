@@ -20,20 +20,12 @@ const CustomerAccordionCard: React.FC<CustomerAccordionCardProps> = ({
   mainValue,
   mainLabel,
   mainPercentChange,
-  maleValue,
-  malePercentChange,
-  femaleValue,
-  femalePercentChange,
-  avgRevenueMale,
-  avgServiceMale,
-  avgRevenueFemale,
-  avgServiceFemale,
   loading,
   error,
+  ...unusedGenderStats
 }) => {
+  void unusedGenderStats;
   const [isExpanded, setIsExpanded] = useState(false);
-  const [expandedMale, setExpandedMale] = useState(false);
-  const [expandedFemale, setExpandedFemale] = useState(false);
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">

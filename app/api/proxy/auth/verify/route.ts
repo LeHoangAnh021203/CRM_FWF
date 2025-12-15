@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getApiEndpoint, AUTH_CONFIG } from '@/app/lib/auth-config'
+import { getApiEndpoint } from '@/app/lib/auth-config'
 
 // API endpoint configuration
 // Backend uses: /api/auth/register/verify
@@ -113,4 +113,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

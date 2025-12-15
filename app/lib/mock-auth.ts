@@ -107,7 +107,8 @@ export function mockLogin(username: string, password: string): { success: boolea
   })
   
   // Remove password from response
-  const { password: _, ...userWithoutPassword } = user
+  const { password: _password, ...userWithoutPassword } = user
+  void _password;
   
   return {
     success: true,
@@ -130,7 +131,8 @@ export function mockValidateToken(token: string): { valid: boolean; user?: MockU
   }
   
   // Remove password from response
-  const { password: _, ...userWithoutPassword } = user
+  const { password: _password, ...userWithoutPassword } = user
+  void _password;
   
   return {
     valid: true,

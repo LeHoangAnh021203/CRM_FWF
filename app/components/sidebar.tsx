@@ -18,18 +18,6 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "../contexts/AuthContext";
 
-// Define route permissions mapping
-const ROUTE_PERMISSIONS: Record<string, string[]> = {
-  "/": [], // Dashboard home - accessible to all authenticated users
-  "/dashboard/customers": ["ROLE_ADMIN", "ROLE_CEO"],
-  "/dashboard/orders": ["ROLE_ADMIN", "ROLE_CEO"],
-  "/dashboard/services": ["ROLE_ADMIN", "ROLE_CEO"],
-  "/dashboard/accounting": ["ROLE_ADMIN", "ROLE_CEO"],
-  "/dashboard/calendar": ["ROLE_ADMIN", "ROLE_CEO"],
-  "/dashboard/generateAI": ["ROLE_ADMIN", "ROLE_CEO"],
-  "/dashboard/userManagement": ["ROLE_ADMIN", "ROLE_CEO"],
-};
-
 const menuItems = [
   {
     icon: LayoutDashboard,

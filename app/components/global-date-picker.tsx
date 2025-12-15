@@ -18,7 +18,7 @@ export function GlobalDatePicker({
   showResetButton = true,
   compact = false 
 }: GlobalDatePickerProps) {
-  const { startDate, endDate, setStartDate, setEndDate, resetToDefault, isLoaded } = useDateRange();
+  const { startDate, endDate, setStartDate, setEndDate, isLoaded } = useDateRange();
   const [isOpen, setIsOpen] = useState(false);
   const [tempStartDate, setTempStartDate] = useState<CalendarDate | null>(null);
   const [tempEndDate, setTempEndDate] = useState<CalendarDate | null>(null);
@@ -65,6 +65,14 @@ export function GlobalDatePicker({
     setTempStartDate(startDate);
     setTempEndDate(endDate);
     setIsOpen(false);
+  };
+
+  const handleResetToToday = () => {
+    const todayDate = today(getLocalTimeZone());
+    setStartDate(todayDate);
+    setEndDate(todayDate);
+    setTempStartDate(todayDate);
+    setTempEndDate(todayDate);
   };
 
   const formatDate = (date: CalendarDate) => {
@@ -162,9 +170,9 @@ export function GlobalDatePicker({
             <Button
               variant="ghost"
               size="sm"
-              onClick={resetToDefault}
+              onClick={handleResetToToday}
               className="ml-2"
-              title="Reset về 7 ngày gần nhất"
+              title="Lấy dữ liệu mới nhất trong ngày"
             >
               <RotateCcw className="w-4 h-4" />
             </Button>

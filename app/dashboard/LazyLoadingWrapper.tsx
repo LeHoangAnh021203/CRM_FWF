@@ -67,6 +67,7 @@ export const ConditionalRender: React.FC<ConditionalRenderProps> = ({
   fallback,
   minHeight = "300px",
 }) => {
+  void data;
   // Show error if exists
   if (error) {
     return (
@@ -95,4 +96,3 @@ export const ConditionalRender: React.FC<ConditionalRenderProps> = ({
   // Components will handle their own empty states
   return <>{children}</>;
 };
-

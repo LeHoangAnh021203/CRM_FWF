@@ -297,7 +297,7 @@ export default function CustomerReportPage() {
     useLocalStorageState<string | null>("customer-selectedStatus", null);
 
   // Use global date context instead of local state
-  const { fromDate, toDate, isLoaded: dateLoaded, rangeAlert } = useDateRange();
+  const { fromDate, toDate, isLoaded: dateLoaded } = useDateRange();
 
   const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] =
     useLocalStorageState<string[]>("customer-selectedRegions", []);
@@ -494,24 +494,6 @@ export default function CustomerReportPage() {
     toDate
   );
 
-  const customerDatasetKey = "customer_sale_record";
-
-  const allCustomersFromDate = React.useMemo(() => {
-    return (
-      rangeAlert?.minMap?.[customerDatasetKey] ??
-      rangeAlert?.globalMin ??
-      fromDate
-    );
-  }, [rangeAlert, customerDatasetKey, fromDate]);
-
-  const allCustomersToDate = React.useMemo(() => {
-    return (
-      rangeAlert?.maxMap?.[customerDatasetKey] ??
-      rangeAlert?.globalMax ??
-      toDate
-    );
-  }, [rangeAlert, customerDatasetKey, toDate]);
-
   const {
     data: allCustomersRaw,
     loading: allCustomersLoading,
@@ -578,16 +560,6 @@ export default function CustomerReportPage() {
     toDate
   );
 
-  const customerAllList = React.useMemo<CustomerRecord[]>(() => {
-    if (!allCustomersRaw) return [];
-    if (typeof allCustomersRaw === "number") return [];
-    if (Array.isArray(allCustomersRaw)) return allCustomersRaw;
-    if (Array.isArray(allCustomersRaw.content)) {
-      return allCustomersRaw.content;
-    }
-    return [];
-  }, [allCustomersRaw]);
-
   const totalExistingCustomers = React.useMemo(() => {
     if (!allCustomersRaw) return 0;
     if (typeof allCustomersRaw === "number") return allCustomersRaw;
@@ -614,119 +586,6 @@ export default function CustomerReportPage() {
     }
     return 0;
   }, [allCustomersRaw]);
-
-  const customerAllMeta = React.useMemo(() => {
-    if (
-      !allCustomersRaw ||
-      typeof allCustomersRaw === "number" ||
-      Array.isArray(allCustomersRaw)
-    )
-      return null;
-    const pageSize =
-      typeof allCustomersRaw.size === "number"
-        ? allCustomersRaw.size
-        : typeof allCustomersRaw.pageable?.pageSize === "number"
-        ? allCustomersRaw.pageable.pageSize
-        : undefined;
-    const pageNumber =
-      typeof allCustomersRaw.number === "number"
-        ? allCustomersRaw.number + 1
-        : typeof allCustomersRaw.pageable?.pageNumber === "number"
-        ? allCustomersRaw.pageable.pageNumber + 1
-        : undefined;
-    const numberOfElements =
-      typeof allCustomersRaw.numberOfElements === "number"
-        ? allCustomersRaw.numberOfElements
-        : undefined;
-    const totalPages =
-      typeof allCustomersRaw.totalPages === "number"
-        ? allCustomersRaw.totalPages
-        : undefined;
-    return {
-      pageSize,
-      pageNumber,
-      numberOfElements,
-      totalPages,
-    };
-  }, [allCustomersRaw]);
-
-  const customerAllBreakdowns = React.useMemo(
-    () => {
-      if (!customerAllList.length) return [];
-
-      const configs: Array<{
-        label: string;
-        keys: string[];
-      }> = [
-        {
-          label: "Theo trạng thái",
-          keys: ["status", "customerStatus", "bookingStatus"],
-        },
-        {
-          label: "Theo loại khách",
-          keys: ["customerType", "type"],
-        },
-        {
-          label: "Theo khu vực",
-          keys: ["region", "regionName", "area"],
-        },
-        {
-          label: "Theo chi nhánh",
-          keys: ["branch", "branchName", "shopName"],
-        },
-      ];
-
-      return configs
-        .map((config) => {
-          const activeKey = config.keys.find((key) =>
-            customerAllList.some(
-              (item) => typeof item[key] === "string" && item[key] !== ""
-            )
-          );
-          if (!activeKey) return null;
-          const counts = customerAllList.reduce<Record<string, number>>(
-            (acc, item) => {
-              const raw = item[activeKey];
-              if (typeof raw !== "string") return acc;
-              const value = raw.trim();
-              if (!value) return acc;
-              acc[value] = (acc[value] || 0) + 1;
-              return acc;
-            },
-            {}
-          );
-          const rows = Object.entries(counts)
-            .sort((a, b) => b[1] - a[1])
-            .map(([label, value]) => ({ label, value }));
-          if (!rows.length) return null;
-          return {
-            label: config.label,
-            key: activeKey,
-            rows,
-          };
-        })
-        .filter(Boolean) as Array<{
-        label: string;
-        key: string;
-        rows: { label: string; value: number }[];
-      }>;
-    },
-    [customerAllList]
-  );
-
-  const customerAllDateRangeLabel = React.useMemo(() => {
-    const format = (value: string) => {
-      if (!value) return "—";
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return value;
-      return date.toLocaleDateString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-    };
-    return `${format(allCustomersFromDate)} → ${format(allCustomersToDate)}`;
-  }, [allCustomersFromDate, allCustomersToDate]);
 
   const totalCustomersInRange = React.useMemo(() => {
     if (!rangedCustomersRaw) return 0;
@@ -756,13 +615,6 @@ export default function CustomerReportPage() {
     }
     return 0;
   }, [rangedCustomersRaw]);
-
-  const customerRangePercent = React.useMemo(() => {
-    if (!totalExistingCustomers) return 0;
-    const percent =
-      (totalCustomersInRange / Math.max(1, totalExistingCustomers)) * 100;
-    return Math.min(100, Math.max(0, Math.round(percent)));
-  }, [totalCustomersInRange, totalExistingCustomers]);
 
   // Tính breakdown từ ranged customers nếu có dữ liệu chi tiết
   const rangedCustomersList = React.useMemo<CustomerRecord[]>(() => {

@@ -13,7 +13,6 @@ import {
 } from "@internationalized/date";
 
 import {
-  LazyOrderFilter,
   LazyOrderActualCollection,
   LazyOrderTotalByDay,
   LazyOrderTotalByStore,
@@ -307,12 +306,6 @@ export default function CustomerReportPage() {
     dateLoaded &&
     selectedBranchesLoaded &&
     selectedRegionsLoaded;
-  const [showRegionDropdown, setShowRegionDropdown] = useState(false);
-  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-  const [regionSearch, setRegionSearch] = useState("");
-  const [locationSearch, setLocationSearch] = useState("");
-  const regionDropdownRef = useRef<HTMLDivElement | null>(null);
-  const locationDropdownRef = useRef<HTMLDivElement | null>(null);
   // Move locationOptions outside component to avoid re-creation
   const locationOptions = React.useMemo(
     () => [
@@ -980,8 +973,8 @@ export default function CustomerReportPage() {
       })),
     });
 
-    // Test với giá trị cố định nếu API data có vấn đề
-    const testValue = 1.56; // Giá trị tính toán thủ công
+    
+    const testValue = 1.56; 
 
     console.log(
       "Final percentChange:",
@@ -1087,52 +1080,6 @@ export default function CustomerReportPage() {
       ? null
       : ((avgRevenueThisWeek - avgRevenueLastWeek) / avgRevenueLastWeek) * 100;
 
-  // Đóng dropdown khi click ngoài
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (
-        regionDropdownRef.current &&
-        !regionDropdownRef.current.contains(e.target as Node)
-      ) {
-        setShowRegionDropdown(false);
-      }
-      if (
-        locationDropdownRef.current &&
-        !locationDropdownRef.current.contains(e.target as Node)
-      ) {
-        setShowLocationDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  const filteredLocationOptions = React.useMemo(
-    () =>
-      locationOptions.filter((l) =>
-        l.toLowerCase().includes(locationSearch.toLowerCase())
-      ),
-    [locationSearch, locationOptions]
-  );
-
-  const regionOptions = React.useMemo(
-    () =>
-      regionStats.map((r) => ({
-        name: r.region,
-        total: Object.values(locationRegionMap).filter(
-          (reg) => reg === r.region
-        ).length,
-      })),
-    [regionStats]
-  );
-
-  const filteredRegionOptions = React.useMemo(
-    () =>
-      regionOptions.filter((r) =>
-        r.name.toLowerCase().includes(regionSearch.toLowerCase())
-      ),
-    [regionOptions, regionSearch]
-  );
 
   // Tính top 10 location (chi nhánh/cửa hàng) theo thực thu tuần này
   const top10LocationChartData = React.useMemo(() => {
@@ -1642,35 +1589,7 @@ export default function CustomerReportPage() {
             </button>
           </div>
 
-          {/* Filter */}
-          <Suspense
-            fallback={
-              <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-pulse">
-                <div className="h-10 bg-gray-200 rounded"></div>
-              </div>
-            }
-          >
-            {/* <LazyOrderFilter
-              selectedRegions={selectedRegions}
-              setSelectedRegions={setSelectedRegions}
-              regionOptions={regionOptions}
-              regionSearch={regionSearch}
-              setRegionSearch={setRegionSearch}
-              filteredRegionOptions={filteredRegionOptions}
-              showRegionDropdown={showRegionDropdown}
-              setShowRegionDropdown={setShowRegionDropdown}
-              regionDropdownRef={regionDropdownRef}
-              selectedBranches={selectedBranches}
-              setSelectedBranches={setSelectedBranches}
-              locationOptions={locationOptions}
-              locationSearch={locationSearch}
-              setLocationSearch={setLocationSearch}
-              filteredLocationOptions={filteredLocationOptions}
-              showLocationDropdown={showLocationDropdown}
-              setShowLocationDropdown={setShowLocationDropdown}
-              locationDropdownRef={locationDropdownRef}
-            /> */}
-          </Suspense>
+          {/* Filter (temporarily removed) */}
         </div>
 
 

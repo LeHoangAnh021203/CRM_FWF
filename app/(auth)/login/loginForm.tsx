@@ -13,6 +13,15 @@ import { EmailVerificationModal } from "@/app/components/email-verification-moda
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const extractString = (value: unknown): string =>
+  typeof value === "string" ? value : "";
+
+const hasVerificationFlag = (value: unknown): boolean =>
+  value === true || value === "true";
+
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -72,18 +81,21 @@ export function LoginForm() {
       }
       
       // Check error object properties
-      const errorAny = error as any;
+      const errorRecord = isRecord(error) ? error : null;
       
       // Get error details if available (from error object or error message)
-      const errorDetails = errorAny?.details || '';
+      const errorDetails = extractString(errorRecord?.details);
       const fullErrorText = `${errorMessage} ${errorDetails}`.toLowerCase();
       
       // Check if error has isEmailNotVerified property (multiple ways to check)
-      const hasVerificationFlag = errorAny?.isEmailNotVerified === true ||
-                                  errorAny?.isEmailNotVerified === 'true' ||
-                                  (typeof errorAny === 'object' && errorAny !== null && 
-                                   Object.prototype.hasOwnProperty.call(errorAny, 'isEmailNotVerified') && 
-                                   (errorAny.isEmailNotVerified === true || errorAny.isEmailNotVerified === 'true'));
+      const hasExplicitVerificationFlag =
+        hasVerificationFlag(errorRecord?.isEmailNotVerified) ||
+        (errorRecord &&
+          Object.prototype.hasOwnProperty.call(
+            errorRecord,
+            "isEmailNotVerified"
+          ) &&
+          hasVerificationFlag(errorRecord.isEmailNotVerified));
       
       // Check for verification keywords in error message/details
       // IMPORTANT: This is the fallback method that should work even if flag is lost
@@ -101,7 +113,7 @@ export function LoginForm() {
                                       fullErrorText.includes("mail đã tồn tại nhưng cần được xác thực");
       
       // Check if error is about verification (either flagged or contains keywords)
-      const isEmailNotVerified = hasVerificationFlag || hasVerificationKeywords;
+      const isEmailNotVerified = hasExplicitVerificationFlag || hasVerificationKeywords;
       
       console.log("[LoginForm] Error analysis:", {
         errorMessage,
@@ -110,8 +122,8 @@ export function LoginForm() {
         hasVerificationFlag,
         hasVerificationKeywords,
         isEmailNotVerified,
-        errorObjectKeys: errorAny ? Object.keys(errorAny) : [],
-        errorAnyIsEmailNotVerified: errorAny?.isEmailNotVerified
+        errorObjectKeys: errorRecord ? Object.keys(errorRecord) : [],
+        errorAnyIsEmailNotVerified: errorRecord?.isEmailNotVerified
       });
       
       if (isEmailNotVerified) {
@@ -119,7 +131,7 @@ export function LoginForm() {
         // Show verification modal instead of error message
         setShowVerificationModal(true);
         // Try to extract email from error object if available
-        const emailFromError = errorAny?.email;
+        const emailFromError = extractString(errorRecord?.email);
         // Use email from error, or check if username is an email, or use username as fallback
         const emailToShow = emailFromError ||
                            (formData.username.includes("@") ? formData.username : "");

@@ -100,14 +100,6 @@ export default function ServicesRegionData({
   isMobile,
   regionChartData,
 }: ServicesRegionDataProps) {
-  // Tính tổng số dịch vụ
-  const totalServices = regionChartData.reduce(
-    (sum, region) => sum + region.total,
-    0
-  );
-  const totalRegions = regionChartData.length;
-  const topRegion = regionChartData[0];
-
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
       <div className="text-xl font-medium text-gray-700 text-center mb-4" data-search-ref="services_region">

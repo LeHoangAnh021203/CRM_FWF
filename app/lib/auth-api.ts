@@ -31,11 +31,27 @@ export interface LoginResponse {
 export interface JWTPayload {
   ipAddress: string
   userId: number
+  id?: number
   authorities: string[]
   sub: string
   iss: string
   iat: number
   exp: number
+  firstname?: string
+  lastname?: string
+  firstName?: string
+  lastName?: string
+  email?: string
+  phoneNumber?: string
+  phone?: string
+  gender?: boolean
+  dob?: string
+  dateOfBirth?: string
+  username?: string
+  role?: string
+  bio?: string
+  avatar?: string | null
+  active?: boolean
 }
 
 type ErrorRecord = Record<string, unknown>
@@ -402,21 +418,24 @@ export class AuthAPI {
   static async getUserByUsernameFromList(username: string, token: string): Promise<User | null> {
     try {
       const { ApiService } = await import('./api-service')
-      const userData = await ApiService.getUserByUsername(username, token) as any
+      const userData = (await ApiService.getUserByUsername(
+        username,
+        token
+      )) as Partial<User> | null
       
       if (userData) {
         const user: User = {
-          id: userData.id || 0,
-          firstname: userData.firstname || '',
-          lastname: userData.lastname || '',
-          username: userData.username || username,
-          email: userData.email || '',
-          phoneNumber: userData.phoneNumber || '',
-          dob: userData.dob || '',
+          id: userData.id ?? 0,
+          firstname: userData.firstname ?? '',
+          lastname: userData.lastname ?? '',
+          username: userData.username ?? username,
+          email: userData.email ?? '',
+          phoneNumber: userData.phoneNumber ?? '',
+          dob: userData.dob ?? '',
           gender: userData.gender ?? true,
-          bio: userData.bio || '',
-          avatar: userData.avatar || null,
-          role: userData.role || 'USER',
+          bio: userData.bio ?? '',
+          avatar: userData.avatar ?? null,
+          role: userData.role ?? 'USER',
           active: userData.active ?? true,
         }
         console.log('[AuthAPI] User fetched from get-all-users API:', user)
@@ -482,7 +501,7 @@ export class AuthAPI {
       const payload = this.decodeToken(token)
       if (payload) {
         console.log('[AuthAPI] JWT Payload:', JSON.stringify(payload, null, 2))
-        const jwtUser = payload as any
+        const jwtUser = payload ?? ({} as JWTPayload)
         // Some backends put user info directly in JWT
         if (jwtUser.firstname || jwtUser.firstName || jwtUser.email) {
           const userFromJWT: User = {

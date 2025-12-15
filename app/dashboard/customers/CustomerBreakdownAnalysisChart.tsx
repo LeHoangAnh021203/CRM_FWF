@@ -66,7 +66,7 @@ const CustomerBreakdownAnalysisChart: React.FC<CustomerBreakdownAnalysisChartPro
     const baseBreakdown = breakdowns[0];
     if (!baseBreakdown || baseBreakdown.rows.length === 0) return [];
 
-    return baseBreakdown.rows.slice(0, 8).map((row, idx) => {
+    return baseBreakdown.rows.slice(0, 8).map((row) => {
       const dataPoint: Record<string, string | number> = {
         name: row.label.length > 15 ? row.label.substring(0, 15) + "..." : row.label,
         fullName: row.label,
@@ -119,9 +119,6 @@ const CustomerBreakdownAnalysisChart: React.FC<CustomerBreakdownAnalysisChartPro
     );
   }
 
-  // Lấy các breakdown khác để hiển thị trong legend
-  const additionalBreakdowns = breakdowns.slice(1, 3);
-
   return (
     <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 mt-5">
       <div className="mb-4">
@@ -172,11 +169,15 @@ const CustomerBreakdownAnalysisChart: React.FC<CustomerBreakdownAnalysisChartPro
             tickFormatter={(value) => `${value}%`}
           />
           <Tooltip
-            formatter={(value: number | string, name: string, props: any) => {
+            formatter={(value: number | string, name: string) => {
               if (name === "Tỷ lệ") {
                 return [`${value}%`, "Tỷ lệ (%)"];
               }
-              return [value.toLocaleString("vi-VN"), name];
+              const formatted =
+                typeof value === "number"
+                  ? value.toLocaleString("vi-VN")
+                  : value;
+              return [formatted, name];
             }}
             labelFormatter={(label, payload) => {
               if (payload && payload[0]) {
@@ -234,5 +235,3 @@ const CustomerBreakdownAnalysisChart: React.FC<CustomerBreakdownAnalysisChartPro
 };
 
 export default CustomerBreakdownAnalysisChart;
-
-

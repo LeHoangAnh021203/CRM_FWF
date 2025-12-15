@@ -5,10 +5,21 @@ import { Notification, useNotification } from "@/app/components/notification";
 import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
 import { useDashboardData } from "@/app/hooks/useDashboardData";
+import { useDashboardSummary } from "@/app/hooks/useDashboardSummary";
 import { useDateRange } from "@/app/contexts/DateContext";
 import { useBranchFilter } from "@/app/contexts/BranchContext";
 import { getActualStockIds, parseNumericValue } from "@/app/constants/branches";
 import { ApiService } from "@/app/lib/api-service";
+import { useLazySectionLoader } from "@/app/hooks/useLazySectionLoader";
+import {
+  DashboardSummarySections,
+  SalesSummaryResponse,
+} from "@/app/dashboard/dashboard-types";
+import type {
+  DashboardWorkerRequestMessage,
+  DashboardWorkerResponseMessage,
+  DashboardWorkerResult,
+} from "@/app/workers/dashboard-metrics.types";
 
 import { QuickActions } from "@/app/components/quick-actions";
 import { DollarSign } from "lucide-react";
@@ -31,6 +42,237 @@ interface PaymentMethod {
   amount: number;
   percentage: number;
   transactions: number;
+}
+
+interface ApiDateRange {
+  start: string;
+  end: string;
+}
+
+const isoToDdMmYyyy = (isoInput: string): string => {
+  const date = new Date(isoInput);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const buildApiDateRange = (fromDate: string, toDate: string): ApiDateRange => ({
+  start: isoToDdMmYyyy(`${fromDate}T00:00:00`),
+  end: isoToDdMmYyyy(`${toDate}T23:59:59`),
+});
+
+const aggregateSalesSummaryResponse = (
+  responses: SalesSummaryResponse[]
+): SalesSummaryResponse => ({
+  totalRevenue: responses
+    .reduce((sum, r) => sum + parseNumericValue(r.totalRevenue), 0)
+    .toString(),
+  cash: responses
+    .reduce((sum, r) => sum + parseNumericValue(r.cash), 0)
+    .toString(),
+  transfer: responses
+    .reduce((sum, r) => sum + parseNumericValue(r.transfer), 0)
+    .toString(),
+  card: responses
+    .reduce((sum, r) => sum + parseNumericValue(r.card), 0)
+    .toString(),
+  actualRevenue: responses
+    .reduce((sum, r) => sum + parseNumericValue(r.actualRevenue), 0)
+    .toString(),
+  foxieUsageRevenue: responses
+    .reduce((sum, r) => sum + parseNumericValue(r.foxieUsageRevenue), 0)
+    .toString(),
+  walletUsageRevenue: responses
+    .reduce((sum, r) => sum + parseNumericValue(r.walletUsageRevenue), 0)
+    .toString(),
+  toPay: responses
+    .reduce((sum, r) => sum + parseNumericValue(r.toPay), 0)
+    .toString(),
+  debt: responses
+    .reduce((sum, r) => sum + parseNumericValue(r.debt), 0)
+    .toString(),
+});
+
+const normalizeSalesSummary = (
+  payload: SalesSummaryResponse
+): {
+  totalRevenue: string;
+  cash: string;
+  transfer: string;
+  card: string;
+  actualRevenue: string;
+  foxieUsageRevenue: string;
+  walletUsageRevenue: string;
+  toPay: string;
+  debt: string;
+} => ({
+  totalRevenue: String(payload.totalRevenue ?? "0"),
+  cash: String(payload.cash ?? "0"),
+  transfer: String(payload.transfer ?? "0"),
+  card: String(payload.card ?? "0"),
+  actualRevenue: String(payload.actualRevenue ?? "0"),
+  foxieUsageRevenue: String(payload.foxieUsageRevenue ?? "0"),
+  walletUsageRevenue: String(payload.walletUsageRevenue ?? "0"),
+  toPay: String(payload.toPay ?? "0"),
+  debt: String(payload.debt ?? "0"),
+});
+
+const DATETIME_FORMATTER = new Intl.DateTimeFormat("vi-VN", {
+  hour12: false,
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
+const LastUpdatedNote: React.FC<{
+  timestamp?: number | Date | null;
+  className?: string;
+}> = ({ timestamp, className = "" }) => {
+  if (!timestamp) return null;
+  const date =
+    typeof timestamp === "number" ? new Date(timestamp) : timestamp;
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return (
+    <p className={`text-xs text-gray-500 ${className}`}>
+      Cập nhật lần cuối: {DATETIME_FORMATTER.format(date)}
+    </p>
+  );
+};
+
+type AwaitedValue<T> = T extends Promise<infer U> ? AwaitedValue<U> : T;
+type ResolvedResponse<T> = Awaited<AwaitedValue<T>>;
+
+function useStockAwareRequests(
+  fromDateStr: string,
+  toDateStr: string,
+  actualStockIds: string[],
+  stockQueryParam: string
+) {
+  const apiDateRange = React.useMemo<ApiDateRange | null>(() => {
+    if (!fromDateStr || !toDateStr) return null;
+    return buildApiDateRange(fromDateStr, toDateStr);
+  }, [fromDateStr, toDateStr]);
+
+  const stockCacheKey = React.useMemo(
+    () => actualStockIds.join(",") || "all",
+    [actualStockIds]
+  );
+
+  const requestCacheRef = React.useRef<Map<string, Promise<unknown>>>(
+    new Map()
+  );
+
+  React.useEffect(() => {
+    requestCacheRef.current.clear();
+  }, [stockCacheKey, apiDateRange?.start, apiDateRange?.end]);
+
+  const buildUrl = React.useCallback(
+    (
+      endpoint: string,
+      range: ApiDateRange | null,
+      stockOverride?: string,
+      extraParams = "",
+      includeStock = true
+    ) => {
+      if (!range) return null;
+      const stockPart = includeStock
+        ? stockOverride !== undefined
+          ? `&stockId=${stockOverride}`
+          : stockQueryParam
+        : "";
+      return `${endpoint}?dateStart=${range.start}&dateEnd=${range.end}${stockPart}${extraParams}`;
+    },
+    [stockQueryParam]
+  );
+
+  const fetchStockAware = React.useCallback(
+    <TResponse, TResult = TResponse>(
+      endpoint: string,
+      options: {
+        aggregate?: (responses: ResolvedResponse<TResponse>[]) => TResult;
+        mapSingle?: (response: ResolvedResponse<TResponse>) => TResult;
+        cacheKeySuffix?: string;
+        extraParams?: string;
+        includeStockParam?: boolean;
+        rangeOverride?: ApiDateRange;
+      } = {}
+    ): Promise<TResult | null> => {
+      type ResponseValue = ResolvedResponse<TResponse>;
+      const {
+        aggregate,
+        mapSingle,
+        cacheKeySuffix,
+        extraParams = "",
+        includeStockParam = true,
+        rangeOverride,
+      } = options;
+
+      const range = rangeOverride ?? apiDateRange;
+      if (!range) return Promise.resolve(null);
+
+      const suffix =
+        cacheKeySuffix ??
+        `${aggregate ? "agg" : "single"}-${mapSingle ? "mapped" : "raw"}-${
+          includeStockParam ? "withStock" : "noStock"
+        }-${extraParams}-${range.start}-${range.end}`;
+
+      const cacheKey = `${endpoint}|${stockCacheKey}|${suffix}`;
+      const cache = requestCacheRef.current;
+      if (cache.has(cacheKey)) {
+        return cache.get(cacheKey) as Promise<TResult>;
+      }
+
+      const requestPromise = (async (): Promise<TResult | null> => {
+        if (aggregate && includeStockParam && actualStockIds.length > 1) {
+          const responses = (await Promise.all(
+            actualStockIds.map(async (sid): Promise<ResponseValue | null> => {
+              const url = buildUrl(
+                endpoint,
+                range,
+                sid,
+                extraParams,
+                true
+              );
+              if (!url) {
+                return null;
+              }
+              const result = (await ApiService.getDirect(url)) as ResponseValue;
+              return result;
+            })
+          )) as (ResponseValue | null)[];
+          const validResponses = responses.filter(
+            (resp): resp is ResponseValue => resp != null
+          );
+          if (!aggregate) return null;
+          return aggregate(validResponses);
+        }
+
+        const url = buildUrl(
+          endpoint,
+          range,
+          undefined,
+          extraParams,
+          includeStockParam
+        );
+        if (!url) return null;
+        const response = (await ApiService.getDirect(url)) as ResponseValue;
+        return mapSingle
+          ? mapSingle(response)
+          : ((response as unknown) as TResult);
+      })();
+
+      cache.set(cacheKey, requestPromise as Promise<unknown>);
+      return requestPromise;
+    },
+    [apiDateRange, actualStockIds, buildUrl, stockCacheKey]
+  );
+
+  return { apiDateRange, fetchStockAware };
 }
 
 // Real data only: no mock datasets for dashboard
@@ -358,7 +600,21 @@ export default function Dashboard() {
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
   const { fromDate, toDate } = useDateRange();
+  const fromDateStr = React.useMemo(() => {
+    if (!fromDate) return "";
+    return fromDate.split("T")[0];
+  }, [fromDate]);
+  const toDateStr = React.useMemo(() => {
+    if (!toDate) return "";
+    return toDate.split("T")[0];
+  }, [toDate]);
   const { stockId: selectedStockId } = useBranchFilter();
+  const workerRef = useRef<Worker | null>(null);
+  const zeroBranchCacheRef = useRef<Map<string, Set<string>>>(new Map());
+  const [kpiMetrics, setKpiMetrics] = useState<DashboardWorkerResult | null>(
+    null
+  );
+  const [kpiWorkerError, setKpiWorkerError] = useState<string | null>(null);
   
   // Get actual stockIds (can be multiple for region/city filters)
   const actualStockIds = React.useMemo(() => {
@@ -377,6 +633,13 @@ export default function Dashboard() {
       return `&stockId=${actualStockIds.join(",")}`;
     }
   }, [actualStockIds]);
+
+  const { apiDateRange, fetchStockAware } = useStockAwareRequests(
+    fromDateStr,
+    toDateStr,
+    actualStockIds,
+    stockQueryParam
+  );
   
   // Track which data sections have been loaded and notified
   const notifiedDataRef = useRef<Set<string>>(new Set());
@@ -389,171 +652,101 @@ export default function Dashboard() {
 
   const { loading, error, apiErrors, apiSuccesses } = useDashboardData();
   
-  // Memoize date strings to prevent unnecessary re-renders
-  const fromDateStr = React.useMemo(() => {
-    if (!fromDate) return "";
-    // Extract just the date part (YYYY-MM-DD) for comparison
-    return fromDate.split("T")[0];
-  }, [fromDate]);
-  
-  const toDateStr = React.useMemo(() => {
-    if (!toDate) return "";
-    // Extract just the date part (YYYY-MM-DD) for comparison
-    return toDate.split("T")[0];
-  }, [toDate]);
-  
   const searchParamQuery = (() => {
     if (typeof window === "undefined") return "";
     const url = new URL(window.location.href);
     return url.searchParams.get("q") || "";
   })();
 
-  // Fetch sales summary data using direct API call (like the original)
-  const [salesSummaryData, setSalesSummaryData] = useState<{
-    totalRevenue: string;
-    cash: string;
-    transfer: string;
-    card: string;
-    actualRevenue: string;
-    foxieUsageRevenue: string;
-    walletUsageRevenue: string;
-    toPay: string;
-    debt: string;
-  } | null>(null);
-  const [salesLoading, setSalesLoading] = useState(true);
-  const [salesError, setSalesError] = useState<string | null>(null);
+  // Special holiday days + lazy-load sections need to be defined before any effect uses them
+  const currentMonthKeyForHoliday = React.useMemo(() => {
+    const now = toDate ? new Date(toDate.split("T")[0]) : new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, [toDate]);
 
-  // Use ApiService with authentication like other pages
-  React.useEffect(() => {
-    const fetchSalesSummary = async () => {
-      if (!fromDateStr || !toDateStr) return;
-
+  const [specialHolidays, setSpecialHolidays] = React.useState<number[]>(() => {
+    if (typeof window !== "undefined") {
       try {
-        setSalesLoading(true);
-        setSalesError(null);
-
-        // Format dates for API (DD/MM/YYYY format like the API expects)
-        const formatDateForAPI = (dateString: string) => {
-          const date = new Date(dateString);
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
-
-        console.log("🔄 Fetching sales summary via ApiService with dates:", {
-          startDate,
-          endDate,
-        });
-
-        // If multiple stockIds, fetch each one and aggregate
-        let data: {
-          totalRevenue: string;
-          cash: string;
-          transfer: string;
-          card: string;
-          actualRevenue: string;
-          foxieUsageRevenue: string;
-          walletUsageRevenue: string;
-          toPay: string;
-          debt: string;
-        };
-
-        if (actualStockIds.length > 1) {
-          // Multiple stockIds - fetch each and aggregate
-          console.log(`🔄 Fetching ${actualStockIds.length} branches and aggregating...`);
-          const results = await Promise.all(
-            actualStockIds.map((sid) =>
-              ApiService.getDirect(
-                `real-time/sales-summary-copied?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
-              ) as Promise<{
-                totalRevenue?: string | number;
-                cash?: string | number;
-                transfer?: string | number;
-                card?: string | number;
-                actualRevenue?: string | number;
-                foxieUsageRevenue?: string | number;
-                walletUsageRevenue?: string | number;
-                toPay?: string | number;
-                debt?: string | number;
-              }>
-            )
-          );
-
-          // Aggregate all results
-          data = {
-            totalRevenue: results
-              .reduce((sum, r) => sum + parseNumericValue(r.totalRevenue), 0)
-              .toString(),
-            cash: results
-              .reduce((sum, r) => sum + parseNumericValue(r.cash), 0)
-              .toString(),
-            transfer: results
-              .reduce((sum, r) => sum + parseNumericValue(r.transfer), 0)
-              .toString(),
-            card: results
-              .reduce((sum, r) => sum + parseNumericValue(r.card), 0)
-              .toString(),
-            actualRevenue: results
-              .reduce((sum, r) => sum + parseNumericValue(r.actualRevenue), 0)
-              .toString(),
-            foxieUsageRevenue: results
-              .reduce((sum, r) => sum + parseNumericValue(r.foxieUsageRevenue), 0)
-              .toString(),
-            walletUsageRevenue: results
-              .reduce((sum, r) => sum + parseNumericValue(r.walletUsageRevenue), 0)
-              .toString(),
-            toPay: results
-              .reduce((sum, r) => sum + parseNumericValue(r.toPay), 0)
-              .toString(),
-            debt: results
-              .reduce((sum, r) => sum + parseNumericValue(r.debt), 0)
-              .toString(),
-          };
-          console.log(`✅ Aggregated data from ${actualStockIds.length} branches:`, data);
-        } else {
-          // Single stockId or all branches - use existing query param
-          data = (await ApiService.getDirect(
-            `real-time/sales-summary-copied?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
-          )) as {
-            totalRevenue: string;
-            cash: string;
-            transfer: string;
-            card: string;
-            actualRevenue: string;
-            foxieUsageRevenue: string;
-            walletUsageRevenue: string;
-            toPay: string;
-            debt: string;
-          };
-          console.log("✅ Sales summary data received:", data);
-        }
-
-        console.log("🔍 Debug - Data structure check:", {
-          hasTotalRevenue: !!data.totalRevenue,
-          hasCash: !!data.cash,
-          hasTransfer: !!data.transfer,
-          hasCard: !!data.card,
-          hasFoxieUsageRevenue: !!data.foxieUsageRevenue,
-          hasWalletUsageRevenue: !!data.walletUsageRevenue,
-        });
-
-        setSalesSummaryData(data);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to fetch sales summary";
-        setSalesError(errorMessage);
-        console.error("❌ Sales summary fetch error:", err);
-      } finally {
-        setSalesLoading(false);
+        const raw = localStorage.getItem(
+          `kpi_special_holidays_${currentMonthKeyForHoliday}`
+        );
+        if (!raw) return [];
+        const arr = JSON.parse(raw) as number[];
+        return Array.isArray(arr) ? arr.filter((d) => Number.isFinite(d)) : [];
+      } catch {
+        return [];
       }
-    };
+    }
+    return [];
+  });
 
-    fetchSalesSummary();
-  }, [fromDateStr, toDateStr, stockQueryParam, actualStockIds]);
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        `kpi_special_holidays_${currentMonthKeyForHoliday}`,
+        JSON.stringify(specialHolidays)
+      );
+    }
+  }, [specialHolidays, currentMonthKeyForHoliday]);
+
+  const sectionRefs = React.useRef({
+    dashboard_total_sale_table: React.createRef<HTMLDivElement>(),
+    dashboard_foxie_balance: React.createRef<HTMLDivElement>(),
+    dashboard_sales_by_hour: React.createRef<HTMLDivElement>(),
+    dashboard_sale_detail: React.createRef<HTMLDivElement>(),
+    dashboard_kpi: React.createRef<HTMLDivElement>(),
+    dashboard_customer_section: React.createRef<HTMLDivElement>(),
+    dashboard_booking_section: React.createRef<HTMLDivElement>(),
+    dashboard_booking_by_hour: React.createRef<HTMLDivElement>(),
+    dashboard_service_section: React.createRef<HTMLDivElement>(),
+  });
+
+  const shouldLoadFoxieBalance = useLazySectionLoader(
+    sectionRefs.current.dashboard_foxie_balance,
+    { delayMs: 2000 }
+  );
+
+  const normalizeKey = (s: string) => normalize(s).replace(/\s+/g, "");
+  const [highlightKey, setHighlightKey] = React.useState<string | null>(null);
+
+  const stockIdParam =
+    actualStockIds.length === 0
+      ? ""
+      : actualStockIds.length === 1
+      ? actualStockIds[0]
+      : actualStockIds.join(",");
+
+  const summaryQuery = useDashboardSummary({
+    dateStart: apiDateRange?.start ?? null,
+    dateEnd: apiDateRange?.end ?? null,
+    stockId: stockIdParam,
+    enabled: Boolean(apiDateRange),
+  });
+
+  const summaryPayload =
+    (summaryQuery.data as
+      | {
+          data?: DashboardSummarySections | null;
+          errors?: Record<string, string>;
+        }
+      | undefined) ?? null;
+  const summaryData = (summaryPayload?.data ?? {}) as DashboardSummarySections;
+  const summaryErrors = summaryPayload?.errors ?? {};
+  const summaryGlobalError = summaryQuery.error?.message ?? null;
+  const isSummaryLoading =
+    (summaryQuery.isLoading || summaryQuery.isFetching) && Boolean(apiDateRange);
+  const summaryLastUpdatedAt = summaryQuery.dataUpdatedAt ?? null;
+
+  const rawSalesSummary = summaryData.salesSummary;
+  const salesSummaryData = React.useMemo(
+    () => (rawSalesSummary ? normalizeSalesSummary(rawSalesSummary) : null),
+    [rawSalesSummary]
+  );
+  const salesLoading = isSummaryLoading;
+  const salesError = summaryErrors.salesSummary ?? summaryGlobalError ?? null;
+
+  const actualRevenueToday = summaryData.actualRevenueToday ?? null;
+  const actualRevenueMTD = summaryData.actualRevenueMTD ?? null;
 
   const [kpiViewMode, setKpiViewMode] = useState<"monthly" | "daily">(
     "monthly"
@@ -566,46 +759,26 @@ export default function Dashboard() {
     string | null
   >(null);
 
-  // Service summary API state
-  const [serviceSummaryData, setServiceSummaryData] = useState<{
-    totalServices: string;
-    totalServicesServing: string;
-    totalServiceDone: string;
-    items: Array<{
-      serviceName: string;
-      serviceUsageAmount: string;
-      serviceUsagePercentage: string;
-    }>;
-  } | null>(null);
-  const [serviceError, setServiceError] = useState<string | null>(null);
-  const [topServicesData, setTopServicesData] = useState<
-    Array<{
-      serviceName: string;
-      serviceUsageAmount: string;
-      serviceUsagePercentage: string;
-    }> | null
-  >(null);
-  const [topServicesLoading, setTopServicesLoading] = useState(true);
-  const [topServicesError, setTopServicesError] = useState<string | null>(null);
+  const serviceSummaryData = summaryData.serviceSummary ?? null;
+  const serviceError =
+    summaryErrors.serviceSummary ?? summaryGlobalError ?? null;
+  const topServicesData = summaryData.topServices ?? null;
+  const topServicesLoading = isSummaryLoading;
+  const topServicesError =
+    summaryErrors.topServices ?? summaryGlobalError ?? null;
 
   // Auth expiration modal state
   const [authExpired, setAuthExpired] = useState(false);
 
-  // New customers API state (for current date range)
-  const [newCustomerData, setNewCustomerData] = useState<Array<{
-    count: number;
-    type: string;
-  }> | null>(null);
-  const [newCustomerLoading, setNewCustomerLoading] = useState(true);
-  const [newCustomerError, setNewCustomerError] = useState<string | null>(null);
+  const newCustomerData = summaryData.newCustomers ?? null;
+  const newCustomerLoading = isSummaryLoading;
+  const newCustomerError =
+    summaryErrors.newCustomers ?? summaryGlobalError ?? null;
 
-  // Old customers API state (for current date range)
-  const [oldCustomerData, setOldCustomerData] = useState<Array<{
-    count: number;
-    type: string;
-  }> | null>(null);
-  const [oldCustomerLoading, setOldCustomerLoading] = useState(true);
-  const [oldCustomerError, setOldCustomerError] = useState<string | null>(null);
+  const oldCustomerData = summaryData.oldCustomers ?? null;
+  const oldCustomerLoading = isSummaryLoading;
+  const oldCustomerError =
+    summaryErrors.oldCustomers ?? summaryGlobalError ?? null;
 
   // Foxie balance API state
   const [foxieBalanceData, setFoxieBalanceData] = useState<{
@@ -615,51 +788,28 @@ export default function Dashboard() {
   const [foxieBalanceError, setFoxieBalanceError] = useState<string | null>(
     null
   );
+  const [foxieBalanceUpdatedAt, setFoxieBalanceUpdatedAt] =
+    useState<Date | null>(null);
 
-  // Sales by hour API state
-  const [salesByHourData, setSalesByHourData] = useState<Array<{
-    date: string;
-    totalSales: number;
-    timeRange: string;
-  }> | null>(null);
-  const [salesByHourLoading, setSalesByHourLoading] = useState(true);
-  const [salesByHourError, setSalesByHourError] = useState<string | null>(null);
+  const salesByHourData = summaryData.salesByHour ?? null;
+  const salesByHourLoading = isSummaryLoading;
+  const salesByHourError =
+    summaryErrors.salesByHour ?? summaryGlobalError ?? null;
 
-  // Sales detail API state
-  const [salesDetailData, setSalesDetailData] = useState<Array<{
-    productName: string;
-    productPrice: string;
-    productQuantity: string;
-    productDiscount: string;
-    productCode: string;
-    productUnit: string;
-    formatTable: string;
-    cash: string;
-    transfer: string;
-    card: string;
-    wallet: string;
-    foxie: string;
-  }> | null>(null);
-  const [salesDetailLoading, setSalesDetailLoading] = useState(true);
-  const [salesDetailError, setSalesDetailError] = useState<string | null>(null);
+  const salesDetailData = summaryData.salesDetail ?? null;
+  const salesDetailLoading = isSummaryLoading;
+  const salesDetailError =
+    summaryErrors.salesDetail ?? summaryGlobalError ?? null;
 
-  // Booking by hour API state
-  const [bookingByHourData, setBookingByHourData] = useState<Array<{ type: string; count: number }> | null>(null);
-  const [bookingByHourLoading, setBookingByHourLoading] = useState(true);
-  const [bookingByHourError, setBookingByHourError] = useState<string | null>(null);
+  const bookingByHourData = summaryData.bookingByHour ?? null;
+  const bookingByHourLoading = isSummaryLoading;
+  const bookingByHourError =
+    summaryErrors.bookingByHour ?? summaryGlobalError ?? null;
 
-  // Booking API state
-  const [bookingData, setBookingData] = useState<{
-    notConfirmed: string;
-    confirmed: string;
-    denied: string;
-    customerCome: string;
-    customerNotCome: string;
-    cancel: string;
-    autoConfirmed: string;
-  } | null>(null);
-  const [bookingLoading, setBookingLoading] = useState(true);
-  const [bookingError, setBookingError] = useState<string | null>(null);
+  const bookingData = summaryData.bookingSummary ?? null;
+  const bookingLoading = isSummaryLoading;
+  const bookingError =
+    summaryErrors.bookingSummary ?? summaryGlobalError ?? null;
 
   // Daily revenue API state (for current day only)
   const [dailyRevenueLoading, setDailyRevenueLoading] = useState(true);
@@ -678,184 +828,11 @@ export default function Dashboard() {
     null
   );
 
-  // Actual revenue (new API) for KPI
-  const [actualRevenueToday, setActualRevenueToday] = useState<number | null>(null);
-  const [actualRevenueMTD, setActualRevenueMTD] = useState<number | null>(null);
-
-  // Fetch service summary (real-time) using ApiService via proxy
-  React.useEffect(() => {
-    const fetchServiceSummary = async () => {
-      if (!fromDateStr || !toDateStr) return;
-
-      try {
-        setServiceError(null);
-
-        const formatDateForAPI = (isoDateString: string) => {
-          // isoDateString like yyyy-MM-ddTHH:mm:ss from DateContext
-          const [datePart] = isoDateString.split("T");
-          const [year, month, day] = datePart.split("-");
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
-
-        const data = (await ApiService.getDirect(
-          `real-time/service-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
-        )) as {
-          totalServices: string;
-          totalServicesServing: string;
-          totalServiceDone: string;
-          items: Array<{
-            serviceName: string;
-            serviceUsageAmount: string;
-            serviceUsagePercentage: string;
-          }>;
-        };
-
-        
-
-        setServiceSummaryData(data);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : "Failed to fetch service summary";
-        setServiceError(errorMessage);
-        console.error("❌ Service summary fetch error:", err);
-      } finally {
-        // setServiceLoading(false); // Removed as per edit hint
-      }
-    };
-
-    fetchServiceSummary();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
-
-  React.useEffect(() => {
-    const fetchTopServices = async () => {
-      if (!fromDateStr || !toDateStr) return;
-
-      try {
-        setTopServicesLoading(true);
-        setTopServicesError(null);
-
-        const formatDateForAPI = (isoDateString: string) => {
-          const [datePart] = isoDateString.split("T");
-          const [year, month, day] = datePart.split("-");
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
-
-        const data = (await ApiService.getDirect(
-          `real-time/get-top-10-service?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
-        )) as Array<{
-          serviceName: string;
-          serviceUsageAmount: string;
-          serviceUsagePercentage: string;
-        }>;
-
-        setTopServicesData(data);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : "Failed to fetch top service usage";
-        setTopServicesError(errorMessage);
-        console.error("❌ Top services fetch error:", err);
-      } finally {
-        setTopServicesLoading(false);
-      }
-    };
-
-    fetchTopServices();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
-
-  // Fetch new customers by source (real-time) using ApiService via proxy
-  React.useEffect(() => {
-    const fetchNewCustomers = async () => {
-      if (!fromDateStr || !toDateStr) return;
-
-      try {
-        setNewCustomerLoading(true);
-        setNewCustomerError(null);
-
-        const formatDateForAPI = (dateString: string) => {
-          const date = new Date(dateString);
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
-
-        const data = (await ApiService.getDirect(
-          `real-time/get-new-customer?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
-        )) as Array<{
-          count: number;
-          type: string;
-        }>;
-
-        setNewCustomerData(data);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to fetch new customers";
-        setNewCustomerError(errorMessage);
-        console.error("❌ New customers fetch error:", err);
-      } finally {
-        setNewCustomerLoading(false);
-      }
-    };
-
-    fetchNewCustomers();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
-
-  // Fetch old customers by source (real-time) using ApiService via proxy
-  React.useEffect(() => {
-    const fetchOldCustomers = async () => {
-      if (!fromDateStr || !toDateStr) return;
-
-      try {
-        setOldCustomerLoading(true);
-        setOldCustomerError(null);
-
-        const formatDateForAPI = (dateString: string) => {
-          const date = new Date(dateString);
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
-
-        const data = (await ApiService.getDirect(
-          `real-time/get-old-customer?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
-        )) as Array<{
-          count: number;
-          type: string;
-        }>;
-
-        setOldCustomerData(data);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to fetch old customers";
-        setOldCustomerError(errorMessage);
-        console.error("❌ Old customers fetch error:", err);
-      } finally {
-        setOldCustomerLoading(false);
-      }
-    };
-
-    fetchOldCustomers();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
-
   // Fetch Foxie balance using ApiService via proxy
   React.useEffect(() => {
+    if (!shouldLoadFoxieBalance) return;
+    let isMounted = true;
+
     const fetchFoxieBalance = async () => {
       try {
         setFoxieBalanceLoading(true);
@@ -863,7 +840,6 @@ export default function Dashboard() {
 
         console.log("🔄 Fetching Foxie balance via direct API call");
 
-        // Use direct API call instead of proxy for this specific endpoint
         const response = await fetch(
           "https://app.facewashfox.com/api/ws/fwf@the_tien_kha_dung",
           {
@@ -888,146 +864,33 @@ export default function Dashboard() {
         };
 
         console.log("✅ Foxie balance data received:", data);
-        setFoxieBalanceData(data);
+        if (isMounted) {
+          setFoxieBalanceData(data);
+          setFoxieBalanceUpdatedAt(new Date());
+        }
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to fetch Foxie balance";
-        setFoxieBalanceError(errorMessage);
+        if (isMounted) {
+          setFoxieBalanceError(errorMessage);
+        }
         console.error("❌ Foxie balance fetch error:", err);
       } finally {
-        setFoxieBalanceLoading(false);
+        if (isMounted) {
+          setFoxieBalanceLoading(false);
+        }
       }
     };
 
     fetchFoxieBalance();
-  }, []); // Empty dependency - fetch once on mount
-
-  // Fetch sales by hour (real-time) using ApiService via proxy
-  React.useEffect(() => {
-    const fetchSalesByHour = async () => {
-      if (!fromDateStr || !toDateStr) return;
-
-      try {
-        setSalesByHourLoading(true);
-        setSalesByHourError(null);
-
-        const formatDateForAPI = (dateString: string) => {
-          const date = new Date(dateString);
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
-
-        console.log("🔄 Fetching sales by hour via ApiService with dates:", {
-          startDate,
-          endDate,
-        });
-
-        const data = (await ApiService.getDirect(
-          `real-time/get-sales-by-hour?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
-        )) as Array<{
-          date: string;
-          totalSales: number;
-          timeRange: string;
-        }>;
-
-        console.log("✅ Sales by hour data received:", data);
-        setSalesByHourData(data);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to fetch sales by hour";
-        setSalesByHourError(errorMessage);
-        console.error("❌ Sales by hour fetch error:", err);
-      } finally {
-        setSalesByHourLoading(false);
-      }
+    return () => {
+      isMounted = false;
     };
+  }, [shouldLoadFoxieBalance]);
 
-    fetchSalesByHour();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
+  // Sales by hour data is now provided by the aggregated summary query
 
-  // Fetch Actual Revenue for KPI (day and month-to-date)
-  React.useEffect(() => {
-    const run = async () => {
-      try {
-        const today = toDateStr ? new Date(toDateStr) : new Date();
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        const toDdMmYyyy = (d: Date) => {
-          const dd = String(d.getDate()).padStart(2, "0");
-          const mm = String(d.getMonth() + 1).padStart(2, "0");
-          const yyyy = d.getFullYear();
-          return `${dd}/${mm}/${yyyy}`;
-        };
-        const dayStr = toDdMmYyyy(today);
-        const startMonthStr = toDdMmYyyy(firstDay);
-
-        const fetchActualRevenue = async (startDate: string, endDate: string) => {
-          if (actualStockIds.length > 1) {
-            const results = await Promise.all(
-              actualStockIds.map((sid) =>
-                ApiService.getDirect(
-                  `real-time/get-actual-revenue?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
-                ) as Promise<number | string | null | undefined>
-              )
-            );
-            return results.reduce(
-              (sum: number, value) => sum + parseNumericValue(value),
-              0
-            );
-          }
-
-          const value = (await ApiService.getDirect(
-            `real-time/get-actual-revenue?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
-          )) as number | string | null | undefined;
-          return parseNumericValue(value);
-        };
-
-        const [dayValue, mtdValue] = await Promise.all([
-          fetchActualRevenue(dayStr, dayStr),
-          fetchActualRevenue(startMonthStr, dayStr),
-        ]);
-        setActualRevenueToday(dayValue ?? null);
-        setActualRevenueMTD(mtdValue ?? null);
-      } catch {
-        // ignore
-      }
-    };
-    run();
-  }, [fromDateStr, toDateStr, stockQueryParam, actualStockIds]);
-
-  // Fetch booking by hour (real-time)
-  React.useEffect(() => {
-    const fetchBookingByHour = async () => {
-      if (!fromDateStr || !toDateStr) return;
-      try {
-        setBookingByHourLoading(true);
-        setBookingByHourError(null);
-        const toDdMmYyyy = (dateString: string) => {
-          const d = new Date(dateString);
-          const dd = String(d.getDate()).padStart(2, "0");
-          const mm = String(d.getMonth() + 1).padStart(2, "0");
-          const yyyy = d.getFullYear();
-          return `${dd}/${mm}/${yyyy}`;
-        };
-        const start = toDdMmYyyy(fromDateStr + "T00:00:00");
-        const end = toDdMmYyyy(toDateStr + "T23:59:59");
-        const data = (await ApiService.getDirect(
-          `real-time/get-booking-by-hour?dateStart=${start}&dateEnd=${end}${stockQueryParam}`
-        )) as Array<{ count: number; type: string }>;
-        setBookingByHourData(data || []);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to fetch booking by hour";
-        setBookingByHourError(msg);
-      } finally {
-        setBookingByHourLoading(false);
-      }
-    };
-    fetchBookingByHour();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
+  // Booking by hour data is available via the aggregated summary query
 
   const newCustomerTotal = React.useMemo(() => {
     if (!newCustomerData || newCustomerData.length === 0) return 0;
@@ -1082,108 +945,7 @@ export default function Dashboard() {
     }));
   }, [oldCustomerData, colorPalette]);
 
-  // Fetch sales detail (real-time) using ApiService via proxy
-  React.useEffect(() => {
-    const fetchSalesDetail = async () => {
-      if (!fromDateStr || !toDateStr) return;
-
-      try {
-        setSalesDetailLoading(true);
-        setSalesDetailError(null);
-
-        const formatDateForAPI = (dateString: string) => {
-          const date = new Date(dateString);
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
-
-        const data = (await ApiService.getDirect(
-          `real-time/sales-detail?dateStart=${startDate}&dateEnd=${endDate}`
-        )) as Array<{
-          productName: string;
-          productPrice: string;
-          productQuantity: string;
-          productDiscount: string;
-          productCode: string;
-          productUnit: string;
-          formatTable: string;
-          cash: string;
-          transfer: string;
-          card: string;
-          wallet: string;
-          foxie: string;
-        }>;
-
-        setSalesDetailData(data);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to fetch sales detail";
-        setSalesDetailError(errorMessage);
-        console.error("❌ Sales detail fetch error:", err);
-      } finally {
-        setSalesDetailLoading(false);
-      }
-    };
-
-    fetchSalesDetail();
-  }, [fromDateStr, toDateStr]);
-
-  // Fetch booking data (real-time) using ApiService via proxy
-  React.useEffect(() => {
-    const fetchBookingData = async () => {
-      if (!fromDateStr || !toDateStr) return;
-
-      try {
-        setBookingLoading(true);
-        setBookingError(null);
-
-        const formatDateForAPI = (dateString: string) => {
-          const date = new Date(dateString);
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
-
-        console.log("🔄 Fetching booking data via ApiService with dates:", {
-          startDate,
-          endDate,
-        });
-
-        const data = (await ApiService.getDirect(
-          `real-time/booking?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
-        )) as {
-          notConfirmed: string;
-          confirmed: string;
-          denied: string;
-          customerCome: string;
-          customerNotCome: string;
-          cancel: string;
-          autoConfirmed: string;
-        };
-
-        console.log("✅ Booking data received:", data);
-        setBookingData(data);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to fetch booking data";
-        setBookingError(errorMessage);
-        console.error("❌ Booking data fetch error:", err);
-      } finally {
-        setBookingLoading(false);
-      }
-    };
-
-    fetchBookingData();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
+  // Sales detail and booking data are provided via the aggregated summary query
 
   // Fetch daily revenue (current day only) using ApiService via proxy
   React.useEffect(() => {
@@ -1192,7 +954,6 @@ export default function Dashboard() {
         setDailyRevenueLoading(true);
         setDailyRevenueError(null);
 
-        // Get current date in DD/MM/YYYY format
         const today = new Date();
         const day = String(today.getDate()).padStart(2, "0");
         const month = String(today.getMonth() + 1).padStart(2, "0");
@@ -1201,22 +962,10 @@ export default function Dashboard() {
 
         console.log("🔄 Fetching daily revenue for today:", todayStr);
 
-        const data = (await ApiService.getDirect(
-          `real-time/sales-summary?dateStart=${todayStr}&dateEnd=${todayStr}${stockQueryParam}`
-        )) as {
-          totalRevenue: string;
-          cash: string;
-          transfer: string;
-          card: string;
-          actualRevenue: string;
-          foxieUsageRevenue: string;
-          walletUsageRevenue: string;
-          toPay: string;
-          debt: string;
-        };
-
-        console.log("✅ Daily revenue data received:", data);
-        // setDailyRevenueData(data); // This line is removed
+        await fetchStockAware<SalesSummaryResponse>("real-time/sales-summary-copied", {
+          cacheKeySuffix: `daily-revenue-${todayStr}`,
+          rangeOverride: { start: todayStr, end: todayStr },
+        });
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to fetch daily revenue";
@@ -1228,7 +977,7 @@ export default function Dashboard() {
     };
 
     fetchDailyRevenue();
-  }, [stockQueryParam]); // Refetch when branch changes
+  }, [fetchStockAware]); // Refetch when branch changes
 
   // Fetch KPI monthly revenue (for Target KPI only - cumulative from start of month)
   React.useEffect(() => {
@@ -1237,7 +986,6 @@ export default function Dashboard() {
         setKpiMonthlyRevenueLoading(true);
         setKpiMonthlyRevenueError(null);
 
-        // Get start of current month and current date
         const today = new Date();
         const firstDayOfMonth = new Date(
           today.getFullYear(),
@@ -1260,88 +1008,14 @@ export default function Dashboard() {
           { startDate, endDate, actualStockIds: actualStockIds.length }
         );
 
-        let data: {
-          totalRevenue: string;
-          cash: string;
-          transfer: string;
-          card: string;
-          actualRevenue: string;
-          foxieUsageRevenue: string;
-          walletUsageRevenue: string;
-          toPay: string;
-          debt: string;
-        };
-
-        if (actualStockIds.length > 1) {
-          // Multiple stockIds - fetch each and aggregate
-          console.log(`🔄 Fetching ${actualStockIds.length} branches for KPI monthly revenue and aggregating...`);
-          const results = await Promise.all(
-            actualStockIds.map((sid) =>
-              ApiService.getDirect(
-                `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
-              ) as Promise<{
-                totalRevenue?: string | number;
-                cash?: string | number;
-                transfer?: string | number;
-                card?: string | number;
-                actualRevenue?: string | number;
-                foxieUsageRevenue?: string | number;
-                walletUsageRevenue?: string | number;
-                toPay?: string | number;
-                debt?: string | number;
-              }>
-            )
-          );
-
-          // Aggregate all results
-          data = {
-            totalRevenue: results
-              .reduce((sum, r) => sum + parseNumericValue(r.totalRevenue), 0)
-              .toString(),
-            cash: results
-              .reduce((sum, r) => sum + parseNumericValue(r.cash), 0)
-              .toString(),
-            transfer: results
-              .reduce((sum, r) => sum + parseNumericValue(r.transfer), 0)
-              .toString(),
-            card: results
-              .reduce((sum, r) => sum + parseNumericValue(r.card), 0)
-              .toString(),
-            actualRevenue: results
-              .reduce((sum, r) => sum + parseNumericValue(r.actualRevenue), 0)
-              .toString(),
-            foxieUsageRevenue: results
-              .reduce((sum, r) => sum + parseNumericValue(r.foxieUsageRevenue), 0)
-              .toString(),
-            walletUsageRevenue: results
-              .reduce((sum, r) => sum + parseNumericValue(r.walletUsageRevenue), 0)
-              .toString(),
-            toPay: results
-              .reduce((sum, r) => sum + parseNumericValue(r.toPay), 0)
-              .toString(),
-            debt: results
-              .reduce((sum, r) => sum + parseNumericValue(r.debt), 0)
-              .toString(),
-          };
-          console.log(`✅ Aggregated KPI monthly revenue from ${actualStockIds.length} branches:`, data);
-        } else {
-          // Single stockId or all branches - use existing query param
-          data = (await ApiService.getDirect(
-            `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
-          )) as {
-            totalRevenue: string;
-            cash: string;
-            transfer: string;
-            card: string;
-            actualRevenue: string;
-            foxieUsageRevenue: string;
-            walletUsageRevenue: string;
-            toPay: string;
-            debt: string;
-          };
-          console.log("✅ KPI monthly revenue data received:", data);
-        }
-        // setKpiMonthlyRevenueData(data); // This line is removed
+        await fetchStockAware<SalesSummaryResponse>(
+          "real-time/sales-summary-copied",
+          {
+            aggregate: aggregateSalesSummaryResponse,
+            cacheKeySuffix: `kpi-monthly-${startDate}-${endDate}`,
+            rangeOverride: { start: startDate, end: endDate },
+          }
+        );
       } catch (err) {
         const errorMessage =
           err instanceof Error
@@ -1355,7 +1029,7 @@ export default function Dashboard() {
     };
 
     fetchKpiMonthlyRevenue();
-  }, [stockQueryParam, actualStockIds]);
+  }, [fetchStockAware, actualStockIds]);
 
   // Fetch daily KPI series (TM+CK+QT per day) from start of month to today
   const kpiSeriesStockRef = React.useRef<string | null>(null);
@@ -1387,13 +1061,19 @@ export default function Dashboard() {
           today.getMonth(),
           1
         );
-
         const toDdMmYyyy = (date: Date) => {
           const dd = String(date.getDate()).padStart(2, "0");
           const mm = String(date.getMonth() + 1).padStart(2, "0");
           const yyyy = date.getFullYear();
           return `${dd}/${mm}/${yyyy}`;
         };
+        const firstDayStr = toDdMmYyyy(firstDayOfMonth);
+        const todayStr = toDdMmYyyy(today);
+        const zeroCacheKey = `${selectedStockId || 'all'}-${stockQueryParam}-${firstDayStr}-${todayStr}`;
+        const zeroBranchSet =
+          zeroBranchCacheRef.current.get(zeroCacheKey) ?? new Set<string>();
+        zeroBranchCacheRef.current.set(zeroCacheKey, zeroBranchSet);
+        const ZERO_RESPONSE = { cash: 0, transfer: 0, card: 0 };
         const toIsoYyyyMmDd = (date: Date) => {
           const dd = String(date.getDate()).padStart(2, "0");
           const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -1455,44 +1135,49 @@ export default function Dashboard() {
                 card?: string | number;
               }> = [];
 
-              for (let i = 0; i < actualStockIds.length; i += BRANCH_BATCH_SIZE) {
-                const batch = actualStockIds.slice(i, i + BRANCH_BATCH_SIZE);
-                const batchResults = await Promise.allSettled(
-                  batch.map(async (sid) => {
-                    try {
+        for (let i = 0; i < actualStockIds.length; i += BRANCH_BATCH_SIZE) {
+          const batch = actualStockIds.slice(i, i + BRANCH_BATCH_SIZE);
+          const batchResults = await Promise.allSettled(
+            batch.map(async (sid) => {
+              if (zeroBranchSet.has(sid)) {
+                return { sid, data: ZERO_RESPONSE, success: true, skipped: true } as const;
+              }
+              try {
                       const data = await ApiService.getDirect(
-                        `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}&stockId=${sid}`
-                      ) as {
-                        cash?: string | number;
-                        transfer?: string | number;
-                        card?: string | number;
-                      };
-                      // Log successful fetch for debugging
-                      const dayTotal = parseCurrency(data.cash) + parseCurrency(data.transfer) + parseCurrency(data.card);
-                      if (dayTotal > 0) {
-                        console.log(`  ✓ Branch ${sid}: ${dayTotal.toLocaleString('vi-VN')} VND`);
-                      }
-                      return { sid, data, success: true };
-                    } catch (err) {
-                      const errorMsg = err instanceof Error ? err.message : String(err);
-                      console.error(`❌ KPI Daily Series: Error fetching branch ${sid} for ${ddmmyyyy}:`, errorMsg);
-                      errorCount++;
-                      return { sid, data: { cash: 0, transfer: 0, card: 0 }, success: false };
-                    }
-                  })
-                );
+                        `real-time/sales-summary-copied?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}&stockId=${sid}`
+                ) as {
+                  cash?: string | number;
+                  transfer?: string | number;
+                  card?: string | number;
+                };
+                // Log successful fetch for debugging
+                const dayTotal = parseCurrency(data.cash) + parseCurrency(data.transfer) + parseCurrency(data.card);
+                if (dayTotal > 0) {
+                  console.log(`  ✓ Branch ${sid}: ${dayTotal.toLocaleString('vi-VN')} VND`);
+                } else {
+                  zeroBranchSet.add(sid);
+                }
+                return { sid, data, success: true, skipped: false } as const;
+              } catch (err) {
+                const errorMsg = err instanceof Error ? err.message : String(err);
+                console.error(`❌ KPI Daily Series: Error fetching branch ${sid} for ${ddmmyyyy}:`, errorMsg);
+                errorCount++;
+                return { sid, data: ZERO_RESPONSE, success: false, skipped: false } as const;
+              }
+            })
+          );
 
-                batchResults.forEach((result, idx) => {
-                  if (result.status === 'fulfilled') {
-                    const value = result.value;
-                    if (value && value.data) {
-                      branchResults.push(value.data);
-                      if (!value.success) hasError = true;
-                    } else {
-                      console.warn(`⚠️ KPI Daily Series: Unexpected result structure for batch item ${idx}:`, result);
-                      branchResults.push({ cash: 0, transfer: 0, card: 0 });
-                      hasError = true;
-                    }
+          batchResults.forEach((result, idx) => {
+            if (result.status === 'fulfilled') {
+              const value = result.value;
+              if (value && value.data) {
+                branchResults.push(value.data);
+                if (!value.success) hasError = true;
+              } else {
+                console.warn(`⚠️ KPI Daily Series: Unexpected result structure for batch item ${idx}:`, result);
+                branchResults.push({ cash: 0, transfer: 0, card: 0 });
+                hasError = true;
+              }
                   } else {
                     console.error(`❌ KPI Daily Series: Promise rejected for batch item ${idx}:`, result.reason);
                     branchResults.push({ cash: 0, transfer: 0, card: 0 });
@@ -1529,23 +1214,31 @@ export default function Dashboard() {
             } else if (actualStockIds.length === 1) {
               // Single stockId
               console.log(`📊 KPI Daily Series [${ddmmyyyy}]: Fetching single branch ${actualStockIds[0]}...`);
+          if (zeroBranchSet.has(actualStockIds[0])) {
+            total = 0;
+            console.log(`⏭️ KPI Daily Series [${ddmmyyyy}]: Branch ${actualStockIds[0]} skipped (no data for range)`);
+          } else {
               const data = (await ApiService.getDirect(
-                `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}&stockId=${actualStockIds[0]}`
-              )) as {
-                cash?: string | number;
-                transfer?: string | number;
-                card?: string | number;
-              };
-              total =
-                parseCurrency(data.cash) +
-                parseCurrency(data.transfer) +
-                parseCurrency(data.card);
-              console.log(`✅ KPI Daily Series [${ddmmyyyy}]: Single branch total: ${total.toLocaleString('vi-VN')} VND`);
-            } else {
-              // All branches - still need to send blank stockId param
-              console.log(`📊 KPI Daily Series [${ddmmyyyy}]: Fetching all branches (stockId=blank)...`);
+                `real-time/sales-summary-copied?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}&stockId=${actualStockIds[0]}`
+            )) as {
+              cash?: string | number;
+              transfer?: string | number;
+              card?: string | number;
+            };
+            total =
+              parseCurrency(data.cash) +
+              parseCurrency(data.transfer) +
+              parseCurrency(data.card);
+            if (total === 0) {
+              zeroBranchSet.add(actualStockIds[0]);
+            }
+            console.log(`✅ KPI Daily Series [${ddmmyyyy}]: Single branch total: ${total.toLocaleString('vi-VN')} VND`);
+          }
+        } else {
+          // All branches - still need to send blank stockId param
+          console.log(`📊 KPI Daily Series [${ddmmyyyy}]: Fetching all branches (stockId=blank)...`);
               const data = (await ApiService.getDirect(
-                `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}${stockQueryParam}`
+                `real-time/sales-summary-copied?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}${stockQueryParam}`
               )) as {
                 cash?: string | number;
                 transfer?: string | number;
@@ -1715,225 +1408,98 @@ export default function Dashboard() {
   
   const COMPANY_MONTH_TARGET = userMonthlyTarget ?? DEFAULT_MONTH_TARGET;
 
-  // Special holiday days (per month) entered by the user, persisted in localStorage
-  const currentMonthKeyForHoliday = React.useMemo(() => {
-    const now = toDate ? new Date(toDate.split("T")[0]) : new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }, [toDate]);
-
-  const [specialHolidays, setSpecialHolidays] = React.useState<number[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(`kpi_special_holidays_${currentMonthKeyForHoliday}`);
-        if (!raw) return [];
-        const arr = JSON.parse(raw) as number[];
-        return Array.isArray(arr) ? arr.filter((d) => Number.isFinite(d)) : [];
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
-
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(
-        `kpi_special_holidays_${currentMonthKeyForHoliday}`,
-        JSON.stringify(specialHolidays)
-      );
-    }
-  }, [specialHolidays, currentMonthKeyForHoliday]);
-  const sectionRefs = React.useRef({
-    dashboard_total_sale_table: React.createRef<HTMLDivElement>(),
-    dashboard_foxie_balance: React.createRef<HTMLDivElement>(),
-    dashboard_sales_by_hour: React.createRef<HTMLDivElement>(),
-    dashboard_sale_detail: React.createRef<HTMLDivElement>(),
-    dashboard_kpi: React.createRef<HTMLDivElement>(),
-    dashboard_customer_section: React.createRef<HTMLDivElement>(),
-    dashboard_booking_section: React.createRef<HTMLDivElement>(),
-    dashboard_service_section: React.createRef<HTMLDivElement>(),
-  });
-  const normalizeKey = (s: string) => normalize(s).replace(/\s+/g, "");
-
-  const [highlightKey, setHighlightKey] = React.useState<string | null>(null);
-
-  const endDateObj = React.useMemo(() => {
-    if (!toDate) return null;
-    return new Date(toDate.split("T")[0]);
-  }, [toDate]);
-  const daysInMonth = endDateObj
-    ? new Date(endDateObj.getFullYear(), endDateObj.getMonth() + 1, 0).getDate()
-    : 0;
-  const lastDay = endDateObj ? endDateObj.getDate() : 0;
-  
-  // ---------- KPI Ngày: lấy ngày hiện tại (hôm nay) thay vì ngày cuối range ----------
   const today = new Date();
   const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
     2,
     "0"
   )}-${String(today.getDate()).padStart(2, "0")}`;
-  const todayDay = today.getDate();
-  
-  const weekendTargetPerDay = 500000000; // 500M per weekend day
-  const holidayTargetPerDay = 600000000; // 600M per special holiday
-  const year = endDateObj ? endDateObj.getFullYear() : new Date().getFullYear();
-  const month = endDateObj ? endDateObj.getMonth() : new Date().getMonth();
-  const holidayDaysSet = new Set<number>(specialHolidays.map((d) => Math.max(1, Math.min(d, daysInMonth))));
-  // Count holidays that fall on weekend to avoid double counting
-  let holidayDaysCount = 0;
-  let weekendDaysCount = 0;
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dow = new Date(year, month, day).getDay();
-    const isHoliday = holidayDaysSet.has(day);
-    const isWeekend = dow === 0 || dow === 6;
-    if (isHoliday) holidayDaysCount++;
-    if (isWeekend && !isHoliday) weekendDaysCount++; // weekend but not holiday
-  }
-  const totalFixedTarget = holidayDaysCount * holidayTargetPerDay + weekendDaysCount * weekendTargetPerDay;
-  const weekdayDaysCount = Math.max(0, daysInMonth - holidayDaysCount - weekendDaysCount);
-  const weekdayTargetPerDay = weekdayDaysCount > 0 
-    ? Math.max(0, (COMPANY_MONTH_TARGET - totalFixedTarget) / weekdayDaysCount) 
-    : 0;
-  
-  // Get target for a specific day
-  const getDailyTargetForDay = (day: number): number => {
-    if (daysInMonth === 0 || !endDateObj) return 0;
-    const date = new Date(year, month, day);
-    const dayOfWeek = date.getDay();
-    if (holidayDaysSet.has(day)) {
-      return holidayTargetPerDay;
-    }
-    if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
-      return weekendTargetPerDay;
-    }
-    return weekdayTargetPerDay;
-  };
-  
-  const dailyTargetForCurrentDay = todayDay > 0 ? getDailyTargetForDay(todayDay) : 0;
-  
-  // Calculate target until now (cumulative from day 1 to lastDay)
-  const targetUntilNow = React.useMemo(() => {
-    if (daysInMonth === 0 || lastDay === 0 || !endDateObj) return 0;
-    let sum = 0;
-    for (let day = 1; day <= lastDay; day++) {
-      const date = new Date(year, month, day);
-      const dayOfWeek = date.getDay();
-      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
-        sum += weekendTargetPerDay;
-      } else {
-        sum += weekdayTargetPerDay;
-      }
-    }
-    return sum;
-  }, [daysInMonth, lastDay, year, month, weekendTargetPerDay, weekdayTargetPerDay, endDateObj]);
-
-  // Get selected day from date picker (toDate) or use today
-  const selectedDay = endDateObj ? endDateObj.getDate() : todayDay;
+  const weekendTargetPerDay = 500000000;
+  const holidayTargetPerDay = 600000000;
   const selectedDateStr = toDateStr || todayDateStr;
-  
-  // Calculate target for selected day (for daily mode)
-  const selectedDayTarget = selectedDay > 0 ? getDailyTargetForDay(selectedDay) : 0;
-  
-  // Khi ở chế độ "Ngày", dùng ngày được chọn từ date picker; khi ở chế độ "Tháng", dùng ngày cuối range
-  const dailyKpiDateStr = selectedDateStr;
-  const dailyKpiRevenue = actualRevenueToday ?? (
-    kpiDailySeries && dailyKpiDateStr
-      ? kpiDailySeries.find((e) => e.isoDate === dailyKpiDateStr)?.total || 0
-      : 0
-  );
-  
-  // Use selected day target for daily mode, or today's target as fallback
-  const dailyTargetForSelectedDay = selectedDayTarget || dailyTargetForCurrentDay;
-  
-  const dailyPercentage =
-    dailyTargetForSelectedDay > 0
-      ? (dailyKpiRevenue / dailyTargetForSelectedDay) * 100
-      : 0;
-  const dailyKpiLeft = Math.max(0, dailyTargetForSelectedDay - dailyKpiRevenue);
+  const endDateIso = toDate ? toDate.split("T")[0] : todayDateStr;
 
-  // ---------- KPI Tháng: sum từ ngày 1 đến ngày cuối range ----------
-  const currentRevenue = actualRevenueMTD ?? (() => {
-    if (!kpiDailySeries || !toDate || !endDateObj) return 0;
-    const monthKey = `${endDateObj.getFullYear()}-${String(
-      endDateObj.getMonth() + 1
-    ).padStart(2, "0")}`;
-    let sum = 0;
-    for (const e of kpiDailySeries || []) {
-      if (e.isoDate.startsWith(monthKey)) {
-        const eDay = Number(e.isoDate.split("-")[2]);
-        if (eDay <= lastDay) sum += e.total;
-      }
-    }
-    return sum;
-  })();
-  const currentPercentage =
-    targetUntilNow > 0 ? (currentRevenue / targetUntilNow) * 100 : 0;
-  const remainingTarget = Math.max(0, targetUntilNow - currentRevenue);
+  const derivedDailyGrowth = kpiMetrics?.dailyKpiGrowthData ?? [];
+  const computedSelectedDay = kpiMetrics?.selectedDay ?? 0;
+  const computedLastDay = kpiMetrics?.lastDay ?? computedSelectedDay;
+  const fallbackSelectedDay = Number(selectedDateStr.split("-")[2] ?? today.getDate());
+  const safeSelectedDay = Number.isNaN(fallbackSelectedDay)
+    ? today.getDate()
+    : fallbackSelectedDay;
+  const selectedDay = computedSelectedDay || safeSelectedDay;
+  const lastDay = computedLastDay || selectedDay;
+  const dailyTargetForCurrentDay = kpiMetrics?.dailyTargetForCurrentDay ?? 0;
+  const dailyTargetForSelectedDay =
+    kpiMetrics?.dailyTargetForSelectedDay ?? dailyTargetForCurrentDay;
+  const dailyKpiRevenue = kpiMetrics?.dailyKpiRevenue ?? 0;
+  const dailyPercentage = kpiMetrics?.dailyPercentage ?? 0;
+  const dailyKpiLeft = kpiMetrics?.dailyKpiLeft ?? 0;
+  const currentRevenue = kpiMetrics?.currentRevenue ?? 0;
+  const currentPercentage = kpiMetrics?.currentPercentage ?? 0;
+  const remainingTarget = kpiMetrics?.remainingTarget ?? 0;
+  const dailyStatus = kpiMetrics?.dailyStatus ?? "ontrack";
+  const monthlyStatus = kpiMetrics?.monthlyStatus ?? "ontrack";
+  const targetUntilNow = kpiMetrics?.targetUntilNow ?? 0;
+  const dailyKpiGrowthData = derivedDailyGrowth;
 
-  const dailyKpiGrowthData = React.useMemo(() => {
-    const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-    if (!kpiDailySeries || kpiDailySeries.length === 0) {
-      console.log('⚠️ dailyKpiGrowthData: kpiDailySeries is empty or null', {
-        kpiDailySeries,
-        length: kpiDailySeries?.length
-      });
-      return [];
-    }
-    
-    // Helper to get target for a specific date
-    const getTargetForDate = (dateStr: string): number => {
-      const [yyyy, mm, dd] = dateStr.split("-");
-      const jsDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-      const dayOfWeek = jsDate.getDay();
-      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
-        return weekendTargetPerDay;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const worker = new Worker(
+      new URL("../workers/dashboard-metrics.worker.ts", import.meta.url)
+    );
+    workerRef.current = worker;
+    const handleMessage = (
+      event: MessageEvent<DashboardWorkerResponseMessage>
+    ) => {
+      if (event.data.type === "error") {
+        setKpiWorkerError(event.data.error);
+      } else {
+        setKpiWorkerError(null);
+        setKpiMetrics(event.data.payload);
       }
-      return weekdayTargetPerDay;
     };
-    
-    const result = kpiDailySeries.map((d) => {
-      const [yyyy, mm, dd] = d.isoDate.split("-");
-      const jsDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-      const targetForThisDay = getTargetForDate(d.isoDate);
-      return {
-        day: dayNames[jsDate.getDay()],
-        date: d.dateLabel,
-        revenue: d.total,
-        target: targetForThisDay,
-        percentage:
-          targetForThisDay > 0
-            ? (d.total / targetForThisDay) * 100
-            : 0,
-        isToday: jsDate.toDateString() === new Date().toDateString(),
-      };
-    });
-    
-    console.log('✅ dailyKpiGrowthData calculated:', {
-      length: result.length,
-      sample: result.slice(0, 3),
-      totalRevenue: result.reduce((sum, r) => sum + r.revenue, 0)
-    });
-    
-    return result;
-  }, [kpiDailySeries, weekendTargetPerDay, weekdayTargetPerDay]);
+    worker.addEventListener("message", handleMessage);
+    return () => {
+      worker.removeEventListener("message", handleMessage);
+      worker.terminate();
+      workerRef.current = null;
+    };
+  }, []);
 
-  // Status logic cho hiển thị trạng thái (dùng selected day target)
-  const dailyStatus =
-    dailyTargetForSelectedDay === 0
-      ? "ontrack"
-      : dailyKpiRevenue >= dailyTargetForSelectedDay
-      ? dailyKpiRevenue > dailyTargetForSelectedDay * 1.1
-        ? "ahead"
-        : "ontrack"
-      : "behind";
-  const monthlyStatus =
-    targetUntilNow === 0
-      ? "ontrack"
-      : currentRevenue >= targetUntilNow
-      ? currentRevenue > targetUntilNow * 1.1
-        ? "ahead"
-        : "ontrack"
-      : "behind";
+  useEffect(() => {
+    if (!workerRef.current) return;
+    const message: DashboardWorkerRequestMessage = {
+      type: "compute",
+      payload: {
+        kpiDailySeries: kpiDailySeries ?? [],
+        selectedDateIso: selectedDateStr,
+        endDateIso,
+        todayIso: todayDateStr,
+        specialHolidays,
+        companyMonthTarget: COMPANY_MONTH_TARGET,
+        weekendTargetPerDay,
+        holidayTargetPerDay,
+        actualRevenueToday,
+        actualRevenueMTD,
+      },
+    };
+    workerRef.current.postMessage(message);
+  }, [
+    kpiDailySeries,
+    selectedDateStr,
+    endDateIso,
+    todayDateStr,
+    specialHolidays,
+    COMPANY_MONTH_TARGET,
+    weekendTargetPerDay,
+    holidayTargetPerDay,
+    actualRevenueToday,
+    actualRevenueMTD,
+  ]);
+
+  useEffect(() => {
+    if (!kpiWorkerError) return;
+    console.error("❌ KPI worker error:", kpiWorkerError);
+  }, [kpiWorkerError]);
 
   // -------- Render tách riêng cho Ngày và Tháng --------
   React.useEffect(() => {
@@ -2367,7 +1933,7 @@ export default function Dashboard() {
     try {
       console.log(`[Dashboard] Fetching sales data for ${monthKey}:`, { startDate, endDate })
       const res = await ApiService.getDirect(
-        `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+        `real-time/sales-summary-copied?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
       );
       console.log(`[Dashboard] Successfully fetched sales data for ${monthKey}`)
       const parsed = res as {
@@ -2590,19 +2156,22 @@ export default function Dashboard() {
                 } // Đến nay cần đạt: ngày hoặc tháng
                 remainingTarget={isDaily ? dailyKpiLeft : remainingTarget}
                 remainingDailyTarget={isDaily ? dailyKpiLeft : remainingTarget}
-                dailyTargetPercentageForCurrentDay={100.0}
+                dailyTargetPercentageForCurrentDay={
+                  isDaily ? dailyPercentage : currentPercentage
+                }
                 currentRevenue={isDaily ? dailyKpiRevenue : currentRevenue}
               />
             </LazyLoadingWrapper>
           </div>
 
           {/* Bảng Tổng Doanh Số */}
-          <LazyLoadingWrapper type="table" minHeight="300px">
-            <ConditionalRender
-              loading={salesLoading}
-              error={salesError}
-              data={salesSummaryData}
-              fallback={
+          <div className="space-y-1">
+            <LazyLoadingWrapper type="table" minHeight="300px">
+              <ConditionalRender
+                loading={salesLoading}
+                error={salesError}
+                data={salesSummaryData}
+                fallback={
                 <div className="border-[#f16a3f]/20 shadow-lg bg-gradient-to-r from-white to-[#f16a3f]/5 rounded-lg p-4 sm:p-6">
                   <div className="h-6 w-48 bg-gray-200 rounded animate-pulse mb-4" />
                   <div className="hidden sm:grid grid-cols-12 gap-4 p-3 bg-gradient-to-r from-[#7bdcb5]/20 to-[#00d084]/20 rounded-lg font-semibold text-sm mb-3">
@@ -2655,14 +2224,19 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-              }
-            >
-              <TotalSaleTable
-                allPaymentMethods={paymentMethods}
-                totalRevenue={totalRevenue}
-              />
-            </ConditionalRender>
-          </LazyLoadingWrapper>
+                }
+              >
+                <TotalSaleTable
+                  allPaymentMethods={paymentMethods}
+                  totalRevenue={totalRevenue}
+                />
+              </ConditionalRender>
+            </LazyLoadingWrapper>
+            <LastUpdatedNote
+              timestamp={summaryLastUpdatedAt}
+              className="text-right"
+            />
+          </div>
 
           {/* Growth By Payment Chart */}
           <LazyLoadingWrapper type="chart" minHeight="450px">
@@ -2727,6 +2301,10 @@ export default function Dashboard() {
                 />
               </ConditionalRender>
             </LazyLoadingWrapper>
+            <LastUpdatedNote
+              timestamp={foxieBalanceUpdatedAt}
+              className="mt-1 text-right px-1"
+            />
           </div>
 
           {/* CHI TIẾT DOANH THU SECTION */}
@@ -2751,6 +2329,10 @@ export default function Dashboard() {
                 />
               </ConditionalRender>
             </LazyLoadingWrapper>
+            <LastUpdatedNote
+              timestamp={summaryLastUpdatedAt}
+              className="mt-1 text-right px-1"
+            />
           </div>
 
           {/* SALES BY HOUR SECTION */}
@@ -2775,6 +2357,10 @@ export default function Dashboard() {
                 />
               </ConditionalRender>
             </LazyLoadingWrapper>
+            <LastUpdatedNote
+              timestamp={summaryLastUpdatedAt}
+              className="mt-1 text-right px-1"
+            />
           </div>
 
           {/* Revenue Charts */}
@@ -2822,6 +2408,10 @@ export default function Dashboard() {
               />
             </ConditionalRender>
           </LazyLoadingWrapper>
+          <LastUpdatedNote
+            timestamp={summaryLastUpdatedAt}
+            className="mt-1 text-right px-1"
+          />
         </div>
 
         {/* ĐẶT LỊCH SECTION */}
@@ -2846,18 +2436,32 @@ export default function Dashboard() {
               />
             </ConditionalRender>
           </LazyLoadingWrapper>
+          <LastUpdatedNote
+            timestamp={summaryLastUpdatedAt}
+            className="mt-1 text-right px-1"
+          />
         </div>
 
          {/* BOOKING BY HOUR CHART */}
-         <LazyLoadingWrapper type="chart" minHeight="300px">
-           <ConditionalRender
-             loading={bookingByHourLoading}
-             error={bookingByHourError}
-             data={bookingByHourData}
-           >
-             <BookingByHourChart loading={bookingByHourLoading} error={bookingByHourError} data={bookingByHourData} />
-           </ConditionalRender>
-         </LazyLoadingWrapper>
+         <div ref={sectionRefs.current.dashboard_booking_by_hour}>
+           <LazyLoadingWrapper type="chart" minHeight="300px">
+             <ConditionalRender
+               loading={bookingByHourLoading}
+               error={bookingByHourError}
+               data={bookingByHourData}
+             >
+               <BookingByHourChart
+                 loading={bookingByHourLoading}
+                 error={bookingByHourError}
+                 data={bookingByHourData}
+               />
+             </ConditionalRender>
+           </LazyLoadingWrapper>
+           <LastUpdatedNote
+             timestamp={summaryLastUpdatedAt}
+             className="mt-1 text-right px-1"
+           />
+         </div>
 
         {/* DỊCH VỤ SECTION */}
         <div
@@ -2883,6 +2487,10 @@ export default function Dashboard() {
               />
             </ConditionalRender>
           </LazyLoadingWrapper>
+          <LastUpdatedNote
+            timestamp={summaryLastUpdatedAt}
+            className="mt-1 text-right px-1"
+          />
         </div>
 
        

@@ -144,93 +144,88 @@ export default function GrowthByPaymentChart({
   }, [allMonths, currentMonth, compareMonth, setCompareMonth]);
 
   // Handle month selection - lazy load if needed (old mode)
-  const handleMonthChange = React.useCallback(async (selectedMonth: string) => {
-    setCompareMonth(selectedMonth);
-    
-    // Check if month already exists in data
-    if (data.some(d => d.month === selectedMonth)) {
-      return; // Already loaded
-    }
+  const handleMonthChange = React.useCallback(
+    async (selectedMonth: string) => {
+      setCompareMonth(selectedMonth);
 
-    // Fetch the month if onMonthSelect callback is provided
-    if (onMonthSelect && selectedMonth) {
-      setLoadingMonth(selectedMonth);
-      try {
-        const [monthStr, yearStr] = selectedMonth.split("/");
-        await onMonthSelect(selectedMonth, monthStr, Number(yearStr));
-        // Parent component will update state via useEffect
-      } catch (err) {
-        console.error(`Failed to load month ${selectedMonth}:`, err);
-      } finally {
-        setLoadingMonth(null);
+      if (data.some((d) => d.month === selectedMonth)) {
+        return;
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, onMonthSelect]); // setCompareMonth is stable from props
+
+      if (onMonthSelect && selectedMonth) {
+        setLoadingMonth(selectedMonth);
+        try {
+          const [monthStr, yearStr] = selectedMonth.split("/");
+          await onMonthSelect(selectedMonth, monthStr, Number(yearStr));
+        } catch (err) {
+          console.error(`Failed to load month ${selectedMonth}:`, err);
+        } finally {
+          setLoadingMonth(null);
+        }
+      }
+    },
+    [data, onMonthSelect, setCompareMonth]
+  );
 
   // Handle month1 selection - lazy load if needed (new mode)
-  const handleMonth1Change = React.useCallback(async (selectedMonth: string) => {
-    if (!setMonth1) return;
-    
-    // Set month immediately for UI feedback
-    setMonth1(selectedMonth);
-    
-    // Check if month already exists in data
-    const isAlreadyLoaded = data.some(d => d.month === selectedMonth);
-    
-    if (isAlreadyLoaded) {
-      return; // Already loaded, no need to fetch
-    }
+  const handleMonth1Change = React.useCallback(
+    async (selectedMonth: string) => {
+      if (!setMonth1) return;
+      setMonth1(selectedMonth);
 
-    // Fetch the month if onMonthSelect callback is provided and month is not loaded
-    if (onMonthSelect && selectedMonth) {
-      setLoadingMonth1(selectedMonth);
-      try {
-        const [monthStr, yearStr] = selectedMonth.split("/");
-        const fetchedData = await onMonthSelect(selectedMonth, monthStr, Number(yearStr));
-        // Data will be updated in parent component via useEffect
-        console.log(`✅ Đã tải dữ liệu cho tháng ${selectedMonth}:`, fetchedData);
-      } catch (err) {
-        console.error(`❌ Không thể tải dữ liệu cho tháng ${selectedMonth}:`, err);
-        // Optionally show error to user
-      } finally {
-        setLoadingMonth1(null);
+      if (data.some((d) => d.month === selectedMonth)) {
+        return;
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, onMonthSelect, setMonth1]);
+
+      if (onMonthSelect && selectedMonth) {
+        setLoadingMonth1(selectedMonth);
+        try {
+          const [monthStr, yearStr] = selectedMonth.split("/");
+          const fetchedData = await onMonthSelect(
+            selectedMonth,
+            monthStr,
+            Number(yearStr)
+          );
+          console.log(`✅ Đã tải dữ liệu cho tháng ${selectedMonth}:`, fetchedData);
+        } catch (err) {
+          console.error(`❌ Không thể tải dữ liệu cho tháng ${selectedMonth}:`, err);
+        } finally {
+          setLoadingMonth1(null);
+        }
+      }
+    },
+    [data, onMonthSelect, setMonth1]
+  );
 
   // Handle month2 selection - lazy load if needed (new mode)
-  const handleMonth2Change = React.useCallback(async (selectedMonth: string) => {
-    if (!setMonth2) return;
-    
-    // Set month immediately for UI feedback
-    setMonth2(selectedMonth);
-    
-    // Check if month already exists in data
-    const isAlreadyLoaded = data.some(d => d.month === selectedMonth);
-    
-    if (isAlreadyLoaded) {
-      return; // Already loaded, no need to fetch
-    }
+  const handleMonth2Change = React.useCallback(
+    async (selectedMonth: string) => {
+      if (!setMonth2) return;
+      setMonth2(selectedMonth);
 
-    // Fetch the month if onMonthSelect callback is provided and month is not loaded
-    if (onMonthSelect && selectedMonth) {
-      setLoadingMonth2(selectedMonth);
-      try {
-        const [monthStr, yearStr] = selectedMonth.split("/");
-        const fetchedData = await onMonthSelect(selectedMonth, monthStr, Number(yearStr));
-        // Data will be updated in parent component via useEffect
-        console.log(`✅ Đã tải dữ liệu cho tháng ${selectedMonth}:`, fetchedData);
-      } catch (err) {
-        console.error(`❌ Không thể tải dữ liệu cho tháng ${selectedMonth}:`, err);
-        // Optionally show error to user
-      } finally {
-        setLoadingMonth2(null);
+      if (data.some((d) => d.month === selectedMonth)) {
+        return;
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, onMonthSelect, setMonth2]);
+
+      if (onMonthSelect && selectedMonth) {
+        setLoadingMonth2(selectedMonth);
+        try {
+          const [monthStr, yearStr] = selectedMonth.split("/");
+          const fetchedData = await onMonthSelect(
+            selectedMonth,
+            monthStr,
+            Number(yearStr)
+          );
+          console.log(`✅ Đã tải dữ liệu cho tháng ${selectedMonth}:`, fetchedData);
+        } catch (err) {
+          console.error(`❌ Không thể tải dữ liệu cho tháng ${selectedMonth}:`, err);
+        } finally {
+          setLoadingMonth2(null);
+        }
+      }
+    },
+    [data, onMonthSelect, setMonth2]
+  );
 
   const [visibleMethods, setVisibleMethods] = React.useState<MethodKey[]>(['tmckqt', 'foxie', 'vi']);
   const [rangeLoading, setRangeLoading] = React.useState(false);
@@ -375,10 +370,9 @@ export default function GrowthByPaymentChart({
     if (useNewMode && appliedRange) {
       fetchRange();
     } else if (!useNewMode && applied) {
-    fetchRange();
+      fetchRange();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applied, appliedRange, currentMonth, useNewMode]);
+  }, [applied, appliedRange, currentMonth, stockQueryParam, useNewMode]);
 
   // Build chart data for 2 months based on user range or overrides
   const comparisonChartData = React.useMemo(() => {
@@ -569,9 +563,6 @@ export default function GrowthByPaymentChart({
     // Check if any month is loading
     const isMonth1Loading = loadingMonth1 === month1;
     const isMonth2Loading = loadingMonth2 === month2;
-    const isMonth1NotLoaded = month1 && !data.some(d => d.month === month1) && !isMonth1Loading;
-    const isMonth2NotLoaded = month2 && !data.some(d => d.month === month2) && !isMonth2Loading;
-    
     // Show loading state if any month is being loaded
     if (month1 && month2 && (isMonth1Loading || isMonth2Loading)) {
       const loadingMonths = [];

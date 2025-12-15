@@ -72,21 +72,6 @@ export default function WeeklyServiceChartData({
   weeklyServiceChartData,
   isMobile,
 }: WeeklyServiceChartDataProps) {
-  // Tính tổng số dịch vụ
-  const totalServices = weeklyServiceChartData.reduce((sum, day) => 
-    sum + (day.combo || 0) + (day.service || 0) + (day.addedon || 0) + (day.foxcard || 0), 0
-  );
-  
-  const totalDays = weeklyServiceChartData.length;
-  const avgPerDay = totalDays > 0 ? Math.round(totalServices / totalDays) : 0;
-  
-  // Tìm ngày có nhiều dịch vụ nhất
-  const peakDay = weeklyServiceChartData.reduce((peak, day) => {
-    const dayTotal = (day.combo || 0) + (day.service || 0) + (day.addedon || 0) + (day.foxcard || 0);
-    const peakTotal = (peak.combo || 0) + (peak.service || 0) + (peak.addedon || 0) + (peak.foxcard || 0);
-    return dayTotal > peakTotal ? day : peak;
-  }, weeklyServiceChartData[0] || { date: '', combo: 0, service: 0, addedon: 0, foxcard: 0 });
-
   // Create a map of max values for each date
   const maxValuesByDate = React.useMemo(() => {
     const maxMap = new Map<string, number>();

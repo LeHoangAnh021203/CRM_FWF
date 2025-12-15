@@ -177,7 +177,7 @@ export default function SalesByHourTable({
                     fontSize: "14px",
                     fontWeight: "500",
                   }}
-                  formatter={(value: number, _name: string, props: { payload?: { timeRange: string } }) => [
+                  formatter={(value: number) => [
                     `${value} đơn hàng`,
                     "Số lượng",
                   ]}

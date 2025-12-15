@@ -4,6 +4,11 @@ import React, { createContext, useContext, useState, useEffect } from "react"
 import { AuthAPI, LoginRequest, JWTPayload, LoginResponse } from "../lib/auth-api"
 import { TokenService } from "../lib/token-service"
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isTruthyFlag = (value: unknown): boolean =>
+  value === true || value === "true";
 
 interface User {
   id: number
@@ -104,14 +109,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   console.warn('[AuthContext] Fetched user is null or also incomplete')
                   // Try to decode JWT token for additional info
                   try {
-                    const payload = AuthAPI.decodeToken(token) as JWTPayload | null
+                    const payload = AuthAPI.decodeToken(token)
                     if (payload) {
-                      const jwtUser = payload as any
+                      const jwtUser = payload ?? ({} as JWTPayload)
                       const mergedUser = {
                         ...user,
-                        firstname: user.firstname || jwtUser?.firstname || jwtUser?.firstName || '',
-                        lastname: user.lastname || jwtUser?.lastname || jwtUser?.lastName || '',
-                        email: user.email || jwtUser?.email || '',
+                        firstname:
+                          user.firstname ||
+                          jwtUser.firstname ||
+                          jwtUser.firstName ||
+                          "",
+                        lastname:
+                          user.lastname ||
+                          jwtUser.lastname ||
+                          jwtUser.lastName ||
+                          "",
+                        email: user.email || jwtUser.email || "",
                       }
                       localStorage.setItem("user_data", JSON.stringify(mergedUser))
                       setUser(mergedUser)
@@ -264,24 +277,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!userFromResponse || (!userFromResponse.firstname && !userFromResponse.lastname && !userFromResponse.email)) {
         try {
           console.log('[AuthContext] Attempting to decode JWT token for user info...')
-          const payload = AuthAPI.decodeToken(response.access_token) as JWTPayload | null
+          const payload = AuthAPI.decodeToken(response.access_token)
           console.log('[AuthContext] JWT Payload:', payload)
           
           if (payload) {
             // Try to extract user info from JWT payload if available
-            const jwtUser = payload as any
+            const jwtUser = payload ?? ({} as JWTPayload)
             const derivedUser: User = {
-              id: userFromResponse?.id || payload?.userId || 0,
-              firstname: userFromResponse?.firstname || jwtUser?.firstname || jwtUser?.firstName || '',
-              lastname: userFromResponse?.lastname || jwtUser?.lastname || jwtUser?.lastName || '',
-              username: userFromResponse?.username || payload?.sub || username,
-              email: userFromResponse?.email || jwtUser?.email || '',
-              phoneNumber: userFromResponse?.phoneNumber || jwtUser?.phoneNumber || '',
-              dob: userFromResponse?.dob || jwtUser?.dob || '',
-              gender: userFromResponse?.gender ?? (jwtUser?.gender ?? true),
-              bio: userFromResponse?.bio || jwtUser?.bio || '',
-              avatar: userFromResponse?.avatar || jwtUser?.avatar || null,
-              role: userFromResponse?.role || response.role || payload?.authorities?.[0] || 'USER',
+              id: userFromResponse?.id || payload.userId || 0,
+              firstname:
+                userFromResponse?.firstname ||
+                jwtUser.firstname ||
+                jwtUser.firstName ||
+                '',
+              lastname:
+                userFromResponse?.lastname ||
+                jwtUser.lastname ||
+                jwtUser.lastName ||
+                '',
+              username: userFromResponse?.username || payload.sub || username,
+              email: userFromResponse?.email || jwtUser.email || '',
+              phoneNumber:
+                userFromResponse?.phoneNumber || jwtUser.phoneNumber || '',
+              dob: userFromResponse?.dob || jwtUser.dob || '',
+              gender: userFromResponse?.gender ?? (jwtUser.gender ?? true),
+              bio: userFromResponse?.bio || jwtUser.bio || '',
+              avatar: userFromResponse?.avatar || jwtUser.avatar || null,
+              role:
+                userFromResponse?.role ||
+                response.role ||
+                payload.authorities?.[0] ||
+                'USER',
               active: userFromResponse?.active ?? true,
             }
             userFromResponse = derivedUser
@@ -338,31 +364,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Check for email verification error
       if (error instanceof Error) {
-        const errorAny = error as any
-        
-        // Check if error has isEmailNotVerified property
-        const isEmailNotVerified = errorAny?.isEmailNotVerified === true || 
-                                   errorAny?.isEmailNotVerified === 'true' ||
-                                   Object.prototype.hasOwnProperty.call(errorAny, 'isEmailNotVerified') && errorAny.isEmailNotVerified
+        const errorRecord = isRecord(error) ? (error as Record<string, unknown>) : null
+        const hasVerificationFlag =
+          isTruthyFlag(errorRecord?.isEmailNotVerified) ||
+          (errorRecord &&
+            Object.prototype.hasOwnProperty.call(
+              errorRecord,
+              "isEmailNotVerified"
+            ) &&
+            isTruthyFlag(errorRecord.isEmailNotVerified))
+        const isEmailNotVerified = Boolean(hasVerificationFlag)
         
         console.log("[AuthContext] Checking error properties:", {
-          isEmailNotVerified: errorAny?.isEmailNotVerified,
-          isEmailNotVerifiedType: typeof errorAny?.isEmailNotVerified,
-          email: errorAny?.email,
-          details: errorAny?.details,
+          isEmailNotVerified: errorRecord?.isEmailNotVerified,
+          isEmailNotVerifiedType: typeof errorRecord?.isEmailNotVerified,
+          email: errorRecord?.email,
+          details: errorRecord?.details,
           message: error.message,
-          hasOwnProperty: Object.prototype.hasOwnProperty.call(errorAny, 'isEmailNotVerified'),
-          keys: errorAny ? Object.keys(errorAny) : [],
+          hasOwnProperty: errorRecord
+            ? Object.prototype.hasOwnProperty.call(
+                errorRecord,
+                "isEmailNotVerified"
+              )
+            : false,
+          keys: errorRecord ? Object.keys(errorRecord) : [],
           isEmailNotVerifiedCheck: isEmailNotVerified
         })
-        
+
         // Re-throw error if it's an email verification error so login form can handle it
         if (isEmailNotVerified) {
           console.log("[AuthContext] Email not verified detected, re-throwing error")
           console.log("[AuthContext] Error properties:", {
-            isEmailNotVerified: errorAny.isEmailNotVerified,
-            email: errorAny.email,
-            details: errorAny.details,
+            isEmailNotVerified: errorRecord?.isEmailNotVerified ?? false,
+            email: errorRecord?.email ?? null,
+            details: errorRecord?.details ?? null,
             message: error.message
           })
           // Ensure properties are preserved when re-throwing

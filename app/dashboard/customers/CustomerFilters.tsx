@@ -32,13 +32,6 @@ interface CustomerFiltersProps {
 }
 
 const CustomerFilters: React.FC<CustomerFiltersProps> = ({
-  startDate,
-  endDate,
-  setStartDate,
-  setEndDate,
-  today,
-  getLocalTimeZone,
-  parseDate,
   selectedType,
   setSelectedType,
   showTypeDropdown,
@@ -59,7 +52,10 @@ const CustomerFilters: React.FC<CustomerFiltersProps> = ({
   showBranchDropdown,
   setShowBranchDropdown,
   allBranches,
-}) => (
+  ...unusedDateProps
+}) => {
+  void unusedDateProps;
+  return (
   <div className="flex flex-col gap-4 lg:gap-6 mb-4 lg:mb-6">
     {/* Date filters */}
 
@@ -271,6 +267,7 @@ const CustomerFilters: React.FC<CustomerFiltersProps> = ({
       </div>
     </div>
   </div>
-);
+  );
+};
 
 export default CustomerFilters;

@@ -133,11 +133,6 @@ export default function ServiceStoreChartData({
   isMobile,
   storeServiceChartData,
 }: ServiceStoreChartDataProps) {
-  // Tính tổng số dịch vụ
-  const totalServices = storeServiceChartData.reduce((sum, store) => sum + store.total, 0);
-  const totalStores = storeServiceChartData.length;
-  const topStore = storeServiceChartData[0];
-
   return (
     <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-4">
       <div className="text-xl font-medium text-gray-700 text-center mb-4" data-search-ref="services_store">

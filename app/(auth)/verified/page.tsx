@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, Suspense } from "react";
+import React, { useEffect, useState, Suspense, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Input } from "@/app/components/ui/input";
@@ -18,6 +17,58 @@ function VerifyContent() {
   const [isResending, setIsResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<"idle" | "success" | "error">("idle");
   const [resendMessage, setResendMessage] = useState("");
+
+  const verifyToken = useCallback(
+    async (token: string) => {
+      try {
+        const response = await fetch(
+          `/api/proxy/auth/verify?token=${encodeURIComponent(token)}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setStatus("success");
+          setMessage(
+            data.message || "Your account has been successfully verified!"
+          );
+          setTimeout(() => {
+            router.push("/verified?status=success");
+          }, 2000);
+        } else if (
+          response.status === 410 ||
+          data.error?.toLowerCase().includes("expired")
+        ) {
+          setStatus("expired");
+          setMessage(
+            data.message ||
+              "Verification link has expired. Please request a new one."
+          );
+          setTimeout(() => {
+            router.push("/verified?status=expired");
+          }, 2000);
+        } else {
+          setStatus("error");
+          setMessage(
+            data.message || data.error || "Verification failed. Please try again."
+          );
+        }
+      } catch (error) {
+        console.error("Verification error:", error);
+        setStatus("error");
+        setMessage(
+          "An error occurred during verification. Please try again."
+        );
+      }
+    },
+    [router]
+  );
 
   useEffect(() => {
     const token = searchParams.get("token");
@@ -49,45 +100,7 @@ function VerifyContent() {
     }
 
     verifyToken(token);
-  }, [searchParams]);
-
-  const verifyToken = async (token: string) => {
-    try {
-      const response = await fetch(`/api/proxy/auth/verify?token=${encodeURIComponent(token)}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setStatus("success");
-        setMessage(data.message || "Your account has been successfully verified!");
-        // Redirect to success after 2 seconds
-        setTimeout(() => {
-          router.push("/verified?status=success");
-        }, 2000);
-      } else {
-        // Check if token expired
-        if (response.status === 410 || data.error?.toLowerCase().includes("expired")) {
-          setStatus("expired");
-          setMessage(data.message || "Verification link has expired. Please request a new one.");
-          setTimeout(() => {
-            router.push("/verified?status=expired");
-          }, 2000);
-        } else {
-          setStatus("error");
-          setMessage(data.message || data.error || "Verification failed. Please try again.");
-        }
-      }
-    } catch (error) {
-      console.error("Verification error:", error);
-      setStatus("error");
-      setMessage("An error occurred during verification. Please try again.");
-    }
-  };
+  }, [searchParams, verifyToken]);
 
   const handleResend = async () => {
     // Basic validation
@@ -134,7 +147,7 @@ function VerifyContent() {
           data?.message || data?.error || "Failed to resend verification email. Please try again."
         );
       }
-    } catch (e) {
+    } catch {
       setResendStatus("error");
       setResendMessage("An error occurred. Please try again.");
     } finally {
@@ -274,4 +287,3 @@ export default function VerifyPage() {
     </Suspense>
   );
 }
-

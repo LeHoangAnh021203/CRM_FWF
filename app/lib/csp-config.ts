@@ -84,7 +84,7 @@ export const MAP_CSP_CONFIG = {
 /**
  * Generate map-specific CSP
  */
-export function generateMapCSP(mapType: 'leaflet' | 'mapbox'): string {
+export function generateMapCSP(): string {
   // const baseConfig = getCSPConfig();
   // const mapConfig = MAP_CSP_CONFIG[mapType];
   

@@ -1,12 +1,5 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import {
-  today,
-  getLocalTimeZone,
-  parseDate,
-} from "@internationalized/date";
-
-import CustomerFilters from "../customers/CustomerFilters";
 import CustomerPaymentPieChart from "./CustomerPaymentPieChart";
 import OrderPaymentRegionData from "./OrderPaymentRegionData";
 import { Notification, useNotification } from "@/app/components/notification";
@@ -102,18 +95,14 @@ export default function AccountingReportPage() {
     useLocalStorageState<string[]>("customer-selectedType", []);
   const [selectedStatus, setSelectedStatus, selectedStatusLoaded] =
     useLocalStorageState<string | null>("customer-selectedStatus", null);
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
   // Use global date context instead of local state
-  const { startDate, endDate, setStartDate, setEndDate, fromDate, toDate, isLoaded: dateLoaded } = useDateRange();
+  const { fromDate, toDate, isLoaded: dateLoaded } = useDateRange();
 
   const [selectedRegions, setSelectedRegions, selectedRegionsLoaded] =
     useLocalStorageState<string[]>("customer-selectedRegions", []);
-  const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const [selectedBranches, setSelectedBranches, selectedBranchesLoaded] =
     useLocalStorageState<string[]>("customer-selectedBranches", []);
-  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
 
   // Kiểm tra xem tất cả localStorage đã được load chưa
   const isAllLoaded =
@@ -122,9 +111,6 @@ export default function AccountingReportPage() {
     dateLoaded &&
     selectedRegionsLoaded &&
     selectedBranchesLoaded;
-
-  const allRegions = ["Đã đóng cửa", "Đà Nẵng", "Nha Trang", "Hà Nội", "HCM"];
-  const allBranches = ["Branch 1", "Branch 2", "Branch 3"];
 
   // fromDate and toDate are now provided by the global date context
 
@@ -310,17 +296,6 @@ export default function AccountingReportPage() {
     return filteredData;
   }, [paymentByRegionData]);
 
-  const customerTypes = [
-    "KH trải nghiệm",
-    "Khách hàng Thành viên",
-    "Khách hàng Bạc",
-    "Khách hàng Vàng",
-    "Khách hàng Bạch Kim",
-    "Khách hàng Kim cương",
-  ];
-
-  const customerStatus = ["New", "Old"];
-
   const windowWidth = useWindowWidth();
   const isMobile = windowWidth < 640;
 
@@ -356,37 +331,6 @@ export default function AccountingReportPage() {
               Reset Filters
             </button>
           </div>
-
-          {/* Filter */}
-          {/* <CustomerFilters
-            startDate={startDate}
-            endDate={endDate}
-            setStartDate={setStartDate}
-            setEndDate={setEndDate}
-            today={today}
-            getLocalTimeZone={getLocalTimeZone}
-            parseDate={parseDate}
-            selectedType={selectedType}
-            setSelectedType={setSelectedType}
-            showTypeDropdown={showTypeDropdown}
-            setShowTypeDropdown={setShowTypeDropdown}
-            customerTypes={customerTypes}
-            selectedStatus={selectedStatus}
-            setSelectedStatus={setSelectedStatus}
-            showStatusDropdown={showStatusDropdown}
-            setShowStatusDropdown={setShowStatusDropdown}
-            customerStatus={customerStatus}
-            selectedRegions={selectedRegions}
-            setSelectedRegions={setSelectedRegions}
-            showRegionDropdown={showRegionDropdown}
-            setShowRegionDropdown={setShowRegionDropdown}
-            allRegions={allRegions}
-            selectedBranches={selectedBranches}
-            setSelectedBranches={setSelectedBranches}
-            showBranchDropdown={showBranchDropdown}
-            setShowBranchDropdown={setShowBranchDropdown}
-            allBranches={allBranches}
-          /> */}
 
           {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới) và (khách cũ) */}
           <CustomerPaymentPieChart

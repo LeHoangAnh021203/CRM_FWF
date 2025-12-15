@@ -4,7 +4,6 @@ import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
 import { useState, useEffect, useRef } from "react";
 import { CalendarDate } from "@internationalized/date";
 
-import ServicesFilter from "./ServicesFilter";
 import WeeklyServiceChartData from "./ServiceWeeklyChartData";
 import PieChartData from "./ServicePieChartData";
 import ServiceBottomPieData from "./ServiceBottomPieData";
@@ -197,7 +196,6 @@ export default function CustomerReportPage() {
       "services-selectedBranches",
       "services-selectedRegions",
       "services-selectedServiceTypes",
-      "services-selectedGenders",
     ]);
     setSelectedBranches([]);
     setSelectedRegions([]);
@@ -207,7 +205,6 @@ export default function CustomerReportPage() {
       "Added on",
       "Quà tặng",
     ]);
-    setSelectedGenders(["Nam", "Nữ", "#N/A"]);
     showSuccess("Đã reset tất cả filter về mặc định!");
     reportResetFilters();
   };
@@ -228,20 +225,12 @@ export default function CustomerReportPage() {
     "Added on",
     "Quà tặng",
   ]);
-  const [selectedGenders, setSelectedGenders, selectedGendersLoaded] =
-    useLocalStorageState<string[]>("services-selectedGenders", [
-      "Nam",
-      "Nữ",
-      "#N/A",
-    ]);
-
   // Kiểm tra xem tất cả localStorage đã được load chưa
   const isAllLoaded =
     dateLoaded &&
     selectedBranchesLoaded &&
     selectedRegionsLoaded &&
-    selectedServiceTypesLoaded &&
-    selectedGendersLoaded;
+    selectedServiceTypesLoaded;
 
   // fromDate and toDate are now provided by the global date context
 
@@ -452,16 +441,6 @@ export default function CustomerReportPage() {
 
   const windowWidth = useWindowWidth();
   const isMobile = windowWidth < 640;
-
-  const ALL_SERVICE_TYPES = [
-    { key: "Khách hàng Thành viên", label: "Combo" },
-    { key: "KH trải nghiệm", label: "Dịch vụ" },
-    { key: "Added on", label: "Added on" },
-    { key: "Quà tặng", label: "Gifts" },
-    { key: "Fox card", label: "Fox card" },
-  ];
-  const ALL_GENDERS = ["Nam", "Nữ", "#N/A"];
-  const [regionSearch] = useState("");
 
   // Tạo weekDates cho chart
   const weekDates: CalendarDate[] = React.useMemo(() => {
@@ -841,37 +820,6 @@ export default function CustomerReportPage() {
     return [];
   }, [bottom3ServicesRevenueData]);
 
-  // Filter options cho region
-  const regionOptions = React.useMemo(() => {
-    if (!regionData) return [];
-
-    const regionMap = new Map<string, number>();
-    regionData.forEach((item) => {
-      regionMap.set(item.region, (regionMap.get(item.region) || 0) + 1);
-    });
-
-    return Array.from(regionMap.entries()).map(([name, total]) => ({
-      name,
-      total,
-    }));
-  }, [regionData]);
-
-  const filteredRegionOptions = React.useMemo(
-    () =>
-      regionOptions.filter((r) =>
-        r.name.toLowerCase().includes(regionSearch.toLowerCase())
-      ),
-    [regionOptions, regionSearch]
-  );
-
-  // Filter options cho service types và genders
-  const filteredServiceTypes = ALL_SERVICE_TYPES.filter((s) =>
-    s.label.toLowerCase().includes("")
-  );
-  const filteredGenders = ALL_GENDERS.filter((g) =>
-    g.toLowerCase().includes("")
-  );
-
   // Hiển thị loading nếu chưa load xong localStorage
   if (!isAllLoaded) {
     return (
@@ -904,25 +852,7 @@ export default function CustomerReportPage() {
               Reset Filters
             </button>
           </div>
-          {/* <ServicesFilter
-            selectedRegions={selectedRegions}
-            setSelectedRegions={setSelectedRegions}
-            selectedBranches={selectedBranches}
-            setSelectedBranches={setSelectedBranches}
-            selectedServiceTypes={selectedServiceTypes}
-            setSelectedServiceTypes={setSelectedServiceTypes}
-            selectedGenders={selectedGenders}
-            setSelectedGenders={setSelectedGenders}
-            regionOptions={regionOptions}
-            locationOptions={[]}
-            filteredRegionOptions={filteredRegionOptions}
-            ALL_SERVICE_TYPES={ALL_SERVICE_TYPES}
-            ALL_GENDERS={ALL_GENDERS}
-            filteredServiceTypes={filteredServiceTypes}
-            filteredGenders={filteredGenders}
-            genderActualPrice={[]}
-            formatMoneyShort={(val: number) => val.toLocaleString()}
-          /> */}
+          
         </div>
 
         {/* Tổng dịch vụ thực hiện */}
