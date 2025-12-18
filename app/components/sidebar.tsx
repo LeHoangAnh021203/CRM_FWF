@@ -9,7 +9,8 @@ import {
   Sparkles,
   Radical,
   CalendarCheck2,
-  LayoutDashboard
+  LayoutDashboard,
+  Bubbles,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import Link from "next/link";
@@ -56,6 +57,12 @@ const menuItems = [
     requiredPermissions: ["ROLE_ADMIN", "ROLE_CEO"],
   },
   {
+    icon: Bubbles,
+    label: "Skin Report",
+    href: "/dashboard/skinreport",
+    requiredPermissions: ["ROLE_ADMIN", "ROLE_CEO"],
+  },
+  {
     icon: Sparkles,
     label: "Generate",
     href: "/dashboard/generateAI",
@@ -74,21 +81,23 @@ export function Sidebar() {
   const hasRouteAccess = (href: string, requiredPermissions?: string[]) => {
     // Dashboard home is accessible to all authenticated users
     if (href === "/") return true;
-    
+
     // If no permissions required, allow access
     if (!requiredPermissions || requiredPermissions.length === 0) return true;
-    
+
     // Check if user is admin or CEO (they have access to everything)
-    const isAdminOrCEO = permissions.includes("ROLE_ADMIN") || 
-                         permissions.includes("ROLE_CEO") ||
-                         user?.role === "ADMIN" ||
-                         user?.role === "CEO";
-    
+    const isAdminOrCEO =
+      permissions.includes("ROLE_ADMIN") ||
+      permissions.includes("ROLE_CEO") ||
+      user?.role === "ADMIN" ||
+      user?.role === "CEO";
+
     if (isAdminOrCEO) return true;
-    
+
     // Check if user has at least one of the required permissions
-    return requiredPermissions.some(permission => 
-      hasPermission(permission) || permissions.includes(permission)
+    return requiredPermissions.some(
+      (permission) =>
+        hasPermission(permission) || permissions.includes(permission)
     );
   };
 
@@ -137,31 +146,36 @@ export function Sidebar() {
             <div>
               {menuItems.map((item) => {
                 const isActive = pathname === item.href;
-                const hasAccess = hasRouteAccess(item.href, item.requiredPermissions);
-                
+                const hasAccess = hasRouteAccess(
+                  item.href,
+                  item.requiredPermissions
+                );
+
                 return (
                   <li key={item.label}>
                     <button
                       onClick={() => {
                         if (isNavigating) return; // Prevent multiple clicks
-                        
+
                         // Check permission before navigation
                         if (!hasAccess) {
                           // Navigate to the route anyway - PermissionGuard will handle showing the denied page
                           router.push(item.href, { scroll: false });
                           return;
                         }
-                        
+
                         console.log(`[Sidebar] Navigating to: ${item.href}`);
                         setIsNavigating(true);
-                        
+
                         // Try router.push first
                         router.push(item.href, { scroll: false });
-                        
+
                         // Fallback to window.location if router doesn't work
                         setTimeout(() => {
                           if (window.location.pathname !== item.href) {
-                            console.log(`[Sidebar] Router failed, using window.location`);
+                            console.log(
+                              `[Sidebar] Router failed, using window.location`
+                            );
                             window.location.href = item.href;
                           }
                           setIsNavigating(false);
@@ -175,7 +189,11 @@ export function Sidebar() {
                           : "text-white hover:bg-slate-700 hover:text-white",
                         !hasAccess && "opacity-50 cursor-not-allowed"
                       )}
-                      title={!hasAccess ? "Bạn không có quyền truy cập trang này" : ""}
+                      title={
+                        !hasAccess
+                          ? "Bạn không có quyền truy cập trang này"
+                          : ""
+                      }
                     >
                       <div className="flex items-center space-x-3">
                         {isNavigating && pathname === item.href ? (
@@ -189,7 +207,9 @@ export function Sidebar() {
                             isOpen ? "block" : "hidden"
                           )}
                         >
-                          {isNavigating && pathname === item.href ? "Loading..." : item.label}
+                          {isNavigating && pathname === item.href
+                            ? "Loading..."
+                            : item.label}
                         </span>
                       </div>
                     </button>
@@ -222,7 +242,11 @@ export function Sidebar() {
                 isOpen ? "block" : "hidden"
               )}
             >
-              <p className="text-sm font-medium">{user?.firstname ? `${user.firstname} ${user.lastname}` : "User"}</p>
+              <p className="text-sm font-medium">
+                {user?.firstname
+                  ? `${user.firstname} ${user.lastname}`
+                  : "User"}
+              </p>
               <p className="text-xs text-white">
                 {user?.email || "user@example.com"}
               </p>

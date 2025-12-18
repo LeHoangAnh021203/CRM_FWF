@@ -504,19 +504,22 @@ export function ShiftStats({
     <div className="space-y-10">
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-          <div>
-            <p className="text-sm uppercase tracking-wide text-gray-500">
-              <div className="flex flex-col sm:items-end">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={remoteDate}
-                    onChange={(event) => setRemoteDate(event.target.value)}
-                    className="border rounded-md px-3 py-1 text-sm"
-                  />
-                </div>
-              </div>
-            </p>
+          <div className="flex flex-col sm:items-end">
+            <label
+              htmlFor="remote-date"
+              className="text-sm uppercase tracking-wide text-gray-500 mb-1"
+            >
+              Chọn ngày
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="remote-date"
+                type="date"
+                value={remoteDate}
+                onChange={(event) => setRemoteDate(event.target.value)}
+                className="border rounded-md px-3 py-1 text-sm"
+              />
+            </div>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
