@@ -336,5 +336,36 @@ function AgeSparkline({
       return `${x},${y}`;
     })
     .join(" ");
-  return;
+  return (
+    <div className="flex items-center justify-center">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-20 w-full max-w-[260px]"
+        role="img"
+        aria-label="Xu hướng nhóm tuổi"
+      >
+        <defs>
+          <linearGradient id="ageSparkline" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#fdba74" />
+            <stop offset="100%" stopColor="#f97316" />
+          </linearGradient>
+        </defs>
+        <polyline
+          points={points}
+          fill="none"
+          stroke="url(#ageSparkline)"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {buckets.map((bucket, index) => {
+          const x = (index / (buckets.length - 1 || 1)) * width;
+          const y = height - (bucket.count / (maxCount || 1)) * height;
+          return (
+            <circle key={bucket.label} cx={x} cy={y} r="3" fill="#f97316" />
+          );
+        })}
+      </svg>
+    </div>
+  );
 }
