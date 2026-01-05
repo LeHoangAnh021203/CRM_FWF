@@ -109,8 +109,8 @@ export function OverviewSkin({
       <section className="grid gap-4 lg:grid-cols-3">
         <Card className="col-span-full rounded-3xl border border-orange-200 bg-gradient-to-r from-white to-orange-50 shadow-lg">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.4em] text-orange-500">
-              Overview snapshot
+            <CardTitle className="flex items-center gap-2 text-sm text-orange-500">
+              OVERVIEW SNAPSHOT
               <Shield size={16} />
             </CardTitle>
           </CardHeader>
@@ -124,7 +124,7 @@ export function OverviewSkin({
                     card.tab ? "cursor-pointer hover:-translate-y-1" : ""
                   }`}
                 >
-                  <p className="text-[11px] uppercase tracking-[0.25em] text-orange-400">
+                  <p className="text-[11px] uppercase  text-orange-400">
                     {card.title}
                   </p>
                   <div className="mt-1 flex items-center gap-2">
@@ -146,7 +146,7 @@ export function OverviewSkin({
             </div>
 
             <div className="rounded-2xl border border-orange-100 bg-white/80 p-5">
-              <p className="text-[11px] uppercase tracking-[0.25em] text-orange-400">
+              <p className="text-[11px] uppercase  text-orange-400">
                 Health meters
               </p>
               <div className="mt-4 space-y-3">
@@ -171,7 +171,7 @@ export function OverviewSkin({
 
         <Card className="rounded-3xl border border-orange-200 bg-white shadow-lg lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-orange-400">
+            <CardTitle className="flex items-center gap-2 text-xs uppercase  text-orange-400">
               Data Quality
               <Activity size={16} />
             </CardTitle>
@@ -227,7 +227,7 @@ export function OverviewSkin({
 
         <Card className="rounded-3xl border border-orange-200 bg-white shadow-lg">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-orange-400">
+            <CardTitle className="flex items-center gap-2 text-xs uppercase  text-orange-400">
               Phân bổ loại da
               <Droplets size={16} />
             </CardTitle>
@@ -267,7 +267,7 @@ export function OverviewSkin({
 
       <Card className="rounded-3xl border border-orange-100 bg-white shadow-md ">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-orange-400">
+          <CardTitle className="flex items-center gap-2 text-xs uppercase  text-orange-400">
             Thông tin nổi bật
             <Sparkles size={16} />
           </CardTitle>
@@ -303,7 +303,7 @@ export function OverviewSkin({
         </div>
         <CardContent className="border-t border-orange-100 bg-orange-50/30 mt-2 rounded-b-3xl">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] uppercase tracking-[0.25em] text-orange-400">
+            <p className="text-[11px] uppercase  text-orange-400">
               Sản phẩm nổi bật
             </p>
             <span className="text-xs text-gray-500"></span>

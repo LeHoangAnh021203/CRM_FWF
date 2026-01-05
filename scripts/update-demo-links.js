@@ -26,11 +26,6 @@ const filesToUpdate = [
     path: '../scripts/demo-info.js',
     pattern: /console\.log\(chalk\.green\('   Production: '\) \+ chalk\.blue\.underline\('([^']+)'\)\);/,
     replacement: `console.log(chalk.green('   Production: ') + chalk.blue.underline('${fullUrl}'));`
-  },
-  {
-    path: '../src/components/header.tsx',
-    pattern: /const demoUrl = "([^"]+)"/,
-    replacement: `const demoUrl = "${fullUrl}"`
   }
 ];
 

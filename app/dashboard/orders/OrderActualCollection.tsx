@@ -1,7 +1,7 @@
 import React from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 
-interface RegionStat {
+export interface RegionStat {
   region: string;
   ordersThisWeek: number;
   deltaOrders: number;

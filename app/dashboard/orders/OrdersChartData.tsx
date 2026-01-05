@@ -12,7 +12,7 @@ import {
   LabelList,
 } from "recharts";
 
-interface OrdersChartDataPoint {
+export interface OrdersChartDataPoint {
   date: string;
   orders: number;
   avgPerShop: number;

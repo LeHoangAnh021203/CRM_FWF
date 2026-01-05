@@ -1,17 +1,26 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
-import CustomerPaymentPieChart from "./CustomerPaymentPieChart";
-import OrderPaymentRegionData from "./OrderPaymentRegionData";
+import React, { useEffect, useRef } from "react";
 import { Notification, useNotification } from "@/app/components/notification";
 import {
   useLocalStorageState,
   clearLocalStorageKeys,
 } from "@/app/hooks/useLocalStorageState";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
-import { ApiService } from "../../lib/api-service";
+import { useWindowWidth } from "@/app/hooks/useWindowWidth";
 import { useDateRange } from "@/app/contexts/DateContext";
-
-const API_BASE_URL = "/api/proxy";
+import { AccountingHeaderSection } from "./sections/header/AccountingHeaderSection";
+import { AccountingChartsSection } from "./sections/charts/AccountingChartsSection";
+import { useAccountingApiData } from "./hooks/useAccountingApiData";
+import { ACCOUNTING_ENDPOINTS, accountingUrl } from "./queries";
+import type {
+  CustomerSummaryData,
+  PaymentByRegionRow,
+  PaymentPercentData,
+} from "./types";
+import {
+  buildPaymentPercentPieData,
+  buildPaymentRegionData,
+} from "./transformers";
 
 // Function để clear tất cả filter state
 function clearCustomerFilters() {
@@ -23,53 +32,6 @@ function clearCustomerFilters() {
     "customer-selectedRegions",
     "customer-selectedBranches",
   ]);
-}
-
-// Custom hook dùng chung cho fetch API động
-function useApiData<T>(url: string, fromDate: string, toDate: string) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-
-    // Extract endpoint from full URL - remove /api/proxy prefix
-    const endpoint = url
-      .replace(API_BASE_URL, "")
-      .replace("/api", "")
-      .replace(/^\/+/, "");
-    console.log("🔍 Debug - Original URL:", url);
-    console.log("🔍 Debug - Extracted Endpoint:", endpoint);
-
-    ApiService.post(endpoint, { fromDate, toDate })
-      .then((data: unknown) => {
-        setData(data as T);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        console.error("🔍 Debug - API Error:", err);
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [url, fromDate, toDate]);
-
-  return { data, loading, error };
-}
-
-// Hook lấy width window
-function useWindowWidth() {
-  const [width, setWidth] = useState(1024);
-  useEffect(() => {
-    function handleResize() {
-      setWidth(window.innerWidth);
-    }
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-  return width;
 }
 
 export default function AccountingReportPage() {
@@ -119,45 +81,31 @@ export default function AccountingReportPage() {
     data: customerSummaryRaw,
     loading: loadingCustomerSummary,
     error: errorCustomerSummary,
-  } = useApiData<{
-    totalNewCustomers: number;
-    actualCustomers: number;
-    growthTotal?: number;
-    growthActual?: number;
-  }>(`${API_BASE_URL}/api/customer-sale/customer-summary`, fromDate, toDate);
+  } = useAccountingApiData<CustomerSummaryData>(
+    accountingUrl(ACCOUNTING_ENDPOINTS.customerSummary),
+    fromDate,
+    toDate,
+    0
+  );
 
-  const { data: paymentPercentNewRaw } = useApiData<{
-    totalCash: number;
-    totalTransfer: number;
-    totalCreditCard: number;
-    totalPrepaidCard: number;
-    totalDebt: number;
-    percentCash?: number;
-    percentTransfer?: number;
-    percentPrepaidCard?: number;
-    percentDebt?: number;
-  }>(`${API_BASE_URL}/api/customer-sale/payment-percent-new`, fromDate, toDate);
+  const { data: paymentPercentNewRaw } = useAccountingApiData<
+    PaymentPercentData
+  >(accountingUrl(ACCOUNTING_ENDPOINTS.paymentPercentNew), fromDate, toDate, 1);
 
-  const { data: paymentPercentOldRaw } = useApiData<{
-    totalCash: number;
-    totalTransfer: number;
-    totalCreditCard: number;
-    totalPrepaidCard: number;
-    totalDebt: number;
-  }>(`${API_BASE_URL}/api/customer-sale/payment-percent-old`, fromDate, toDate);
+  const { data: paymentPercentOldRaw } = useAccountingApiData<
+    PaymentPercentData
+  >(accountingUrl(ACCOUNTING_ENDPOINTS.paymentPercentOld), fromDate, toDate, 2);
 
   const {
     data: paymentByRegionData,
     loading: paymentByRegionLoading,
     error: paymentByRegionError,
-  } = useApiData<
-    {
-      region: string;
-      transfer: number;
-      cash: number;
-      creditCard: number;
-    }[]
-  >(`${API_BASE_URL}/api/sales/payment-by-region`, fromDate, toDate);
+  } = useAccountingApiData<PaymentByRegionRow[]>(
+    accountingUrl(ACCOUNTING_ENDPOINTS.paymentByRegion),
+    fromDate,
+    toDate,
+    3
+  );
 
   // Track overall loading and error states for notifications
   const allLoadingStates = [loadingCustomerSummary, paymentByRegionLoading];
@@ -211,90 +159,22 @@ export default function AccountingReportPage() {
   }, [selectedBranches, reportFilterChange]);
 
   // Tỉ lệ các hình thức thanh toán (khách mới)
-  const paymentPercentNewPieData = React.useMemo(() => {
-    if (!paymentPercentNewRaw) return [];
-
-    return [
-      {
-        name: "TIỀN MẶT",
-        value: paymentPercentNewRaw.totalCash || 0,
-        color: "#00d084",
-      },
-      {
-        name: "CHUYỂN KHOẢN",
-        value: paymentPercentNewRaw.totalTransfer || 0,
-        color: "#5bd1d7",
-      },
-      {
-        name: "THẺ TÍN DỤNG",
-        value: paymentPercentNewRaw.totalCreditCard || 0,
-        color: "#ff7f7f",
-      },
-      {
-        name: "THẺ TRẢ TRƯỚC",
-        value: paymentPercentNewRaw.totalPrepaidCard || 0,
-        color: "#f66035",
-      },
-      {
-        name: "CÒN NỢ",
-        value: paymentPercentNewRaw.totalDebt || 0,
-        color: "#eb94cf",
-      },
-    ].filter((item) => item.value > 0);
-  }, [paymentPercentNewRaw]);
+  const paymentPercentNewPieData = React.useMemo(
+    () => buildPaymentPercentPieData(paymentPercentNewRaw),
+    [paymentPercentNewRaw]
+  );
 
   // Tỉ lệ các hình thức thanh toán (khách cũ)
-  const paymentPercentOldPieData = React.useMemo(() => {
-    if (!paymentPercentOldRaw) return [];
-
-    return [
-      {
-        name: "TIỀN MẶT",
-        value: paymentPercentOldRaw.totalCash || 0,
-        color: "#00d084",
-      },
-      {
-        name: "CHUYỂN KHOẢN",
-        value: paymentPercentOldRaw.totalTransfer || 0,
-        color: "#5bd1d7",
-      },
-      {
-        name: "THẺ TÍN DỤNG",
-        value: paymentPercentOldRaw.totalCreditCard || 0,
-        color: "#ff7f7f",
-      },
-      {
-        name: "THẺ TRẢ TRƯỚC",
-        value: paymentPercentOldRaw.totalPrepaidCard || 0,
-        color: "#f66035",
-      },
-      {
-        name: "CÒN NỢ",
-        value: paymentPercentOldRaw.totalDebt || 0,
-        color: "#eb94cf",
-      },
-    ].filter((item) => item.value > 0);
-  }, [paymentPercentOldRaw]);
+  const paymentPercentOldPieData = React.useMemo(
+    () => buildPaymentPercentPieData(paymentPercentOldRaw),
+    [paymentPercentOldRaw]
+  );
 
   // Xử lý dữ liệu cho chart hình thức thanh toán theo vùng
-  const paymentRegionData = React.useMemo(() => {
-    if (!paymentByRegionData) return [];
-
-    // Transform API data to match chart interface
-    const transformedData = paymentByRegionData.map((item) => ({
-      region: item.region,
-      bank: item.transfer || 0,
-      cash: item.cash || 0,
-      card: item.creditCard || 0,
-    }));
-
-    // Filter out regions with zero total revenue
-    const filteredData = transformedData.filter(
-      (item) => item.bank + item.cash + item.card > 0,
-    );
-
-    return filteredData;
-  }, [paymentByRegionData]);
+  const paymentRegionData = React.useMemo(
+    () => buildPaymentRegionData(paymentByRegionData),
+    [paymentByRegionData]
+  );
 
   const windowWidth = useWindowWidth();
   const isMobile = windowWidth < 640;
@@ -311,39 +191,20 @@ export default function AccountingReportPage() {
   }
 
   return (
-    <div className='p-2 sm:p-4 md:p-6 max-w-full'>
+    <div className="p-2 sm:p-4 md:p-6 max-w-full">
       <Notification
         type={notification.type}
         message={notification.message}
         isVisible={notification.isVisible}
         onClose={hideNotification}
       />
-      <div className='mb-6'>
-        <div className='p-2'>
-          <div className='flex justify-between items-center mb-2'>
-            <h1 className='text-xl lg:text-2xl font-semibold text-gray-900'>
-              Accounting Report
-            </h1>
-            <button
-              onClick={resetFilters}
-              className='px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm'
-            >
-              Reset Filters
-            </button>
-          </div>
-
-          {/* Tỉ lệ đơn mua thẻ/ sản phẩm/ dịch vụ (khách mới) và (khách cũ) */}
-          <CustomerPaymentPieChart
-            isMobile={isMobile}
-            paymentPercentNewPieData={paymentPercentNewPieData}
-            paymentPercentOldPieData={paymentPercentOldPieData}
-          />
-        </div>
-
-        {/* Hình thức thanh toán theo vùng */}
-        <OrderPaymentRegionData
-          paymentRegionData={paymentRegionData}
+      <div className="mb-6">
+        <AccountingHeaderSection onReset={resetFilters} />
+        <AccountingChartsSection
           isMobile={isMobile}
+          paymentPercentNewPieData={paymentPercentNewPieData}
+          paymentPercentOldPieData={paymentPercentOldPieData}
+          paymentRegionData={paymentRegionData}
         />
       </div>
     </div>

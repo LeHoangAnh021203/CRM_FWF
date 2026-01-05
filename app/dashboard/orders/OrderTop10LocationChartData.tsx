@@ -11,14 +11,14 @@ import {
   LabelList,
 } from "recharts";
 
-interface Top10LocationData {
+export interface Top10LocationData {
   name: string;
   revenue: number;
   foxie: number;
   rank?: number | null;
 }
 
-interface StoreRevenueData {
+export interface StoreRevenueData {
   storeName: string;
   currentOrders: number;
   deltaOrders: number;
@@ -30,7 +30,7 @@ interface StoreRevenueData {
   orderPercent: number;
 }
 
-interface OverallOrderSummary {
+export interface OverallOrderSummary {
   totalRevenue: number;
   serviceRevenue: number;
   foxieCardRevenue: number;

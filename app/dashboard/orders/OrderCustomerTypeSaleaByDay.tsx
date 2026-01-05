@@ -11,7 +11,7 @@ import {
   LabelList,
 } from "recharts";
 
-interface CustomerTypeSalesByDayData {
+export interface CustomerTypeSalesByDayData {
   date: string;
   KHTraiNghiem?: number;
   KHIron?: number;

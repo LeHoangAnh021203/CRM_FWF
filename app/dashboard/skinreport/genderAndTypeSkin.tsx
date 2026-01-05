@@ -86,7 +86,7 @@ export function GenderAndTypeSkin({ insights }: GenderAndTypeSkinProps) {
       <section className="grid gap-4 lg:grid-cols-2">
         <Card className="border-orange-100 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-sm uppercase tracking-[0.2em] text-orange-500">
+            <CardTitle className="text-sm uppercase  text-orange-500">
               Phân bố giới tính
             </CardTitle>
           </CardHeader>
@@ -132,7 +132,7 @@ export function GenderAndTypeSkin({ insights }: GenderAndTypeSkinProps) {
 
         <Card className="border-orange-100 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-sm uppercase tracking-[0.2em] text-orange-500">
+            <CardTitle className="text-sm uppercase  text-orange-500">
               Độ tuổi
             </CardTitle>
           </CardHeader>
@@ -146,7 +146,7 @@ export function GenderAndTypeSkin({ insights }: GenderAndTypeSkinProps) {
 
       <Card className="border-orange-100 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-sm uppercase tracking-[0.2em] text-orange-500">
+          <CardTitle className="text-sm uppercase  text-orange-500">
             Phân bố loại da
           </CardTitle>
           <p className="text-xs text-gray-500">
@@ -204,7 +204,7 @@ export function GenderAndTypeSkin({ insights }: GenderAndTypeSkinProps) {
 
       <Card className="border-orange-100 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-sm uppercase tracking-[0.2em] text-orange-500">
+          <CardTitle className="text-sm uppercase  text-orange-500">
             Nhóm tuổi khách hàng
           </CardTitle>
           <p className="text-xs text-gray-500">
@@ -254,9 +254,7 @@ export function GenderAndTypeSkin({ insights }: GenderAndTypeSkinProps) {
 function AgeCard({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="rounded-2xl border border-orange-50 bg-orange-50/40 p-3">
-      <p className="text-xs uppercase tracking-[0.2em] text-gray-500">
-        {label}
-      </p>
+      <p className="text-xs uppercase  text-gray-500">{label}</p>
       <p className="text-lg font-semibold text-gray-900">{value ?? "—"}</p>
     </div>
   );

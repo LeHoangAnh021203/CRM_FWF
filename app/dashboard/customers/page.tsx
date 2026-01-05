@@ -1,87 +1,48 @@
 "use client";
-import React, { useState, useEffect, useRef, Suspense, useMemo } from "react";
-import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
-import CustomerFacilityHourTable from "./CustomerFacilityHourTable";
-import CustomerAccordionCard from "./CustomerAccordionCard";
-import CustomerNewChart from "./CustomerNewChart";
-import CustomerTypeTrendChart from "./CustomerTypeTrendChart";
-import CustomerSourceBarChart from "./CustomerSourceBarChart";
-import CustomerAppDownloadBarChart from "./CustomerAppDownloadBarChart";
-import CustomerAppDownloadPieChart from "./CustomerAppDownloadPieChart";
-import CustomerOldTypeTrendChart from "./CustomerOldTypeTrendChart";
-import CustomerFacilityBookingTable from "./CustomerFacilityBookingHour";
-import CustomerOldStatCard from "./CustomerOldStatCard";
-import CustomerNewOldSummaryTable from "./CustomerNewOldSummaryTable";
-import CustomerRangeTrendChart from "./CustomerRangeTrendChart";
-import CustomerBreakdownAnalysisChart from "./CustomerBreakdownAnalysisChart";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Notification, useNotification } from "@/app/components/notification";
 import {
   useLocalStorageState,
   clearLocalStorageKeys,
 } from "@/app/hooks/useLocalStorageState";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
-import { ApiService } from "../../lib/api-service";
+import { useApiData, useApiGetData } from "@/app/hooks/useApiData";
+import { useWindowWidth } from "@/app/hooks/useWindowWidth";
 import { useDateRange } from "@/app/contexts/DateContext";
-const API_BASE_URL = "/api/proxy";
+import { useCustomerSearchNavigation } from "./hooks/useCustomerSearchNavigation";
+import { CustomerSummarySection } from "./sections/summary/CustomerSummarySection";
+import { CustomerTrendsSection } from "./sections/trends/CustomerTrendsSection";
+import { CustomerFacilitySection } from "./sections/facility/CustomerFacilitySection";
+import { CustomerBookingCompletionSection } from "./sections/facility/CustomerBookingCompletionSection";
+import {
+  buildCustomerBreakdowns,
+  getCustomerList,
+  getTotalCustomers,
+} from "@/app/lib/customers";
+import type {
+  AppDownloadPie,
+  AppDownloadStatusMap,
+  CustomerAllResponse,
+  CustomerSummaryRaw,
+  FacilityHourService,
+  LineChartRanges,
+  TrendSeriesMap,
+  UniqueCustomersComparison,
+} from "./types";
+import { CUSTOMER_ENDPOINTS, customerUrl } from "./queries";
+import {
+  buildAllHourRanges,
+  buildAppDownloadPieData,
+  buildAppDownloadStatusData,
+  buildBookingCompletionTableData,
+  buildCustomerOldTypeTrendData,
+  buildCustomerSourceTrendData,
+  buildCustomerTypeTrendData,
+  buildFacilityHourTableData,
+  buildSortedAppDownloadStatusData,
+} from "./transformers";
 
-// ==== Types for API responses to ensure type-safety across the component ====
-type DateCountPoint = { date: string; count: number };
-
-interface LineChartRanges {
-  currentRange?: DateCountPoint[];
-  previousRange?: DateCountPoint[];
-}
-
-type TrendSeriesMap = Record<string, DateCountPoint[]>;
-
-interface AppDownloadPie {
-  totalNew?: number;
-  totalOld?: number;
-}
-
-type AppDownloadStatusMap = Record<
-  string,
-  Array<{ date?: string; [key: string]: unknown }>
->;
-
-interface FacilityHourItem {
-  facility: string;
-  hourlyCounts: Record<string, number>;
-  total: number;
-}
-
-type FacilityHourService = FacilityHourItem[];
-
-interface UniqueCustomersComparison {
-  currentTotal?: number;
-  changePercentTotal?: number;
-  currentMale?: number;
-  changePercentMale?: number;
-  currentFemale?: number;
-  changePercentFemale?: number;
-}
-
-// Customer summary pass-through type (structure used by child)
-// If shape is unknown, keep as unknown but not assign to stricter type
-type CustomerSummaryRaw = Record<string, unknown>;
-
-type CustomerRecord = Record<string, unknown>;
-
-interface CustomerAllResponse extends Record<string, unknown> {
-  content?: CustomerRecord[];
-  totalElements?: number;
-  totalCustomers?: number;
-  totalPages?: number;
-  number?: number;
-  size?: number;
-  numberOfElements?: number;
-  pageable?: {
-    pageSize?: number;
-    pageNumber?: number;
-  };
-}
-
-// Function để clear tất cả filter state
+// ==== Types are centralized in ./types ====
 
 // Function để clear tất cả filter state
 function clearCustomerFilters() {
@@ -96,165 +57,8 @@ function clearCustomerFilters() {
   ]);
 }
 
-// Custom hook dùng chung cho fetch API - đơn giản như trang service
-function useApiData<T>(
-  url: string,
-  fromDate: string,
-  toDate: string,
-  extraBody?: Record<string, unknown>
-) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-
-    // Extract endpoint from full URL - remove /api/proxy prefix
-    const endpoint = url
-      .replace(API_BASE_URL, "")
-      .replace("/api", "")
-      .replace(/^\/+/, "");
-
-    console.log("🔍 Debug - Original URL:", url);
-    console.log("🔍 Debug - Extracted Endpoint:", endpoint);
-
-    ApiService.post(endpoint, { fromDate, toDate, ...(extraBody || {}) })
-      .then((data: unknown) => {
-        setData(data as T);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        console.error("🔍 Debug - API Error:", err);
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [url, fromDate, toDate, extraBody]);
-
-  return { data, loading, error };
-}
-
-function useApiGetData<T>(url: string) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-
-    const endpoint = url
-      .replace(API_BASE_URL, "")
-      .replace("/api", "")
-      .replace(/^\/+/, "");
-
-    ApiService.get(endpoint)
-      .then((resp: unknown) => {
-        setData(resp as T);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [url]);
-
-  return { data, loading, error };
-}
-
-// Hook lấy width window với debouncing
-function useWindowWidth() {
-  const [width, setWidth] = useState(1024);
-
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-
-    function handleResize() {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        setWidth(window.innerWidth);
-      }, 100); // Debounce 100ms
-    }
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      clearTimeout(timeoutId);
-    };
-  }, []);
-
-  return width;
-}
-
 export default function CustomerReportPage() {
-  // Cross-tab search support
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const q = url.searchParams.get("q");
-    const hash = window.location.hash.replace("#", "");
-    const scrollToRefWithRetry = (
-      refKey: string,
-      attempts = 25,
-      delayMs = 120
-    ) => {
-      const tryOnce = (left: number) => {
-        const el = document.querySelector(
-          `[data-search-ref='${refKey}']`
-        ) as HTMLElement | null;
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "start" });
-          el.classList.add("ring-2", "ring-[#41d1d9]", "rounded-lg");
-          window.setTimeout(
-            () => el.classList.remove("ring-2", "ring-[#41d1d9]", "rounded-lg"),
-            1500
-          );
-          return;
-        }
-        if (left > 0) window.setTimeout(() => tryOnce(left - 1), delayMs);
-      };
-      tryOnce(attempts);
-    };
-    if (q) {
-      window.dispatchEvent(
-        new CustomEvent("global-search", { detail: { query: q } })
-      );
-      url.searchParams.delete("q");
-      window.history.replaceState({}, "", url.toString());
-    } else if (hash) {
-      scrollToRefWithRetry(hash);
-    }
-
-    const normalizeKey = (s: string) => normalize(s).replace(/\s+/g, "");
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { query?: string };
-      const query = String(detail?.query || "");
-      const map = SEARCH_TARGETS.filter((t) => t.route === "customers").map(
-        (t) => ({
-          keys: [
-            normalizeKey(t.label),
-            ...t.keywords.map((k) => normalizeKey(k)),
-          ],
-          refKey: t.refKey,
-        })
-      );
-      const found = map.find((m) =>
-        m.keys.some((k) => normalizeKey(query).includes(k))
-      );
-      if (!found) return;
-      scrollToRefWithRetry(found.refKey);
-    };
-    window.addEventListener("global-search", handler as EventListener);
-    const jumpHandler = (ev: Event) => {
-      const refKey = (ev as CustomEvent).detail?.refKey as string | undefined;
-      if (!refKey) return;
-      scrollToRefWithRetry(refKey);
-    };
-    window.addEventListener("jump-to-ref", jumpHandler as EventListener);
-    return () =>
-      window.removeEventListener("global-search", handler as EventListener);
-  }, []);
+  useCustomerSearchNavigation();
   // CSS để đảm bảo dropdown hiển thị đúng
   useEffect(() => {
     const style = document.createElement("style");
@@ -409,7 +213,7 @@ export default function CustomerReportPage() {
     loading: newCustomerLoading,
     error: newCustomerError,
   } = useApiData<LineChartRanges>(
-    `${API_BASE_URL}/api/customer-sale/new-customer-lineChart`,
+    customerUrl(CUSTOMER_ENDPOINTS.newCustomer),
     fromDate,
     toDate
   );
@@ -419,7 +223,7 @@ export default function CustomerReportPage() {
     loading: customerTypeLoading,
     error: customerTypeError,
   } = useApiData<TrendSeriesMap>(
-    `${API_BASE_URL}/api/customer-sale/customer-type-trend`,
+    customerUrl(CUSTOMER_ENDPOINTS.customerType),
     fromDate,
     toDate
   );
@@ -429,7 +233,7 @@ export default function CustomerReportPage() {
     loading: customerOldTypeLoading,
     error: customerOldTypeError,
   } = useApiData<LineChartRanges>(
-    `${API_BASE_URL}/api/customer-sale/old-customer-lineChart`,
+    customerUrl(CUSTOMER_ENDPOINTS.customerOldType),
     fromDate,
     toDate
   );
@@ -439,7 +243,7 @@ export default function CustomerReportPage() {
     loading: customerSourceLoading,
     error: customerSourceError,
   } = useApiData<TrendSeriesMap>(
-    `${API_BASE_URL}/api/customer-sale/customer-source-trend`,
+    customerUrl(CUSTOMER_ENDPOINTS.customerSource),
     fromDate,
     toDate
   );
@@ -449,7 +253,7 @@ export default function CustomerReportPage() {
     loading: appDownloadStatusLoading,
     error: appDownloadStatusError,
   } = useApiData<AppDownloadStatusMap>(
-    `${API_BASE_URL}/api/customer-sale/app-download-status`,
+    customerUrl(CUSTOMER_ENDPOINTS.appDownloadStatus),
     fromDate,
     toDate
   );
@@ -459,7 +263,7 @@ export default function CustomerReportPage() {
     loading: appDownloadLoading,
     error: appDownloadError,
   } = useApiData<AppDownloadPie>(
-    `${API_BASE_URL}/api/customer-sale/app-download-pieChart`,
+    customerUrl(CUSTOMER_ENDPOINTS.appDownloadPie),
     fromDate,
     toDate
   );
@@ -469,7 +273,7 @@ export default function CustomerReportPage() {
     loading: customerSummaryLoading,
     error: customerSummaryError,
   } = useApiData<CustomerSummaryRaw>(
-    `${API_BASE_URL}/api/customer-sale/customer-summary`,
+    customerUrl(CUSTOMER_ENDPOINTS.customerSummary),
     fromDate,
     toDate
   );
@@ -479,7 +283,7 @@ export default function CustomerReportPage() {
     loading: uniqueCustomersLoading,
     error: uniqueCustomersError,
   } = useApiData<UniqueCustomersComparison>(
-    `${API_BASE_URL}/api/customer-sale/unique-customers-comparison`,
+    customerUrl(CUSTOMER_ENDPOINTS.uniqueCustomers),
     fromDate,
     toDate
   );
@@ -489,7 +293,7 @@ export default function CustomerReportPage() {
     loading: rangedCustomersLoading,
     error: rangedCustomersError,
   } = useApiData<CustomerAllResponse>(
-    `${API_BASE_URL}/api/customer-sale/get-all-customer`,
+    customerUrl(CUSTOMER_ENDPOINTS.rangedCustomers),
     fromDate,
     toDate
   );
@@ -499,16 +303,12 @@ export default function CustomerReportPage() {
     loading: allCustomersLoading,
     error: allCustomersError,
   } = useApiGetData<CustomerAllResponse | number>(
-    `${API_BASE_URL}/api/customer-sale/get-all-customer-no-range-time`
+    customerUrl(CUSTOMER_ENDPOINTS.allCustomers)
   );
 
   // Memoize extraBody để tránh re-render không cần thiết
   const bookingCompletionExtraBody = useMemo(() => {
     const status = bookingCompletionStatus || "Khách đến";
-    console.log("🔍 Debug - bookingCompletionExtraBody:", {
-      status,
-      bookingCompletionStatus,
-    });
     return {
       status,
     };
@@ -519,175 +319,43 @@ export default function CustomerReportPage() {
     loading: bookingCompletionLoading,
     error: bookingCompletionError,
   } = useApiData<FacilityHourService>(
-    `${API_BASE_URL}/api/booking/facility-booking-hour`,
+    customerUrl(CUSTOMER_ENDPOINTS.bookingCompletion),
     fromDate,
     toDate,
     bookingCompletionExtraBody
   );
-
-  // Debug log cho booking completion API
-  console.log("🔍 Debug - Booking Completion API:", {
-    bookingCompletionStatus,
-    status: bookingCompletionStatus || "Khách đến",
-    fromDate,
-    toDate,
-    loading: bookingCompletionLoading,
-    error: bookingCompletionError,
-    hasData: !!bookingCompletionRaw,
-    dataType: typeof bookingCompletionRaw,
-    isArray: Array.isArray(bookingCompletionRaw),
-    endpoint: "booking/facility-booking-hour",
-    method: "POST",
-    extraBody: bookingCompletionExtraBody,
-    delay: 1000,
-    timestamp: new Date().toISOString(),
-    retryCount: 0,
-    userAgent:
-      typeof window !== "undefined" ? window.navigator.userAgent : "server",
-    environment: process.env.NODE_ENV,
-    apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
-    isAllLoaded,
-    dateLoaded,
-  });
 
   const {
     data: facilityHourServiceRaw,
     loading: facilityHourServiceLoading,
     error: facilityHourServiceError,
   } = useApiData<FacilityHourService>(
-    `${API_BASE_URL}/api/customer-sale/facility-hour-service`,
+    customerUrl(CUSTOMER_ENDPOINTS.facilityHourService),
     fromDate,
     toDate
   );
 
-  const totalExistingCustomers = React.useMemo(() => {
-    if (!allCustomersRaw) return 0;
-    if (typeof allCustomersRaw === "number") return allCustomersRaw;
-    if (
-      typeof (allCustomersRaw as { totalCustomers?: number }).totalCustomers ===
-      "number"
-    ) {
-      return (allCustomersRaw as { totalCustomers: number }).totalCustomers;
-    }
-    if (
-      typeof (allCustomersRaw as { totalElements?: number }).totalElements ===
-      "number"
-    ) {
-      return (allCustomersRaw as { totalElements: number }).totalElements;
-    }
-    if (Array.isArray(allCustomersRaw)) return allCustomersRaw.length;
-    if (Array.isArray(allCustomersRaw.content)) {
-      const totalFromPayload = (allCustomersRaw as {
-        totalElements?: number;
-      }).totalElements;
-      return typeof totalFromPayload === "number"
-        ? totalFromPayload
-        : allCustomersRaw.content.length;
-    }
-    return 0;
-  }, [allCustomersRaw]);
+  const totalExistingCustomers = React.useMemo(
+    () => getTotalCustomers(allCustomersRaw),
+    [allCustomersRaw]
+  );
 
-  const totalCustomersInRange = React.useMemo(() => {
-    if (!rangedCustomersRaw) return 0;
-    if (typeof rangedCustomersRaw === "number") return rangedCustomersRaw;
-    if (
-      typeof (rangedCustomersRaw as { totalCustomers?: number }).totalCustomers ===
-      "number"
-    ) {
-      return (rangedCustomersRaw as { totalCustomers: number }).totalCustomers;
-    }
-    if (
-      typeof (rangedCustomersRaw as { totalElements?: number }).totalElements ===
-      "number"
-    ) {
-      return (rangedCustomersRaw as { totalElements: number }).totalElements;
-    }
-    if (Array.isArray(rangedCustomersRaw)) {
-      return rangedCustomersRaw.length;
-    }
-    if (Array.isArray(rangedCustomersRaw.content)) {
-      const totalFromPayload = (rangedCustomersRaw as {
-        totalElements?: number;
-      }).totalElements;
-      return typeof totalFromPayload === "number"
-        ? totalFromPayload
-        : rangedCustomersRaw.content.length;
-    }
-    return 0;
-  }, [rangedCustomersRaw]);
+  const totalCustomersInRange = React.useMemo(
+    () => getTotalCustomers(rangedCustomersRaw),
+    [rangedCustomersRaw]
+  );
 
   // Tính breakdown từ ranged customers nếu có dữ liệu chi tiết
-  const rangedCustomersList = React.useMemo<CustomerRecord[]>(() => {
-    if (!rangedCustomersRaw) return [];
-    if (typeof rangedCustomersRaw === "number") return [];
-    if (Array.isArray(rangedCustomersRaw)) return rangedCustomersRaw;
-    if (Array.isArray((rangedCustomersRaw as { content?: CustomerRecord[] }).content)) {
-      return (rangedCustomersRaw as { content: CustomerRecord[] }).content;
-    }
-    return [];
-  }, [rangedCustomersRaw]);
+  const rangedCustomersList = React.useMemo(
+    () => getCustomerList(rangedCustomersRaw),
+    [rangedCustomersRaw]
+  );
 
   // Breakdown từ ranged customers
-  const rangedCustomersBreakdowns = React.useMemo(() => {
-    if (!rangedCustomersList.length) return [];
-
-    const configs: Array<{
-      label: string;
-      keys: string[];
-    }> = [
-      {
-        label: "Theo trạng thái",
-        keys: ["status", "customerStatus", "bookingStatus"],
-      },
-      {
-        label: "Theo loại khách",
-        keys: ["customerType", "type"],
-      },
-      {
-        label: "Theo khu vực",
-        keys: ["region", "regionName", "area"],
-      },
-      {
-        label: "Theo chi nhánh",
-        keys: ["branch", "branchName", "shopName"],
-      },
-    ];
-
-    return configs
-      .map((config) => {
-        const activeKey = config.keys.find((key) =>
-          rangedCustomersList.some(
-            (item) => typeof item[key] === "string" && item[key] !== ""
-          )
-        );
-        if (!activeKey) return null;
-        const counts = rangedCustomersList.reduce<Record<string, number>>(
-          (acc, item) => {
-            const raw = item[activeKey];
-            if (typeof raw !== "string") return acc;
-            const value = raw.trim();
-            if (!value) return acc;
-            acc[value] = (acc[value] || 0) + 1;
-            return acc;
-          },
-          {}
-        );
-        const rows = Object.entries(counts)
-          .sort((a, b) => b[1] - a[1])
-          .map(([label, value]) => ({ label, value }));
-        if (!rows.length) return null;
-        return {
-          label: config.label,
-          key: activeKey,
-          rows,
-        };
-      })
-      .filter(Boolean) as Array<{
-      label: string;
-      key: string;
-      rows: { label: string; value: number }[];
-    }>;
-  }, [rangedCustomersList]);
+  const rangedCustomersBreakdowns = React.useMemo(
+    () => buildCustomerBreakdowns(rangedCustomersList),
+    [rangedCustomersList]
+  );
 
   // Reset data khi thay đổi date range để tránh hiển thị data cũ
   const [currentDateRange, setCurrentDateRange] = useState(
@@ -751,21 +419,6 @@ export default function CustomerReportPage() {
       dataReadyRef.current = false;
     }
   }, [fromDate, toDate, currentDateRange]);
-
-  // Đóng dropdown khi click ra ngoài
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element;
-      if (!target.closest(".booking-completion-status-dropdown")) {
-        setShowBookingCompletionStatusDropdown(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
 
   // Report page load success when data loads
   useEffect(() => {
@@ -869,419 +522,59 @@ export default function CustomerReportPage() {
   }, [hasError, showError, allErrorStates]);
 
   // 3. Số khách tới chia theo loại
-  const customerTypeTrendData = React.useMemo(() => {
-    console.log("🔍 Debug - Processing customerTypeTrendData:", {
-      customerTypeRaw: !!customerTypeRaw,
-      customerTypeRawType: typeof customerTypeRaw,
-      customerTypeRawKeys: customerTypeRaw ? Object.keys(customerTypeRaw) : [],
-      customerTypeRawValue: customerTypeRaw,
-    });
-
-    if (!customerTypeRaw) {
-      console.log(
-        "🔍 Debug - customerTypeRaw is null/undefined, returning empty array"
-      );
-      return [];
-    }
-
-    const allDatesSet = new Set();
-    Object.values(customerTypeRaw).forEach((arr) => {
-      (arr as Array<{ date: string; count: number }>).forEach((item) => {
-        allDatesSet.add(item.date.slice(0, 10));
-      });
-    });
-    const allDates = Array.from(allDatesSet).sort();
-    const allTypes = Object.keys(customerTypeRaw);
-
-    console.log("🔍 Debug - customerTypeTrendData processing:", {
-      allDatesLength: allDates.length,
-      allTypesLength: allTypes.length,
-      allDates: allDates.slice(0, 5),
-      allTypes: allTypes,
-    });
-
-    const result = allDates.map((date) => {
-      const row: Record<string, string | number> = { date: String(date) };
-      allTypes.forEach((type) => {
-        const arr = customerTypeRaw[type] as Array<{
-          date: string;
-          count: number;
-        }>;
-        const found = arr.find((item) => item.date.slice(0, 10) === date);
-        row[type] = found ? found.count : 0;
-      });
-      return row;
-    });
-
-    console.log("🔍 Debug - customerTypeTrendData result:", {
-      resultLength: result.length,
-      resultSample: result.slice(0, 2),
-    });
-
-    return result;
-  }, [customerTypeRaw]);
+  const customerTypeTrendData = React.useMemo(
+    () => buildCustomerTypeTrendData(customerTypeRaw),
+    [customerTypeRaw]
+  );
 
   // 3.1. Số khách cũ chia theo loại
-  const customerOldTypeTrendData = React.useMemo(() => {
-    console.log("🔍 Debug - Processing customerOldTypeTrendData:", {
-      customerOldTypeRaw: !!customerOldTypeRaw,
-      customerOldTypeRawType: typeof customerOldTypeRaw,
-      customerOldTypeRawKeys: customerOldTypeRaw
-        ? Object.keys(customerOldTypeRaw)
-        : [],
-      customerOldTypeRawValue: customerOldTypeRaw,
-    });
-
-    if (!customerOldTypeRaw) {
-      console.log(
-        "🔍 Debug - customerOldTypeRaw is null/undefined, returning empty array"
-      );
-      return [];
-    }
-
-    const current = Array.isArray(customerOldTypeRaw.currentRange)
-      ? customerOldTypeRaw.currentRange
-      : [];
-    const previous = Array.isArray(customerOldTypeRaw.previousRange)
-      ? customerOldTypeRaw.previousRange
-      : [];
-
-    console.log("🔍 Debug - customerOldTypeTrendData processing:", {
-      currentLength: current.length,
-      previousLength: previous.length,
-      currentSample: current.slice(0, 2),
-      previousSample: previous.slice(0, 2),
-    });
-
-    const result = current.map(
-      (item: { date: string; count: number }, idx: number) => ({
-        date: item.date || "",
-        "Khách cũ hiện tại": item.count,
-        "Khách cũ tháng trước": previous[idx]?.count ?? 0,
-      })
-    );
-
-    console.log("🔍 Debug - customerOldTypeTrendData result:", {
-      resultLength: result.length,
-      resultSample: result.slice(0, 2),
-    });
-
-    return result;
-  }, [customerOldTypeRaw]);
+  const customerOldTypeTrendData = React.useMemo(
+    () => buildCustomerOldTypeTrendData(customerOldTypeRaw),
+    [customerOldTypeRaw]
+  );
 
   // 4. Nguồn của đơn hàng - gộp theo yêu cầu
-  const customerSourceTrendData = React.useMemo(() => {
-    console.log("🔍 Debug - Processing customerSourceTrendData:", {
-      customerSourceRaw: !!customerSourceRaw,
-      customerSourceRawType: typeof customerSourceRaw,
-      customerSourceRawKeys: customerSourceRaw
-        ? Object.keys(customerSourceRaw)
-        : [],
-      customerSourceRawValue: customerSourceRaw,
-    });
-
-    if (!customerSourceRaw) {
-      console.log(
-        "🔍 Debug - customerSourceRaw is null/undefined, returning empty array"
-      );
-      return [];
-    }
-
-    const allDatesSet = new Set();
-    Object.values(customerSourceRaw).forEach((arr) => {
-      (arr as Array<{ date: string; count: number }>).forEach((item) => {
-        allDatesSet.add(item.date.slice(0, 10));
-      });
-    });
-    const allDates = Array.from(allDatesSet).sort();
-
-    // Mapping để gộp các nguồn theo yêu cầu - dựa trên dữ liệu API thực tế
-    const sourceMapping: Record<string, string> = {
-      Fanpage: "Fanpage",
-      Facebook: "Fanpage",
-      app: "App",
-      web: "App",
-      Shoppe: "Ecommerce",
-      "TT Shop": "Ecommerce",
-      "Không có": "Vãng lai",
-      "Vãng lai": "Vãng lai",
-    };
-
-    // Tạo map để gộp dữ liệu
-    const groupedData = new Map<string, Record<string, number>>();
-
-    allDates.forEach((date) => {
-      groupedData.set(date as string, {
-        Fanpage: 0,
-        App: 0,
-        Ecommerce: 0,
-        "Vãng lai": 0,
-      });
-    });
-
-    // Gộp dữ liệu theo mapping
-    Object.entries(customerSourceRaw).forEach(([sourceType, data]) => {
-      const mappedType =
-        sourceMapping[sourceType as string] || (sourceType as string);
-      console.log(`🔍 Debug - Mapping: ${sourceType} → ${mappedType}`);
-      (data as Array<{ date: string; count: number }>).forEach((item) => {
-        const date = item.date.slice(0, 10);
-        const existing = groupedData.get(date as string);
-        if (existing && mappedType in existing) {
-          const oldValue = existing[mappedType as keyof typeof existing];
-          existing[mappedType as keyof typeof existing] += item.count;
-          console.log(
-            `🔍 Debug - ${date}: ${sourceType}(${
-              item.count
-            }) → ${mappedType}: ${oldValue} + ${item.count} = ${
-              existing[mappedType as keyof typeof existing]
-            }`
-          );
-        }
-      });
-    });
-
-    console.log("🔍 Debug - customerSourceTrendData processing:", {
-      allDatesLength: allDates.length,
-      groupedDataSize: groupedData.size,
-      sampleGroupedData: Array.from(groupedData.entries()).slice(0, 2),
-    });
-
-    const result = allDates.map((date) => {
-      const data = groupedData.get(date as string) || {
-        Fanpage: 0,
-        App: 0,
-        Ecommerce: 0,
-        "Vãng lai": 0,
-      };
-      return {
-        date: String(date),
-        ...data,
-      };
-    });
-
-    console.log("🔍 Debug - customerSourceTrendData result:", {
-      resultLength: result.length,
-      resultSample: result.slice(0, 2),
-    });
-
-    return result;
-  }, [customerSourceRaw]);
+  const customerSourceTrendData = React.useMemo(
+    () => buildCustomerSourceTrendData(customerSourceRaw),
+    [customerSourceRaw]
+  );
 
   // 5. Khách tải app/không tải
-  const appDownloadStatusData = React.useMemo(() => {
-    console.log("🔍 Debug - Processing appDownloadStatusData:", {
-      appDownloadStatusRaw: !!appDownloadStatusRaw,
-      appDownloadStatusRawType: typeof appDownloadStatusRaw,
-      appDownloadStatusRawKeys: appDownloadStatusRaw
-        ? Object.keys(appDownloadStatusRaw)
-        : [],
-      appDownloadStatusRawValue: appDownloadStatusRaw,
-    });
-
-    if (!appDownloadStatusRaw) {
-      console.log(
-        "🔍 Debug - appDownloadStatusRaw is null/undefined, returning empty array"
-      );
-      return [];
-    }
-
-    const result = Object.values(appDownloadStatusRaw).flat();
-
-    console.log("🔍 Debug - appDownloadStatusData result:", {
-      resultLength: result.length,
-      resultSample: result.slice(0, 2),
-    });
-
-    return result;
-  }, [appDownloadStatusRaw]);
+  const appDownloadStatusData = React.useMemo(
+    () => buildAppDownloadStatusData(appDownloadStatusRaw),
+    [appDownloadStatusRaw]
+  );
 
   // 6. Tỷ lệ tải app
-  const appDownloadPieData = React.useMemo(() => {
-    console.log("🔍 Debug - Processing appDownloadPieData:", {
-      appDownloadRaw: !!appDownloadRaw,
-      appDownloadRawType: typeof appDownloadRaw,
-      appDownloadRawKeys: appDownloadRaw ? Object.keys(appDownloadRaw) : [],
-      appDownloadRawValue: appDownloadRaw,
-    });
-
-    if (!appDownloadRaw) {
-      console.log(
-        "🔍 Debug - appDownloadRaw is null/undefined, returning empty array"
-      );
-      return [];
-    }
-
-    const result = [
-      { name: "Đã tải app", value: appDownloadRaw.totalNew || 0 },
-      { name: "Chưa tải app", value: appDownloadRaw.totalOld || 0 },
-    ];
-
-    console.log("🔍 Debug - appDownloadPieData result:", {
-      resultLength: result.length,
-      result,
-    });
-
-    return result;
-  }, [appDownloadRaw]);
+  const appDownloadPieData = React.useMemo(
+    () => buildAppDownloadPieData(appDownloadRaw),
+    [appDownloadRaw]
+  );
 
   const windowWidth = useWindowWidth();
   const isMobile = windowWidth < 640;
 
-  const allHourRanges = React.useMemo(() => {
-    console.log("🔍 Debug - Processing allHourRanges:", {
-      facilityHourServiceRaw: !!facilityHourServiceRaw,
-      facilityHourServiceRawType: typeof facilityHourServiceRaw,
-      facilityHourServiceRawLength: facilityHourServiceRaw
-        ? facilityHourServiceRaw.length
-        : 0,
-      facilityHourServiceRawValue: facilityHourServiceRaw,
-    });
-
-    if (!facilityHourServiceRaw) {
-      console.log(
-        "🔍 Debug - facilityHourServiceRaw is null/undefined, returning empty array"
-      );
-      return [];
-    }
-
-    const set = new Set<string>();
-    facilityHourServiceRaw.forEach((item) => {
-      Object.keys(item.hourlyCounts).forEach((hour) => set.add(hour));
-    });
-
-    const result = Array.from(set).sort((a, b) => {
-      const getStart = (s: string) => parseInt(s.split("-")[0], 10);
-      return getStart(a) - getStart(b);
-    });
-
-    console.log("🔍 Debug - allHourRanges result:", {
-      resultLength: result.length,
-      resultSample: result.slice(0, 5),
-    });
-
-    return result;
-  }, [facilityHourServiceRaw]);
+  const allHourRanges = React.useMemo(
+    () => buildAllHourRanges(facilityHourServiceRaw),
+    [facilityHourServiceRaw]
+  );
 
   // Hour ranges cho bảng "Thời gian đơn hàng hoàn thành"
-  const bookingHourRanges = React.useMemo(() => {
-    console.log(
-      "🔍 Debug - bookingHourRanges - bookingCompletionRaw:",
-      bookingCompletionRaw
-    );
-    if (!bookingCompletionRaw) {
-      console.log(
-        "🔍 Debug - bookingCompletionRaw is null/undefined for hour ranges"
-      );
-      return [] as string[];
-    }
-    const set = new Set<string>();
-    bookingCompletionRaw.forEach((item) => {
-      Object.keys(item.hourlyCounts).forEach((hour) => set.add(hour));
-    });
-    const ranges = Array.from(set).sort((a, b) => {
-      const getStart = (s: string) => parseInt(s.split("-")[0], 10);
-      return getStart(a) - getStart(b);
-    });
-    console.log("🔍 Debug - bookingHourRanges result:", ranges);
-    return ranges;
-  }, [bookingCompletionRaw]);
+  const bookingHourRanges = React.useMemo(
+    () => buildAllHourRanges(bookingCompletionRaw),
+    [bookingCompletionRaw]
+  );
 
-  const facilityHourTableData = React.useMemo(() => {
-    if (!facilityHourServiceRaw) return [];
-    const data = facilityHourServiceRaw.map(
-      (item) =>
-        ({
-          facility: item.facility,
-          ...item.hourlyCounts,
-          total: item.total,
-        } as {
-          facility: string;
-          total: number;
-          [key: string]: number | string;
-        })
-    );
-
-    return data.sort((a, b) => (b.total as number) - (a.total as number));
-  }, [facilityHourServiceRaw]);
+  const facilityHourTableData = React.useMemo(
+    () => buildFacilityHourTableData(facilityHourServiceRaw),
+    [facilityHourServiceRaw]
+  );
 
   // Dữ liệu bảng "Thời gian đơn hàng hoàn thành"
-  const bookingCompletionTableData = React.useMemo<
-    { facility: string; total: number; [key: string]: number | string }[]
-  >(() => {
-    console.log(
-      "🔍 Debug - bookingCompletionTableData - bookingCompletionRaw:",
-      bookingCompletionRaw
-    );
-    if (!bookingCompletionRaw) {
-      console.log("🔍 Debug - bookingCompletionRaw is null/undefined");
-      return [];
-    }
-    const data = bookingCompletionRaw.map((item) => ({
-      facility: item.facility,
-      ...item.hourlyCounts,
-      total: item.total,
-    }));
-    console.log("🔍 Debug - bookingCompletionTableData result:", data);
-    return data.sort(
-      (a, b) => (Number(b.total) as number) - (Number(a.total) as number)
-    );
-  }, [bookingCompletionRaw]);
-
-  // Debug log sau khi tất cả biến được khai báo
-  console.log("🔍 Debug - All variables after declaration:", {
-    selectedStatus,
-    bookingCompletionStatus,
-    fromDate,
-    toDate,
-    status: bookingCompletionStatus || "Khách đến",
-    bookingCompletionLoading,
-    bookingCompletionError,
-    hasBookingData: !!bookingCompletionRaw,
-    bookingCompletionRawType: typeof bookingCompletionRaw,
-    isArray: Array.isArray(bookingCompletionRaw),
-    bookingCompletionRawLength: Array.isArray(bookingCompletionRaw)
-      ? bookingCompletionRaw.length
-      : "not array",
-    bookingCompletionRawPreview: Array.isArray(bookingCompletionRaw)
-      ? bookingCompletionRaw.slice(0, 2)
-      : bookingCompletionRaw,
-    bookingCompletionTableDataLength: bookingCompletionTableData.length,
-    bookingHourRangesLength: bookingHourRanges.length,
-    renderCount: Date.now(),
-    extraBody: bookingCompletionExtraBody,
-    isStable:
-      !bookingCompletionLoading &&
-      !bookingCompletionError &&
-      !!bookingCompletionRaw,
-    shouldShowData:
-      !bookingCompletionLoading &&
-      !bookingCompletionError &&
-      bookingCompletionTableData.length > 0 &&
-      bookingHourRanges.length > 0,
-    componentState: bookingCompletionLoading
-      ? "loading"
-      : bookingCompletionError
-      ? "error"
-      : bookingCompletionTableData.length > 0
-      ? "data"
-      : "empty",
-    rateLimitInfo: "10 requests per 1 second",
-    delay: 1000,
-    memoized: true,
-    optimization: "reduced re-renders",
-    flickering: bookingCompletionLoading ? "yes - loading" : "no - stable",
-    solution: "memoized extraBody + increased rate limit + reduced delay",
-    expectedResult: "stable display without flickering",
-    fixStatus: "FIXED - should work now",
-    summary: "Fixed flickering by optimizing API calls and reducing re-renders",
-    finalNote: "Component should now display data stably without flickering",
-    timestamp: new Date().toISOString(),
-    version: "1.0.0",
-    author: "AI Assistant",
-    hasBookingCompletionFilter: true,
-    filterStatus: bookingCompletionStatus,
-  });
+  const bookingCompletionTableData = React.useMemo(
+    () => buildBookingCompletionTableData(bookingCompletionRaw),
+    [bookingCompletionRaw]
+  );
 
   const customerTypeKeys = useMemo(
     () =>
@@ -1311,30 +604,10 @@ export default function CustomerReportPage() {
     []
   );
 
-  const sortedAppDownloadStatusData = React.useMemo<
-    Record<string, string | number>[]
-  >(() => {
-    if (!appDownloadStatusData) return [];
-    const toPlain = (
-      obj: Record<string, unknown>
-    ): Record<string, string | number> => {
-      const out: Record<string, string | number> = {};
-      for (const [k, v] of Object.entries(obj)) {
-        if (typeof v === "string" || typeof v === "number") out[k] = v;
-      }
-      return out;
-    };
-    const getDate = (d: Record<string, string | number>) => {
-      const s = String(d.date ?? "");
-      const m1 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (m1) return new Date(`${m1[1]}-${m1[2]}-${m1[3]}`).getTime();
-      const m2 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-      if (m2) return new Date(`${m2[3]}-${m2[2]}-${m2[1]}`).getTime();
-      return s ? new Date(s).getTime() : 0;
-    };
-    const normalized = appDownloadStatusData.map(toPlain);
-    return normalized.sort((a, b) => getDate(a) - getDate(b));
-  }, [appDownloadStatusData]);
+  const sortedAppDownloadStatusData = React.useMemo(
+    () => buildSortedAppDownloadStatusData(appDownloadStatusData),
+    [appDownloadStatusData]
+  );
 
   // Hiển thị loading nếu chưa load xong localStorage - đơn giản như trang service
   if (!isAllLoaded) {
@@ -1387,192 +660,45 @@ export default function CustomerReportPage() {
             </button>
           </div>
 
-          {/* Accordion Card tổng số khách */}
-          <Suspense
-            fallback={
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden p-6">
-                <div className="text-center">
-                  <div className="text-lg text-gray-700 mb-2">
-                    Tổng số lượt khách sử dụng dịch vụ
-                  </div>
-                  <div className="text-3xl font-bold text-gray-400">
-                    Đang tải dữ liệu...
-                  </div>
-                </div>
-              </div>
-            }
-          >
-            <CustomerAccordionCard
-              key={`${fromDate}-${toDate}-${Date.now()}`}
-              mainValue={
-                uniqueCustomersComparisonRaw?.currentTotal?.toLocaleString() ??
-                "Chưa có dữ liệu"
-              }
-              mainLabel="Tổng số lượt khách sử dụng dịch vụ trong khoảng ngày đã chọn"
-              mainPercentChange={
-                uniqueCustomersComparisonRaw?.changePercentTotal
-              }
-              // maleValue={uniqueCustomersComparisonRaw?.currentMale}
-              // malePercentChange={
-              //   uniqueCustomersComparisonRaw?.changePercentMale
-              // }
-              // femaleValue={uniqueCustomersComparisonRaw?.currentFemale}
-              // femalePercentChange={
-              //   uniqueCustomersComparisonRaw?.changePercentFemale
-              // }
-              // avgRevenueMale={genderRevenueRaw?.avgActualRevenueMale}
-              // avgServiceMale={genderRevenueRaw?.avgFoxieRevenueMale}
-              // avgRevenueFemale={genderRevenueRaw?.avgActualRevenueFemale}
-              // avgServiceFemale={genderRevenueRaw?.avgFoxieRevenueFemale}
-              loading={uniqueCustomersLoading}
-              error={uniqueCustomersError}
-            />
-          </Suspense>
-
-          {/* Bảng tổng hợp khách mới/cũ: tổng số và thực đi */}
-          <div className="mt-5">
-            <CustomerNewOldSummaryTable
-              data-search-ref="customers_summary"
-              data={customerSummaryRaw}
-              loading={customerSummaryLoading}
-              error={customerSummaryError}
-            />
-          </div>
-
-          {/* Tổng khách trong khoảng ngày - Area Chart */}
-          <CustomerRangeTrendChart
+          <CustomerSummarySection
             fromDate={fromDate}
             toDate={toDate}
+            uniqueCustomersComparisonRaw={uniqueCustomersComparisonRaw}
+            uniqueCustomersLoading={uniqueCustomersLoading}
+            uniqueCustomersError={uniqueCustomersError}
+            customerSummaryRaw={customerSummaryRaw}
+            customerSummaryLoading={customerSummaryLoading}
+            customerSummaryError={customerSummaryError}
             totalCustomersInRange={totalCustomersInRange}
             totalExistingCustomers={totalExistingCustomers}
-            loading={rangedCustomersLoading}
-            error={rangedCustomersError}
+            rangedCustomersLoading={rangedCustomersLoading}
+            rangedCustomersError={rangedCustomersError}
+            rangedCustomersBreakdowns={rangedCustomersBreakdowns}
           />
 
-          {/* Phân tích đa chiều khách trong khoảng ngày */}
-          {rangedCustomersBreakdowns.length > 0 && (
-            <CustomerBreakdownAnalysisChart
-              breakdowns={rangedCustomersBreakdowns}
-              totalCustomers={totalCustomersInRange}
-              loading={rangedCustomersLoading}
-              error={rangedCustomersError}
-            />
-          )}
-
-          {/* Tổng số khách tồn tại */}
-          
-
-          {/* Khách cũ */}
-          <CustomerOldTypeTrendChart
-            data-search-ref="customers_old_trend"
+          <CustomerTrendsSection
             isMobile={isMobile}
-            customerTypeTrendData={customerOldTypeTrendData}
-            customerTypeKeys={["Khách cũ hiện tại", "Khách cũ tháng trước"]}
             COLORS={COLORS}
-          />
-
-          {/* Tổng số khách mới */}
-          <CustomerNewChart
-            data-search-ref="customers_new_chart"
-            loadingCustomerSummary={customerSummaryLoading}
-            errorCustomerSummary={customerSummaryError}
             customerSummaryRaw={customerSummaryRaw}
-          />
-
-          {/* Tổng số khách cũ */}
-          <div className="mt-5">
-            {(() => {
-              console.log("🔍 Debug - CustomerOldStatCard props:", {
-                data: !!customerOldTypeRaw,
-                loading: customerOldTypeLoading,
-                error: customerOldTypeError,
-                dataKeys: customerOldTypeRaw
-                  ? Object.keys(customerOldTypeRaw)
-                  : [],
-              });
-
-              if (customerOldTypeLoading) {
-                return (
-                  <div className="bg-white rounded-xl shadow p-6">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                      <p className="mt-2 text-gray-600">
-                        Đang tải dữ liệu khách cũ...
-                      </p>
-                    </div>
-                  </div>
-                );
-              }
-
-              if (customerOldTypeError) {
-                return (
-                  <div className="bg-white rounded-xl shadow p-6">
-                    <div className="text-center text-red-500">
-                      <p>Lỗi tải dữ liệu khách cũ: {customerOldTypeError}</p>
-                    </div>
-                  </div>
-                );
-              }
-
-              if (!customerOldTypeRaw) {
-                return (
-                  <div className="bg-white rounded-xl shadow p-6">
-                    <div className="text-center text-gray-500">
-                      <p>Chưa có dữ liệu khách cũ</p>
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <CustomerOldStatCard
-                  data-search-ref="customers_old_stat"
-                  data={customerOldTypeRaw}
-                  loading={customerOldTypeLoading}
-                  error={customerOldTypeError}
-                />
-              );
-            })()}
-          </div>
-
-          {/* Số khách tới chia theo phân loại */}
-          <CustomerTypeTrendChart
-            data-search-ref="customers_type_trend"
-            isMobile={isMobile}
+            customerSummaryLoading={customerSummaryLoading}
+            customerSummaryError={customerSummaryError}
+            customerOldTypeRaw={customerOldTypeRaw}
+            customerOldTypeLoading={customerOldTypeLoading}
+            customerOldTypeError={customerOldTypeError}
+            customerOldTypeTrendData={customerOldTypeTrendData}
             customerTypeTrendData={customerTypeTrendData}
             customerTypeKeys={customerTypeKeys}
-            COLORS={COLORS}
-          />
-
-          {/* Nguồn của đơn hàng */}
-          <CustomerSourceBarChart
-            data-search-ref="customers_source_bar"
-            isMobile={isMobile}
             customerSourceTrendData={customerSourceTrendData}
             customerSourceKeys={customerSourceKeys}
-            COLORS={COLORS}
-          />
-
-          {/* Tỉ lệ khách hàng tải app và tỉ lệ khách mới/cũ*/}
-          <CustomerAppDownloadPieChart
-            data-search-ref="customers_app_pie"
-            loadingAppDownload={appDownloadLoading}
-            errorAppDownload={appDownloadError}
+            appDownloadLoading={appDownloadLoading}
+            appDownloadError={appDownloadError}
             appDownloadPieData={appDownloadPieData}
-          />
-
-          {/* Khách hàng tải app */}
-          <CustomerAppDownloadBarChart
-            data-search-ref="customers_app_bar"
-            isMobile={isMobile}
-            loading={appDownloadStatusLoading}
-            error={appDownloadStatusError}
+            appDownloadStatusLoading={appDownloadStatusLoading}
+            appDownloadStatusError={appDownloadStatusError}
             sortedAppDownloadStatusData={sortedAppDownloadStatusData}
           />
 
-          {/* Thời gian đơn hàng được tạo */}
-          <CustomerFacilityHourTable
-            data-search-ref="customers_facility_hour"
+          <CustomerFacilitySection
             allHourRanges={allHourRanges}
             facilityHourTableData={facilityHourTableData}
             getCellBg={getCellBg}
@@ -1581,71 +707,20 @@ export default function CustomerReportPage() {
             errorFacilityHour={facilityHourServiceError}
           />
 
-          {/* Thời gian đơn hàng hoàn thành */}
-          <div className="mt-5">
-            {/* Filter cho bảng "thời gian đơn hàng hoàn thành" */}
-            <div className="mb-4 flex flex-wrap gap-2 items-center">
-              <span className="text-sm font-medium text-gray-700">
-                Trạng thái đơn hàng:
-              </span>
-              <div
-                className="relative booking-completion-status-dropdown"
-                ref={dropdownRef}
-                style={{ zIndex: 99999 }}
-              >
-                <button
-                  onClick={() =>
-                    setShowBookingCompletionStatusDropdown(
-                      !showBookingCompletionStatusDropdown
-                    )
-                  }
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {bookingCompletionStatus || "Khách đến"} ▼
-                </button>
-                {showBookingCompletionStatusDropdown && (
-                  <div
-                    className="dropdown-menu w-48 bg-white border border-gray-300 rounded-md shadow-lg"
-                    style={getDropdownStyle()}
-                  >
-                    {[
-                      "Khách đến",
-                      "Khách không đến",
-                      "Đã xác nhận",
-                      "Từ chối đặt lịch",
-                      "Chưa xác nhận",
-                    ].map((status) => (
-                      <button
-                        key={status}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setBookingCompletionStatus(status);
-                          setShowBookingCompletionStatusDropdown(false);
-                        }}
-                        className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                          bookingCompletionStatus === status
-                            ? "bg-blue-50 text-blue-700"
-                            : "text-gray-700"
-                        }`}
-                      >
-                        {status}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <CustomerFacilityBookingTable
-              data-search-ref="customers_booking_hour"
-              allHourRanges={bookingHourRanges}
-              facilityHourTableData={bookingCompletionTableData}
-              getCellBg={getCellBg}
-              isMobile={isMobile}
-              loadingFacilityHour={bookingCompletionLoading}
-              errorFacilityHour={bookingCompletionError}
-            />
-          </div>
+          <CustomerBookingCompletionSection
+            bookingCompletionStatus={bookingCompletionStatus}
+            setBookingCompletionStatus={setBookingCompletionStatus}
+            showDropdown={showBookingCompletionStatusDropdown}
+            setShowDropdown={setShowBookingCompletionStatusDropdown}
+            dropdownRef={dropdownRef}
+            getDropdownStyle={getDropdownStyle}
+            bookingHourRanges={bookingHourRanges}
+            bookingCompletionTableData={bookingCompletionTableData}
+            getCellBg={getCellBg}
+            isMobile={isMobile}
+            loadingFacilityHour={bookingCompletionLoading}
+            errorFacilityHour={bookingCompletionError}
+          />
         </div>
       </div>
       {renderRetryButton()}

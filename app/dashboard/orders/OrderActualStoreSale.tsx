@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 
-interface StoreTableRow {
+export interface StoreTableRow {
   location: string;
   revenue: number;
   revenueDelta: number | null;

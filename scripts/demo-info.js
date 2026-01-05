@@ -17,9 +17,9 @@ console.log(chalk.green('   npm run start  ') + chalk.white('- Start production 
 console.log(chalk.green('   npm run lint   ') + chalk.white('- Run ESLint'));
 
 console.log(chalk.yellow('\n📂 Project Structure:'));
-console.log(chalk.white('   /src/app/        - Pages (Dashboard, Analytics, Calendar, etc.)'));
-console.log(chalk.white('   /src/components/ - Reusable UI components'));
-console.log(chalk.white('   /src/lib/        - Utilities and helpers'));
+console.log(chalk.white('   /app/            - Pages (Dashboard, Analytics, Calendar, etc.)'));
+console.log(chalk.white('   /app/components/ - Reusable UI components'));
+console.log(chalk.white('   /app/lib/        - Utilities and helpers'));
 
 console.log(chalk.yellow('\n🎯 Features:'));
 console.log(chalk.white('   ✅ Dashboard with analytics'));

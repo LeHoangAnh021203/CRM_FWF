@@ -9,6 +9,7 @@ import { TabsContent } from "@/app/components/ui/tabs";
 import { Progress } from "@/app/components/ui/progress";
 import { SkinInsights } from "@/app/lib/skin-insights";
 import { BarChart3, Droplets } from "lucide-react";
+import { SeverityPie3DChart } from "./SeverityPie3DChart";
 
 type SeverityKey = "acne" | "pore" | "spot" | "wrinkle";
 
@@ -84,7 +85,7 @@ export function SpecialSkin({
     <TabsContent value="conditions" className="space-y-6 pt-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-orange-500">
             Nhóm vấn đề da nổi bật
           </h2>
           <p className="text-sm text-gray-500">
@@ -131,15 +132,17 @@ export function SpecialSkin({
             className="border-orange-100 shadow-sm"
           >
             <CardHeader>
-              <CardTitle className="text-sm uppercase tracking-[0.2em] text-orange-500">
+              <CardTitle className="text-sm uppercase text-orange-500">
                 {titleMap[summary.key]}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-3">
-              <SeverityDonut
-                high={summary.high}
-                medium={summary.medium}
-                low={summary.low}
+              <SeverityPie3DChart
+                segments={[
+                  { label: "Độ 4-5", value: summary.high, color: "#fb923c" },
+                  { label: "Độ 3", value: summary.medium, color: "#ffd84d" },
+                  { label: "Độ 1-2", value: summary.low, color: "#32d5ff" },
+                ]}
               />
               <div className="text-xs text-gray-500 space-y-1 w-full">
                 <div className="flex justify-between">
@@ -192,7 +195,7 @@ export function SpecialSkin({
 
       <Card className="border-gray-100 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-sm uppercase tracking-[0.2em] text-orange-500">
+          <CardTitle className="text-sm uppercase text-orange-500">
             Xu hướng điểm trung bình
           </CardTitle>
           <p className="text-xs text-gray-500">
@@ -213,61 +216,6 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
       <span>{label}</span>
       <span>{value}</span>
     </div>
-  );
-}
-
-function SeverityDonut({
-  high,
-  medium,
-  low,
-}: {
-  high: number;
-  medium: number;
-  low: number;
-}) {
-  const radius = 50;
-  const center = 60;
-  const circumference = 2 * Math.PI * radius;
-  const segments = [
-    { value: high, color: "#fb923c" }, // orange
-    { value: medium, color: "#ffd84d" }, // yellow
-    { value: low, color: "#32d5ff" }, // cyan
-  ].filter((segment) => segment.value > 0.001);
-
-  let offset = 0;
-  const startOffset = circumference * 0.25;
-
-  return (
-    <svg viewBox="0 0 120 120" className="h-32 w-32">
-      <circle
-        cx={center}
-        cy={center}
-        r={radius}
-        stroke="#f1f5f9"
-        strokeWidth={12}
-        fill="none"
-      />
-      {segments.map((segment, index) => {
-        const length = (segment.value / 100) * circumference;
-        const dashArray = `${length} ${circumference}`;
-        const dashOffset = startOffset + offset;
-        offset += length;
-        return (
-          <circle
-            key={`${segment.color}-${index}`}
-            cx={center}
-            cy={center}
-            r={radius}
-            stroke={segment.color}
-            strokeWidth={12}
-            fill="none"
-            strokeDasharray={dashArray}
-            strokeDashoffset={dashOffset}
-            strokeLinecap="round"
-          />
-        );
-      })}
-    </svg>
   );
 }
 

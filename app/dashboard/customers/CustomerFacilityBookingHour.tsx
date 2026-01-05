@@ -1,6 +1,6 @@
 import React from "react";
 
-interface FacilityHourRow {
+export interface FacilityHourRow {
   facility: string;
   total: number;
   [key: string]: string | number;

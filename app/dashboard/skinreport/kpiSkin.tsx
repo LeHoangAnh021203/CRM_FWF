@@ -9,6 +9,8 @@ import { TabsContent } from "@/app/components/ui/tabs";
 import { Progress } from "@/app/components/ui/progress";
 import { GoodsInsight, SkinInsights } from "@/app/lib/skin-insights";
 import { PackageSearch } from "lucide-react";
+import productsData from "@/data/products.json";
+import Image from "next/image";
 
 interface KpiSkinProps {
   insights: SkinInsights;
@@ -20,6 +22,30 @@ interface KpiSkinProps {
     evidence: string;
   }>;
 }
+
+type ProductCatalogEntry = {
+  id: string;
+  image?: string;
+  name?: string;
+};
+
+const productCatalog = new Map(
+  (productsData as ProductCatalogEntry[]).map((item) => [item.id, item])
+);
+
+const getProductInitial = (label: string) => {
+  const trimmed = label.trim();
+  if (!trimmed) return "P";
+  return trimmed[0]?.toUpperCase() ?? "P";
+};
+
+const buildProductImageSrc = (label: string) => {
+  const product = productCatalog.get(label);
+  if (product?.image) return product.image;
+  const initial = getProductInitial(product?.name ?? label);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#f66035"/><stop offset="1" stop-color="#ffb199"/></linearGradient></defs><rect width="64" height="64" rx="12" fill="url(#g)"/><text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" font-family="Arial, sans-serif" font-size="24" fill="#fff">${initial}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+};
 
 export function KpiSkin({
   insights,
@@ -34,7 +60,7 @@ export function KpiSkin({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PackageSearch className="h-4 w-4 text-[#f66035]" />
-              Goods đa nhiệm (theo module)
+              Sản phẩm đa nhiệm (theo vấn đề)
             </CardTitle>
             <p className="text-xs text-gray-500">
               Ưu tiên ID xuất hiện ở nhiều nhóm vấn đề
@@ -49,23 +75,42 @@ export function KpiSkin({
               <table className="w-full text-sm text-left">
                 <thead>
                   <tr className="text-gray-500">
-                    <th className="py-1">Goods ID</th>
+                    <th className="py-1">Sản phẩm</th>
                     <th className="py-1">Xuất hiện</th>
-                    <th className="py-1">Module</th>
+                    <th className="py-1">Vấn đề</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {topMultiUseGoods.map((item) => (
-                    <tr key={item.label} className="border-t text-gray-700">
-                      <td className="py-1 font-semibold">{item.label}</td>
-                      <td className="py-1">
-                        {item.count} lần ({formatPercent(item.percent)})
-                      </td>
-                      <td className="py-1 text-xs text-gray-500">
-                        {item.modules.join(", ")}
-                      </td>
-                    </tr>
-                  ))}
+                  {topMultiUseGoods.map((item) => {
+                    const product = productCatalog.get(item.label);
+                    const productName = product?.name ?? item.label;
+                    return (
+                      <tr key={item.label} className="border-t text-gray-700">
+                        <td className="py-2">
+                          <div className="flex items-center gap-3">
+                            <Image
+                              src={buildProductImageSrc(item.label)}
+                              alt={productName}
+                              className="h-9 w-9 rounded-lg border border-gray-200 object-cover"
+                              width={36}
+                              height={36}
+                              loading="lazy"
+                              unoptimized
+                            />
+                            <span className="font-semibold text-gray-900">
+                              {productName}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-1">
+                          {item.count} lần ({formatPercent(item.percent)})
+                        </td>
+                        <td className="py-1 text-xs text-gray-500">
+                          {item.modules.join(", ")}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -73,31 +118,44 @@ export function KpiSkin({
         </Card>
         <Card className="border-gray-100 shadow-sm">
           <CardHeader>
-            <CardTitle>Top goods tổng hợp</CardTitle>
+            <CardTitle>Top sản phẩm tổng hợp</CardTitle>
             <p className="text-xs text-gray-500">
-              Theo final_result (gợi ý cuối cùng từ AI)
+              Theo danh sách tổng hợp từ hệ thống
             </p>
           </CardHeader>
           <CardContent>
             <ol className="space-y-2 text-sm text-gray-700">
-              {insights.topGoods.map((item, index) => (
-                <li
-                  key={item.label}
-                  className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-semibold text-gray-500">
-                      #{index + 1}
+              {insights.topGoods.map((item, index) => {
+                const product = productCatalog.get(item.label);
+                const productName = product?.name ?? item.label;
+                return (
+                  <li
+                    key={item.label}
+                    className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Image
+                        src={buildProductImageSrc(item.label)}
+                        alt={productName}
+                        className="h-9 w-9 rounded-lg border border-gray-200 object-cover"
+                        width={36}
+                        height={36}
+                        loading="lazy"
+                        unoptimized
+                      />
+                      <span className="text-xs font-semibold text-gray-500">
+                        #{index + 1}
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        {productName}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {item.count} lần
                     </span>
-                    <span className="font-medium text-gray-900">
-                      {item.label}
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-500">
-                    {item.count} lần
-                  </span>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ol>
           </CardContent>
         </Card>

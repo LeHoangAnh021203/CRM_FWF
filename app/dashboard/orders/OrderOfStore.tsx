@@ -1,35 +1,9 @@
 "use client";
 import React, { useState, useMemo } from "react";
-
-interface StoreOrderTableData {
-  location: string;
-  totalOrders: number;
-  totalOrdersDelta: number | null;
-  cardOrders: number;
-  cardOrdersDelta: number | null;
-  retailOrders: number;
-  retailOrdersDelta: number | null;
-  foxieOrders: number;
-  foxieOrdersDelta: number | null;
-  comboOrders: number;
-  comboOrdersDelta: number | null;
-}
-
-interface TotalOrderSumAll {
-  totalOrders: number;
-  totalOrdersDelta: number;
-  cardOrders: number;
-  cardOrdersDelta: number;
-  retailOrders: number;
-  retailOrdersDelta: number;
-  foxieOrders: number;
-  foxieOrdersDelta: number;
-  comboOrders: number;
-  comboOrdersDelta: number;
-}
+import type { StoreOrderTableRow, TotalOrderSumAll } from "./types";
 
 interface OrderOfStoreProps {
-  storeOrderTableData: StoreOrderTableData[];
+  storeOrderTableData: StoreOrderTableRow[];
   totalOrderSumAll: TotalOrderSumAll;
 }
 
@@ -140,7 +114,7 @@ export default function OrderOfStore({
               </tr>
             </thead>
             <tbody>
-              {storeOrderTableData.map((row: StoreOrderTableData, idx: number) => (
+              {storeOrderTableData.map((row: StoreOrderTableRow, idx: number) => (
                 <tr key={row.location}>
                   <td className="px-3 py-2 text-left">{idx + 1}</td>
                   <td className="px-3 py-2 text-left">{row.location}</td>
@@ -252,7 +226,7 @@ export default function OrderOfStore({
             </tr>
           </thead>
           <tbody>
-            {sortedData.map((row: StoreOrderTableData, idx: number) => (
+            {sortedData.map((row: StoreOrderTableRow, idx: number) => (
               <tr key={row.location} className="hover:bg-gray-50">
                 <td className="px-3 py-2 text-left">{idx + 1}</td>
                 <td className="px-3 py-2 text-left">{row.location}</td>

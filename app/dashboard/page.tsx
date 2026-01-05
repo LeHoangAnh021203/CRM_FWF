@@ -9,6 +9,7 @@ import { useDateRange } from "@/app/contexts/DateContext";
 import { useBranchFilter } from "@/app/contexts/BranchContext";
 import { getActualStockIds, parseNumericValue } from "@/app/constants/branches";
 import { ApiService } from "@/app/lib/api-service";
+import { toDdMmYyyy, toIsoYyyyMmDd } from "@/app/lib/date";
 
 import { QuickActions } from "@/app/components/quick-actions";
 import { DollarSign } from "lucide-react";
@@ -32,325 +33,6 @@ interface PaymentMethod {
   percentage: number;
   transactions: number;
 }
-
-// Real data only: no mock datasets for dashboard
-
-/* const revenueRankingData = [
-  {
-    rank: 1,
-    name: "Chi nhánh Quận 1",
-    revenue: 45000000,
-    growth: 15,
-    type: "top",
-  },
-  {
-    rank: 2,
-    name: "Chi nhánh Quận 3",
-    revenue: 38000000,
-    growth: 12,
-    type: "top",
-  },
-  {
-    rank: 3,
-    name: "Chi nhánh Quận 7",
-    revenue: 32000000,
-    growth: 8,
-    type: "top",
-  },
-  {
-    rank: 4,
-    name: "Chi nhánh Thủ Đức",
-    revenue: 28000000,
-    growth: 6,
-    type: "top",
-  },
-  {
-    rank: 5,
-    name: "Chi nhánh Quận 2",
-    revenue: 25000000,
-    growth: 4,
-    type: "top",
-  },
-  {
-    rank: 6,
-    name: "Chi nhánh Quận 5",
-    revenue: 22000000,
-    growth: 2,
-    type: "top",
-  },
-  {
-    rank: 7,
-    name: "Chi nhánh Quận 8",
-    revenue: 18000000,
-    growth: -1,
-    type: "top",
-  },
-  {
-    rank: 8,
-    name: "Chi nhánh Quận 9",
-    revenue: 15000000,
-    growth: -3,
-    type: "top",
-  },
-  {
-    rank: 9,
-    name: "Chi nhánh Quận 6",
-    revenue: 12000000,
-    growth: -5,
-    type: "top",
-  },
-  {
-    rank: 10,
-    name: "Chi nhánh Quận 4",
-    revenue: 8000000,
-    growth: -8,
-    type: "top",
-  },
-  {
-    rank: 11,
-    name: "Chi nhánh Bình Thạnh",
-    revenue: 6000000,
-    growth: -12,
-    type: "bottom",
-  },
-  {
-    rank: 12,
-    name: "Chi nhánh Tân Bình",
-    revenue: 4500000,
-    growth: -15,
-    type: "bottom",
-  },
-  {
-    rank: 13,
-    name: "Chi nhánh Gò Vấp",
-    revenue: 3200000,
-    growth: -18,
-    type: "bottom",
-  },
-  {
-    rank: 14,
-    name: "Chi nhánh Phú Nhuận",
-    revenue: 2800000,
-    growth: -22,
-    type: "bottom",
-  },
-  {
-    rank: 15,
-    name: "Chi nhánh Tân Phú",
-    revenue: 2200000,
-    growth: -25,
-    type: "bottom",
-  },
-  {
-    rank: 16,
-    name: "Chi nhánh Bình Tân",
-    revenue: 1800000,
-    growth: -28,
-    type: "bottom",
-  },
-  {
-    rank: 17,
-    name: "Chi nhánh Quận 11",
-    revenue: 1500000,
-    growth: -32,
-    type: "bottom",
-  },
-  {
-    rank: 18,
-    name: "Chi nhánh Quận 12",
-    revenue: 1200000,
-    growth: -35,
-    type: "bottom",
-  },
-  {
-    rank: 19,
-    name: "Chi nhánh Hóc Môn",
-    revenue: 800000,
-    growth: -40,
-    type: "bottom",
-  },
-  {
-    rank: 20,
-    name: "Chi nhánh Củ Chi",
-    revenue: 500000,
-    growth: -45,
-    type: "bottom",
-  },
-]; */
-
-/* const foxieRankingData = [
-  {
-    rank: 1,
-    name: "Chi nhánh Quận 1",
-    revenue: 45000000,
-    growth: 15,
-    type: "top",
-  },
-  {
-    rank: 2,
-    name: "Chi nhánh Quận 3",
-    revenue: 38000000,
-    growth: 12,
-    type: "top",
-  },
-  {
-    rank: 3,
-    name: "Chi nhánh Quận 7",
-    revenue: 32000000,
-    growth: 8,
-    type: "top",
-  },
-  {
-    rank: 4,
-    name: "Chi nhánh Thủ Đức",
-    revenue: 28000000,
-    growth: 6,
-    type: "top",
-  },
-  {
-    rank: 5,
-    name: "Chi nhánh Quận 2",
-    revenue: 25000000,
-    growth: 4,
-    type: "top",
-  },
-  {
-    rank: 6,
-    name: "Chi nhánh Quận 5",
-    revenue: 22000000,
-    growth: 2,
-    type: "top",
-  },
-  {
-    rank: 7,
-    name: "Chi nhánh Quận 8",
-    revenue: 18000000,
-    growth: -1,
-    type: "top",
-  },
-  {
-    rank: 8,
-    name: "Chi nhánh Quận 9",
-    revenue: 15000000,
-    growth: -3,
-    type: "top",
-  },
-  {
-    rank: 9,
-    name: "Chi nhánh Quận 6",
-    revenue: 12000000,
-    growth: -5,
-    type: "top",
-  },
-  {
-    rank: 10,
-    name: "Chi nhánh Quận 4",
-    revenue: 8000000,
-    growth: -8,
-    type: "top",
-  },
-  {
-    rank: 11,
-    name: "Chi nhánh Bình Thạnh",
-    revenue: 6000000,
-    growth: -12,
-    type: "bottom",
-  },
-  {
-    rank: 12,
-    name: "Chi nhánh Tân Bình",
-    revenue: 4500000,
-    growth: -15,
-    type: "bottom",
-  },
-  {
-    rank: 13,
-    name: "Chi nhánh Gò Vấp",
-    revenue: 3200000,
-    growth: -18,
-    type: "bottom",
-  },
-  {
-    rank: 14,
-    name: "Chi nhánh Phú Nhuận",
-    revenue: 2800000,
-    growth: -22,
-    type: "bottom",
-  },
-  {
-    rank: 15,
-    name: "Chi nhánh Tân Phú",
-    revenue: 2200000,
-    growth: -25,
-    type: "bottom",
-  },
-  {
-    rank: 16,
-    name: "Chi nhánh Bình Tân",
-    revenue: 1800000,
-    growth: -28,
-    type: "bottom",
-  },
-  {
-    rank: 17,
-    name: "Chi nhánh Quận 11",
-    revenue: 1500000,
-    growth: -32,
-    type: "bottom",
-  },
-  {
-    rank: 18,
-    name: "Chi nhánh Quận 12",
-    revenue: 1200000,
-    growth: -35,
-    type: "bottom",
-  },
-  {
-    rank: 19,
-    name: "Chi nhánh Hóc Môn",
-    revenue: 800000,
-    growth: -40,
-    type: "bottom",
-  },
-  {
-    rank: 20,
-    name: "Chi nhánh Củ Chi",
-    revenue: 500000,
-    growth: -45,
-    type: "bottom",
-  },
-]; */
-
-// No mock fallback; render skeleton until real data is available
-
-/* const productDataByDistrict = [
-  { name: "Q1", value: 28, color: "#ff6b6b" },
-  { name: "Q3", value: 22, color: "#4ecdc4" },
-  { name: "Q7", value: 18, color: "#45b7d1" },
-  { name: "Thủ Đức", value: 15, color: "#96ceb4" },
-  { name: "Q2", value: 12, color: "#feca57" },
-  { name: "Khác", value: 5, color: "#ff9ff3" },
-]; */
-
-/* const foxieCardDataByDistrict = [
-  { name: "Q1", value: 32, color: "#6c5ce7" },
-  { name: "Q3", value: 25, color: "#a29bfe" },
-  { name: "Q7", value: 20, color: "#fd79a8" },
-  { name: "Thủ Đức", value: 13, color: "#fdcb6e" },
-  { name: "Q2", value: 8, color: "#e17055" },
-  { name: "Khác", value: 2, color: "#74b9ff" },
-]; */
-
-/* const serviceDataByDistrict = [
-  { name: "Q1", value: 30, color: "#00b894" },
-  { name: "Q3", value: 24, color: "#00cec9" },
-  { name: "Q7", value: 19, color: "#55a3ff" },
-  { name: "Thủ Đức", value: 16, color: "#fd79a8" },
-  { name: "Q2", value: 9, color: "#fdcb6e" },
-  { name: "Khác", value: 2, color: "#e84393" },
-]; */
-
-// Daily KPI Growth Data (last 7 days) - will be created inside component
 
 export default function Dashboard() {
   const { notification, showSuccess, showError, hideNotification } =
@@ -433,16 +115,8 @@ export default function Dashboard() {
         setSalesError(null);
 
         // Format dates for API (DD/MM/YYYY format like the API expects)
-        const formatDateForAPI = (dateString: string) => {
-          const date = new Date(dateString);
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
 
         console.log("🔄 Fetching sales summary via ApiService with dates:", {
           startDate,
@@ -690,15 +364,8 @@ export default function Dashboard() {
       try {
         setServiceError(null);
 
-        const formatDateForAPI = (isoDateString: string) => {
-          // isoDateString like yyyy-MM-ddTHH:mm:ss from DateContext
-          const [datePart] = isoDateString.split("T");
-          const [year, month, day] = datePart.split("-");
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
 
         const data = (await ApiService.getDirect(
           `real-time/service-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
@@ -739,14 +406,8 @@ export default function Dashboard() {
         setTopServicesLoading(true);
         setTopServicesError(null);
 
-        const formatDateForAPI = (isoDateString: string) => {
-          const [datePart] = isoDateString.split("T");
-          const [year, month, day] = datePart.split("-");
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
 
         const data = (await ApiService.getDirect(
           `real-time/get-top-10-service?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
@@ -781,16 +442,8 @@ export default function Dashboard() {
         setNewCustomerLoading(true);
         setNewCustomerError(null);
 
-        const formatDateForAPI = (dateString: string) => {
-          const date = new Date(dateString);
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
 
         const data = (await ApiService.getDirect(
           `real-time/get-new-customer?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
@@ -822,16 +475,8 @@ export default function Dashboard() {
         setOldCustomerLoading(true);
         setOldCustomerError(null);
 
-        const formatDateForAPI = (dateString: string) => {
-          const date = new Date(dateString);
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
 
         const data = (await ApiService.getDirect(
           `real-time/get-old-customer?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
@@ -911,16 +556,8 @@ export default function Dashboard() {
         setSalesByHourLoading(true);
         setSalesByHourError(null);
 
-        const formatDateForAPI = (dateString: string) => {
-          const date = new Date(dateString);
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
 
         console.log("🔄 Fetching sales by hour via ApiService with dates:", {
           startDate,
@@ -956,12 +593,6 @@ export default function Dashboard() {
       try {
         const today = toDateStr ? new Date(toDateStr) : new Date();
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        const toDdMmYyyy = (d: Date) => {
-          const dd = String(d.getDate()).padStart(2, "0");
-          const mm = String(d.getMonth() + 1).padStart(2, "0");
-          const yyyy = d.getFullYear();
-          return `${dd}/${mm}/${yyyy}`;
-        };
         const dayStr = toDdMmYyyy(today);
         const startMonthStr = toDdMmYyyy(firstDay);
 
@@ -1006,13 +637,6 @@ export default function Dashboard() {
       try {
         setBookingByHourLoading(true);
         setBookingByHourError(null);
-        const toDdMmYyyy = (dateString: string) => {
-          const d = new Date(dateString);
-          const dd = String(d.getDate()).padStart(2, "0");
-          const mm = String(d.getMonth() + 1).padStart(2, "0");
-          const yyyy = d.getFullYear();
-          return `${dd}/${mm}/${yyyy}`;
-        };
         const start = toDdMmYyyy(fromDateStr + "T00:00:00");
         const end = toDdMmYyyy(toDateStr + "T23:59:59");
         const data = (await ApiService.getDirect(
@@ -1091,16 +715,8 @@ export default function Dashboard() {
         setSalesDetailLoading(true);
         setSalesDetailError(null);
 
-        const formatDateForAPI = (dateString: string) => {
-          const date = new Date(dateString);
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
 
         const data = (await ApiService.getDirect(
           `real-time/sales-detail?dateStart=${startDate}&dateEnd=${endDate}`
@@ -1142,16 +758,8 @@ export default function Dashboard() {
         setBookingLoading(true);
         setBookingError(null);
 
-        const formatDateForAPI = (dateString: string) => {
-          const date = new Date(dateString);
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(fromDateStr + "T00:00:00");
-        const endDate = formatDateForAPI(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
 
         console.log("🔄 Fetching booking data via ApiService with dates:", {
           startDate,
@@ -1193,11 +801,7 @@ export default function Dashboard() {
         setDailyRevenueError(null);
 
         // Get current date in DD/MM/YYYY format
-        const today = new Date();
-        const day = String(today.getDate()).padStart(2, "0");
-        const month = String(today.getMonth() + 1).padStart(2, "0");
-        const year = today.getFullYear();
-        const todayStr = `${day}/${month}/${year}`;
+        const todayStr = toDdMmYyyy(new Date());
 
         console.log("🔄 Fetching daily revenue for today:", todayStr);
 
@@ -1245,15 +849,8 @@ export default function Dashboard() {
           1
         );
 
-        const formatDateForAPI = (date: Date) => {
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          return `${day}/${month}/${year}`;
-        };
-
-        const startDate = formatDateForAPI(firstDayOfMonth);
-        const endDate = formatDateForAPI(today);
+        const startDate = toDdMmYyyy(firstDayOfMonth);
+        const endDate = toDdMmYyyy(today);
 
         console.log(
           "🔄 Fetching KPI monthly revenue (cumulative from start of month):",
@@ -1388,18 +985,7 @@ export default function Dashboard() {
           1
         );
 
-        const toDdMmYyyy = (date: Date) => {
-          const dd = String(date.getDate()).padStart(2, "0");
-          const mm = String(date.getMonth() + 1).padStart(2, "0");
-          const yyyy = date.getFullYear();
-          return `${dd}/${mm}/${yyyy}`;
-        };
-        const toIsoYyyyMmDd = (date: Date) => {
-          const dd = String(date.getDate()).padStart(2, "0");
-          const mm = String(date.getMonth() + 1).padStart(2, "0");
-          const yyyy = date.getFullYear();
-          return `${yyyy}-${mm}-${dd}`;
-        };
+        const toIso = (date: Date) => toIsoYyyyMmDd(date);
 
         const results: Array<{
           dateLabel: string;
@@ -1562,7 +1148,7 @@ export default function Dashboard() {
               dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
                 d.getMonth() + 1
               ).padStart(2, "0")}`,
-              isoDate: toIsoYyyyMmDd(d),
+              isoDate: toIso(d),
               total,
             };
           } catch (err) {
@@ -1571,7 +1157,7 @@ export default function Dashboard() {
               dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
                 d.getMonth() + 1
               ).padStart(2, "0")}`,
-              isoDate: toIsoYyyyMmDd(d),
+              isoDate: toIso(d),
               total: 0,
             };
           }
@@ -1988,6 +1574,16 @@ export default function Dashboard() {
         window.setTimeout(() => setHighlightKey(null), 1200);
       }
     };
+    const jumpHandler = (ev: Event) => {
+      const refKey = (ev as CustomEvent).detail?.refKey as string | undefined;
+      if (!refKey) return;
+      const target = (
+        sectionRefs.current as Record<string, React.RefObject<HTMLDivElement>>
+      )[refKey];
+      if (target?.current)
+        target.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
     if (typeof window !== "undefined") {
       window.addEventListener("global-search", handler as EventListener);
       // Support anchor hash direct navigation: #refKey
@@ -2007,22 +1603,12 @@ export default function Dashboard() {
           );
         }
       }
-      // Listener for direct jump events from header within same route
-      const jumpHandler = (ev: Event) => {
-        const refKey = (ev as CustomEvent).detail?.refKey as string | undefined;
-        if (!refKey) return;
-        const target = (
-          sectionRefs.current as Record<string, React.RefObject<HTMLDivElement>>
-        )[refKey];
-        if (target?.current)
-          target.current.scrollIntoView({ behavior: "smooth", block: "start" });
-      };
       window.addEventListener("jump-to-ref", jumpHandler as EventListener);
     }
     return () => {
       if (typeof window !== "undefined") {
         window.removeEventListener("global-search", handler as EventListener);
-        window.removeEventListener("jump-to-ref", (() => {}) as EventListener);
+        window.removeEventListener("jump-to-ref", jumpHandler as EventListener);
       }
     };
   }, [searchParamQuery]);

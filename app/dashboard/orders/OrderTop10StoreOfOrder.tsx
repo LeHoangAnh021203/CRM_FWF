@@ -12,7 +12,7 @@ import {
   LabelList,
 } from "recharts";
 
-interface ChartOrderData {
+export interface ChartOrderData {
   name: string;
   totalOrders: number;
   retailOrders: number;

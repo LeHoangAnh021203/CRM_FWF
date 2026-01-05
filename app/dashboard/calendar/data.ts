@@ -1,0 +1,123 @@
+import type { Employee, Shift, ShiftTemplate } from "./types";
+
+export const sampleEmployees: Employee[] = [
+  {
+    id: "1",
+    name: "Nguyễn Văn A",
+    position: "Nhân viên bán hàng",
+    email: "nguyenvana@email.com",
+    phone: "0123456789",
+    isActive: true,
+  },
+  {
+    id: "2",
+    name: "Trần Thị B",
+    position: "Thu ngân",
+    email: "tranthib@email.com",
+    phone: "0987654321",
+    isActive: true,
+  },
+];
+
+export const sampleTemplates: ShiftTemplate[] = [
+  {
+    id: "1",
+    name: "Ca sáng",
+    startTime: "08:00",
+    endTime: "16:00",
+    position: "Nhân viên bán hàng",
+    description: "Ca làm việc buổi sáng",
+  },
+  {
+    id: "2",
+    name: "Ca chiều",
+    startTime: "14:00",
+    endTime: "22:00",
+    position: "Thu ngân",
+    description: "Ca làm việc buổi chiều",
+  },
+];
+
+export const sampleShifts: Shift[] = [
+  {
+    id: "1",
+    employeeName: "Nguyễn Văn A",
+    employeeId: "1",
+    date: "2025-08-15",
+    startTime: "08:00",
+    endTime: "16:00",
+    position: "Nhân viên bán hàng",
+    status: "approved",
+    approvalHistory: [
+      {
+        id: "1",
+        action: "approved",
+        approvedBy: "Quản lý A",
+        approvedAt: "2024-01-10T10:30:00",
+        previousStatus: "pending",
+      },
+    ],
+    priority: "normal",
+    submittedAt: "2024-01-10T09:00:00",
+  },
+  {
+    id: "2",
+    employeeName: "Trần Thị B",
+    employeeId: "2",
+    date: "2025-08-15",
+    startTime: "14:00",
+    endTime: "22:00",
+    position: "Thu ngân",
+    status: "pending",
+    approvalHistory: [],
+    priority: "high",
+    submittedAt: "2024-01-12T14:00:00",
+  },
+  {
+    id: "3",
+    employeeName: "Nguyễn Văn A",
+    employeeId: "1",
+    date: "2025-08-14",
+    startTime: "08:00",
+    endTime: "16:00",
+    position: "Nhân viên bán hàng",
+    status: "pending",
+    approvalHistory: [],
+    priority: "normal",
+    submittedAt: "2024-08-10T09:00:00",
+  },
+  {
+    id: "4",
+    employeeName: "Trần Thị B",
+    employeeId: "2",
+    date: "2025-08-14",
+    startTime: "08:00",
+    endTime: "16:00",
+    position: "Thu ngân",
+    status: "pending",
+    approvalHistory: [],
+    priority: "normal",
+    submittedAt: "2024-08-10T10:00:00",
+  },
+  {
+    id: "5",
+    employeeName: "Nguyễn Văn C",
+    employeeId: "3",
+    date: "2025-08-02",
+    startTime: "09:00",
+    endTime: "17:00",
+    position: "Nhân viên bán hàng",
+    status: "approved",
+    approvalHistory: [
+      {
+        id: "2",
+        action: "approved",
+        approvedBy: "Quản lý B",
+        approvedAt: "2024-01-01T10:30:00",
+        previousStatus: "pending",
+      },
+    ],
+    priority: "high",
+    submittedAt: "2024-01-01T09:00:00",
+  },
+];

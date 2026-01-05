@@ -10,7 +10,7 @@ import {
 } from "@/app/components/ui/tabs";
 import { Badge } from "@/app/components/ui/badge";
 import { SkinRecordSummary } from "@/app/lib/skin-insights";
-import type { ModuleDetailEntry, ModuleData } from "./skin-report-client";
+import type { ModuleDetailEntry, ModuleData } from "./types";
 import productsData from "@/data/products.json";
 
 type ProductInfo = {

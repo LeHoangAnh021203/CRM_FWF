@@ -10,7 +10,7 @@ import {
   Line,
 } from "recharts";
 
-interface ShopTypeRevenueData {
+export interface ShopTypeRevenueData {
   date: string;
   shopType: string;
   revenue: number;
