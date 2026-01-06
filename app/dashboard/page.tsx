@@ -10,6 +10,7 @@ import { useBranchFilter } from "@/app/contexts/BranchContext";
 import { getActualStockIds, parseNumericValue } from "@/app/constants/branches";
 import { ApiService } from "@/app/lib/api-service";
 import { toDdMmYyyy, toIsoYyyyMmDd } from "@/app/lib/date";
+import { fetchChunked, aggregateStockResponses } from "@/app/lib/api-chunking";
 
 import { QuickActions } from "@/app/components/quick-actions";
 import { DollarSign } from "lucide-react";
@@ -954,7 +955,76 @@ export default function Dashboard() {
     fetchKpiMonthlyRevenue();
   }, [stockQueryParam, actualStockIds]);
 
-  // Fetch daily KPI series (TM+CK+QT per day) from start of month to today
+  // Helper function to call POST API directly (similar to getDirect)
+  const postDirect = React.useCallback(async (endpoint: string, data: unknown, timeoutMs = 120000) => {
+    if (typeof window === 'undefined') {
+      throw new Error('postDirect can only be used on client-side');
+    }
+
+    const { TokenService } = await import('@/app/lib/token-service');
+    const { AUTH_CONFIG } = await import('@/app/lib/auth-config');
+    
+    const validToken = await TokenService.getValidAccessToken();
+    
+    if (!validToken) {
+      window.dispatchEvent(new CustomEvent('auth-expired'));
+      throw new Error('No valid token available');
+    }
+
+    // Build direct backend URL (bypass proxy)
+    const base = (AUTH_CONFIG.API_BASE_URL || '').replace(/\/+$/, '');
+    const prefix = AUTH_CONFIG.API_PREFIX || '';
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+    const directUrl = `${base}${prefix}/${cleanEndpoint}`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${validToken}`
+    };
+
+    console.log('[postDirect] Calling POST to:', directUrl, `(timeout: ${timeoutMs}ms)`);
+
+    const response = await fetch(directUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+      signal: AbortSignal.timeout(timeoutMs), // Configurable timeout
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        console.log('Token expired; refresh disabled -> logout');
+        window.dispatchEvent(new CustomEvent('auth-expired'));
+        throw new Error('Authentication failed - please login again');
+      }
+      
+      let errorDetails = '';
+      try {
+        const errorText = await response.text();
+        if (errorText) {
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorDetails = errorJson.error || errorJson.message || errorText;
+          } catch {
+            errorDetails = errorText;
+          }
+        }
+      } catch {
+        // Ignore errors when reading response
+      }
+      
+      const errorMessage = errorDetails 
+        ? `POST request failed: ${response.status} - ${errorDetails}`
+        : `POST request failed: ${response.status}`;
+      
+      throw new Error(errorMessage);
+    }
+
+    console.log('[postDirect] POST request successful');
+    return response.json();
+  }, []);
+
+  // Fetch daily KPI series (TM+CK+QT per day) from start of month to today using new API
   const kpiSeriesStockRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     // Create a unique key from all relevant dependencies
@@ -987,19 +1057,16 @@ export default function Dashboard() {
 
         const toIso = (date: Date) => toIsoYyyyMmDd(date);
 
-        const results: Array<{
-          dateLabel: string;
-          isoDate: string;
-          total: number;
-        }> = [];
-
+        // Generate array of dates from start of month to today
         const dates: Date[] = [];
+        const dateStrings: string[] = [];
         for (
           let d = new Date(firstDayOfMonth);
           d <= today;
           d.setDate(d.getDate() + 1)
         ) {
           dates.push(new Date(d));
+          dateStrings.push(toIso(d));
         }
 
         const parseCurrency = (v: unknown) => {
@@ -1010,164 +1077,96 @@ export default function Dashboard() {
             const parsed = Number(cleaned);
             return isNaN(parsed) ? 0 : parsed;
           }
-          // Try to convert to number
           const num = Number(v);
           return isNaN(num) ? 0 : num;
         };
 
-        // Batch requests to avoid overwhelming the API (max 5 concurrent requests per batch)
-        const BATCH_SIZE = 5;
-        const fetchPromises = dates.map(async (d, dateIndex) => {
-          const ddmmyyyy = toDdMmYyyy(d);
-          try {
-            // Add small delay to batch requests
-            if (dateIndex > 0 && dateIndex % BATCH_SIZE === 0) {
-              await new Promise(resolve => setTimeout(resolve, 100));
+        // Prepare stockIds for API request
+        // For "all branches", API requires [""] (array with empty string), not []
+        const requestStockIds = actualStockIds.length === 0 ? [""] : actualStockIds;
+
+        console.log(`📊 KPI Daily Series: Calling new API with stockIds=${JSON.stringify(requestStockIds)} (${requestStockIds.length} items) and ${dateStrings.length} dates`);
+
+        // Use chunking for large requests to prevent timeout
+        const chunkedResponses = await fetchChunked(
+          async (stockIds: string[], dates: string[]) => {
+            return await postDirect(
+              'real-time/per-stock',
+              { stockIds, dates },
+              180000 // 3 minutes timeout per chunk
+            ) as Array<{
+              stockId: string;
+              days: Array<{
+                date: string;
+                totalRevenue?: string | number;
+                cash?: string | number;
+                transfer?: string | number;
+                card?: string | number;
+                foxieUsageRevenue?: string | number;
+                walletUsageRevenue?: string | number;
+              }>;
+            }>;
+          },
+          requestStockIds,
+          dateStrings,
+          {
+            maxDatesPerChunk: 7, // 7 days per chunk
+            maxStocksPerChunk: 5, // 5 branches per chunk
+            delayBetweenChunks: 300, // 300ms delay
+            maxRetries: 2, // 2 retries per chunk
+            onProgress: (current, total) => {
+              if (total > 1) {
+                console.log(`📊 KPI Daily Series: Progress ${current}/${total} chunks`);
+              }
             }
-
-            let total = 0;
-            let hasError = false;
-            let errorCount = 0;
-
-            if (actualStockIds.length > 1) {
-              // Multiple stockIds - fetch each and aggregate
-              console.log(`📊 KPI Daily Series [${ddmmyyyy}]: Fetching ${actualStockIds.length} branches and aggregating...`);
-              
-              // Batch branch requests too (max 10 concurrent)
-              const BRANCH_BATCH_SIZE = 10;
-              const branchResults: Array<{
-                cash?: string | number;
-                transfer?: string | number;
-                card?: string | number;
-              }> = [];
-
-              for (let i = 0; i < actualStockIds.length; i += BRANCH_BATCH_SIZE) {
-                const batch = actualStockIds.slice(i, i + BRANCH_BATCH_SIZE);
-                const batchResults = await Promise.allSettled(
-                  batch.map(async (sid) => {
-                    try {
-                      const data = await ApiService.getDirect(
-                        `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}&stockId=${sid}`
-                      ) as {
-                        cash?: string | number;
-                        transfer?: string | number;
-                        card?: string | number;
-                      };
-                      // Log successful fetch for debugging
-                      const dayTotal = parseCurrency(data.cash) + parseCurrency(data.transfer) + parseCurrency(data.card);
-                      if (dayTotal > 0) {
-                        console.log(`  ✓ Branch ${sid}: ${dayTotal.toLocaleString('vi-VN')} VND`);
-                      }
-                      return { sid, data, success: true };
-                    } catch (err) {
-                      const errorMsg = err instanceof Error ? err.message : String(err);
-                      console.error(`❌ KPI Daily Series: Error fetching branch ${sid} for ${ddmmyyyy}:`, errorMsg);
-                      errorCount++;
-                      return { sid, data: { cash: 0, transfer: 0, card: 0 }, success: false };
-                    }
-                  })
-                );
-
-                batchResults.forEach((result, idx) => {
-                  if (result.status === 'fulfilled') {
-                    const value = result.value;
-                    if (value && value.data) {
-                      branchResults.push(value.data);
-                      if (!value.success) hasError = true;
-                    } else {
-                      console.warn(`⚠️ KPI Daily Series: Unexpected result structure for batch item ${idx}:`, result);
-                      branchResults.push({ cash: 0, transfer: 0, card: 0 });
-                      hasError = true;
-                    }
-                  } else {
-                    console.error(`❌ KPI Daily Series: Promise rejected for batch item ${idx}:`, result.reason);
-                    branchResults.push({ cash: 0, transfer: 0, card: 0 });
-                    hasError = true;
-                    errorCount++;
-                  }
-                });
-
-                // Small delay between batches
-                if (i + BRANCH_BATCH_SIZE < actualStockIds.length) {
-                  await new Promise(resolve => setTimeout(resolve, 50));
-                }
-              }
-
-              // Aggregate all results
-              total = branchResults.reduce((sum, r) => {
-                const cash = parseCurrency(r.cash);
-                const transfer = parseCurrency(r.transfer);
-                const card = parseCurrency(r.card);
-                const dayTotal = cash + transfer + card;
-                return sum + dayTotal;
-              }, 0);
-
-              if (hasError) {
-                console.warn(`⚠️ KPI Daily Series [${ddmmyyyy}]: ${errorCount}/${actualStockIds.length} branches failed, but continuing with available data. Total: ${total.toLocaleString('vi-VN')} VND`);
-              } else {
-                console.log(`✅ KPI Daily Series [${ddmmyyyy}]: Aggregated total: ${total.toLocaleString('vi-VN')} VND from ${actualStockIds.length} branches (${branchResults.length} results)`);
-              }
-              
-              // Additional debug: if total is 0 and we have branches, log more details
-              if (total === 0 && actualStockIds.length > 0 && branchResults.length > 0) {
-                console.warn(`⚠️ KPI Daily Series [${ddmmyyyy}]: Total is 0 but we have ${branchResults.length} branch results. Sample:`, branchResults.slice(0, 3));
-              }
-            } else if (actualStockIds.length === 1) {
-              // Single stockId
-              console.log(`📊 KPI Daily Series [${ddmmyyyy}]: Fetching single branch ${actualStockIds[0]}...`);
-              const data = (await ApiService.getDirect(
-                `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}&stockId=${actualStockIds[0]}`
-              )) as {
-                cash?: string | number;
-                transfer?: string | number;
-                card?: string | number;
-              };
-              total =
-                parseCurrency(data.cash) +
-                parseCurrency(data.transfer) +
-                parseCurrency(data.card);
-              console.log(`✅ KPI Daily Series [${ddmmyyyy}]: Single branch total: ${total.toLocaleString('vi-VN')} VND`);
-            } else {
-              // All branches - still need to send blank stockId param
-              console.log(`📊 KPI Daily Series [${ddmmyyyy}]: Fetching all branches (stockId=blank)...`);
-              const data = (await ApiService.getDirect(
-                `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}${stockQueryParam}`
-              )) as {
-                cash?: string | number;
-                transfer?: string | number;
-                card?: string | number;
-              };
-              total =
-                parseCurrency(data.cash) +
-                parseCurrency(data.transfer) +
-                parseCurrency(data.card);
-              console.log(`✅ KPI Daily Series [${ddmmyyyy}]: All branches total: ${total.toLocaleString('vi-VN')} VND`);
-            }
-
-            return {
-              dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
-                d.getMonth() + 1
-              ).padStart(2, "0")}`,
-              isoDate: toIso(d),
-              total,
-            };
-          } catch (err) {
-            console.error(`❌ Failed to fetch data for ${ddmmyyyy}:`, err);
-            return {
-              dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
-                d.getMonth() + 1
-              ).padStart(2, "0")}`,
-              isoDate: toIso(d),
-              total: 0,
-            };
           }
+        );
+
+        // Aggregate all chunked responses
+        const response = aggregateStockResponses(
+          chunkedResponses.flat()
+        );
+
+        console.log(`✅ KPI Daily Series: API response received with ${response.length} stock entries (from ${chunkedResponses.length} chunks)`);
+
+        // Process response data
+        // Create a map of date -> total revenue (aggregated across all stocks)
+        const dateRevenueMap = new Map<string, number>();
+
+        response.forEach((stockData) => {
+          stockData.days.forEach((dayData) => {
+            const dateKey = dayData.date;
+            const cash = parseCurrency(dayData.cash);
+            const transfer = parseCurrency(dayData.transfer);
+            const card = parseCurrency(dayData.card);
+            const dayTotal = cash + transfer + card;
+
+            // Aggregate revenue for each date across all stocks
+            const currentTotal = dateRevenueMap.get(dateKey) || 0;
+            dateRevenueMap.set(dateKey, currentTotal + dayTotal);
+          });
         });
 
-        const fetchedResults = await Promise.all(fetchPromises);
+        // Convert map to results array
+        const results: Array<{
+          dateLabel: string;
+          isoDate: string;
+          total: number;
+        }> = dates.map((d) => {
+          const isoDate = toIso(d);
+          const total = dateRevenueMap.get(isoDate) || 0;
+          return {
+            dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
+              d.getMonth() + 1
+            ).padStart(2, "0")}`,
+            isoDate,
+            total,
+          };
+        });
+
         if (!isCancelled) {
-          results.push(...fetchedResults);
           const totalRevenue = results.reduce((sum, r) => sum + r.total, 0);
-          console.log(`📊 KPI Daily Series: Fetched ${results.length} days of data`);
+          console.log(`📊 KPI Daily Series: Processed ${results.length} days of data`);
           console.log(`📊 KPI Daily Series: Total revenue sum: ${totalRevenue.toLocaleString('vi-VN')} VND`);
           
           if (results.length === 0) {
@@ -1212,7 +1211,7 @@ export default function Dashboard() {
     return () => {
       isCancelled = true;
     };
-  }, [selectedStockId, stockQueryParam, actualStockIds]);
+  }, [selectedStockId, stockQueryParam, actualStockIds, postDirect]);
 
   // Process sales summary data similar to orders page
   const paymentMethods = React.useMemo(() => {
@@ -1360,11 +1359,42 @@ export default function Dashboard() {
   )}-${String(today.getDate()).padStart(2, "0")}`;
   const todayDay = today.getDate();
   
-  const weekendTargetPerDay = 500000000; // 500M per weekend day
-  const holidayTargetPerDay = 600000000; // 600M per special holiday
+  // User-editable weekend target (stored in localStorage)
+  const [weekendTargetPerDay, setWeekendTargetPerDay] = React.useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('kpi_weekend_target');
+      return stored ? Number(stored) : 500000000; // Default 500M
+    }
+    return 500000000;
+  });
+  
+  // User-editable holiday target (stored in localStorage)
+  const [holidayTargetPerDay, setHolidayTargetPerDay] = React.useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('kpi_holiday_target');
+      return stored ? Number(stored) : 600000000; // Default 600M
+    }
+    return 600000000;
+  });
+  
+  // Save weekend target to localStorage when changed
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('kpi_weekend_target', weekendTargetPerDay.toString());
+    }
+  }, [weekendTargetPerDay]);
+  
+  // Save holiday target to localStorage when changed
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('kpi_holiday_target', holidayTargetPerDay.toString());
+    }
+  }, [holidayTargetPerDay]);
   const year = endDateObj ? endDateObj.getFullYear() : new Date().getFullYear();
   const month = endDateObj ? endDateObj.getMonth() : new Date().getMonth();
-  const holidayDaysSet = new Set<number>(specialHolidays.map((d) => Math.max(1, Math.min(d, daysInMonth))));
+  const holidayDaysSet = React.useMemo(() => {
+    return new Set<number>(specialHolidays.map((d) => Math.max(1, Math.min(d, daysInMonth))));
+  }, [specialHolidays, daysInMonth]);
   // Count holidays that fall on weekend to avoid double counting
   let holidayDaysCount = 0;
   let weekendDaysCount = 0;
@@ -1431,11 +1461,48 @@ export default function Dashboard() {
   // Use selected day target for daily mode, or today's target as fallback
   const dailyTargetForSelectedDay = selectedDayTarget || dailyTargetForCurrentDay;
   
+  // Calculate remaining target from previous days (day 1 to selectedDay - 1)
+  // This is used to add to the current day's target for accumulation logic
+  const remainingFromPreviousDays = React.useMemo(() => {
+    if (selectedDay <= 1 || !endDateObj || !kpiDailySeries) return 0;
+    
+    const monthKey = `${endDateObj.getFullYear()}-${String(
+      endDateObj.getMonth() + 1
+    ).padStart(2, "0")}`;
+    
+    let prevDaysTarget = 0;
+    let prevDaysRevenue = 0;
+    
+    for (let day = 1; day < selectedDay; day++) {
+      // Calculate target for this day (same logic as getDailyTargetForDay)
+      let dayTarget = 0;
+      const date = new Date(year, month, day);
+      const dayOfWeek = date.getDay();
+      if (holidayDaysSet.has(day)) {
+        dayTarget = holidayTargetPerDay;
+      } else if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+        dayTarget = weekendTargetPerDay;
+      } else {
+        dayTarget = weekdayTargetPerDay;
+      }
+      prevDaysTarget += dayTarget;
+      
+      const dayStr = `${monthKey}-${String(day).padStart(2, "0")}`;
+      const dayRevenue = kpiDailySeries.find((e) => e.isoDate === dayStr)?.total || 0;
+      prevDaysRevenue += dayRevenue;
+    }
+    
+    return Math.max(0, prevDaysTarget - prevDaysRevenue);
+  }, [selectedDay, endDateObj, kpiDailySeries, year, month, weekdayTargetPerDay, weekendTargetPerDay, holidayDaysSet, holidayTargetPerDay]);
+  
   const dailyPercentage =
     dailyTargetForSelectedDay > 0
       ? (dailyKpiRevenue / dailyTargetForSelectedDay) * 100
       : 0;
   const dailyKpiLeft = Math.max(0, dailyTargetForSelectedDay - dailyKpiRevenue);
+  
+  // Daily target with remaining from previous days (for display: "Mục tiêu ngày X")
+  const dailyTargetWithRemaining = dailyTargetForSelectedDay + remainingFromPreviousDays;
 
   // ---------- KPI Tháng: sum từ ngày 1 đến ngày cuối range ----------
   const currentRevenue = actualRevenueMTD ?? (() => {
@@ -1471,9 +1538,22 @@ export default function Dashboard() {
       const [yyyy, mm, dd] = dateStr.split("-");
       const jsDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
       const dayOfWeek = jsDate.getDay();
+      const dayNumber = Number(dd);
+      
+      // Check if it's a special holiday (only for current month)
+      if (endDateObj) {
+        const currentMonthKey = `${endDateObj.getFullYear()}-${String(endDateObj.getMonth() + 1).padStart(2, "0")}`;
+        const dateMonthKey = `${yyyy}-${mm}`;
+        if (dateMonthKey === currentMonthKey && holidayDaysSet.has(dayNumber)) {
+          return holidayTargetPerDay;
+        }
+      }
+      
+      // Check if it's a weekend
       if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
         return weekendTargetPerDay;
       }
+      
       return weekdayTargetPerDay;
     };
     
@@ -1501,7 +1581,7 @@ export default function Dashboard() {
     });
     
     return result;
-  }, [kpiDailySeries, weekendTargetPerDay, weekdayTargetPerDay]);
+  }, [kpiDailySeries, weekendTargetPerDay, weekdayTargetPerDay, holidayTargetPerDay, holidayDaysSet, endDateObj]);
 
   // Status logic cho hiển thị trạng thái (dùng selected day target)
   const dailyStatus =
@@ -1938,36 +2018,98 @@ export default function Dashboard() {
       return cached.data;
     }
 
-    // Fetch from API
+    // Fetch from API using new per-stock API
     const lastDayOfMonth = new Date(year, Number(month), 0).getDate();
-    const startDate = `01/${month}/${year}`;
-    const endDate = `${lastDayOfMonth}/${month}/${year}`;
+    
+    // Generate array of dates from day 1 to last day of month in ISO format (YYYY-MM-DD)
+    const dateStrings: string[] = [];
+    for (let day = 1; day <= lastDayOfMonth; day++) {
+      const date = new Date(year, Number(month) - 1, day);
+      const isoDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      dateStrings.push(isoDate);
+    }
+    
+    // Prepare stockIds for API request
+    // For "all branches", API requires [""] (array with empty string), not []
+    const requestStockIds = actualStockIds.length === 0 ? [""] : actualStockIds;
 
-    const parse = (v: string | number | undefined) => {
+    const parse = (v: unknown) => {
+      if (v === null || v === undefined) return 0;
+      if (typeof v === "number") return isNaN(v) ? 0 : v;
       if (typeof v === "string") {
-        return Number((v || "").replace(/[^\d.-]/g, "")) || 0;
+        const cleaned = v.replace(/[^0-9.-]/g, "");
+        const parsed = Number(cleaned);
+        return isNaN(parsed) ? 0 : parsed;
       }
       return Number(v) || 0;
     };
 
     try {
-      console.log(`[Dashboard] Fetching sales data for ${monthKey}:`, { startDate, endDate })
-      const res = await ApiService.getDirect(
-        `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+      console.log(`[Dashboard] Fetching sales data for ${monthKey} using new API:`, { requestStockIds, dateCount: dateStrings.length })
+      
+      // Use chunking for large requests (especially for full months with many branches)
+      const chunkedResponses = await fetchChunked(
+        async (stockIds: string[], dates: string[]) => {
+          return await postDirect(
+            'real-time/per-stock',
+            { stockIds, dates },
+            180000 // 3 minutes timeout per chunk
+          ) as Array<{
+            stockId: string;
+            days: Array<{
+              date: string;
+              cash?: string | number;
+              transfer?: string | number;
+              card?: string | number;
+              foxieUsageRevenue?: string | number;
+              walletUsageRevenue?: string | number;
+            }>;
+          }>;
+        },
+        requestStockIds,
+        dateStrings,
+        {
+          maxDatesPerChunk: 10, // 10 days per chunk for monthly data
+          maxStocksPerChunk: 5, // 5 branches per chunk
+          delayBetweenChunks: 300,
+          maxRetries: 2,
+          onProgress: (current, total) => {
+            if (total > 1) {
+              console.log(`[Dashboard] Fetching ${monthKey}: Progress ${current}/${total} chunks`);
+            }
+          }
+        }
       );
-      console.log(`[Dashboard] Successfully fetched sales data for ${monthKey}`)
-      const parsed = res as {
-        cash?: string | number;
-        transfer?: string | number;
-        card?: string | number;
-        foxieUsageRevenue?: string | number;
-        walletUsageRevenue?: string | number;
-      };
+
+      // Aggregate all chunked responses
+      const response = aggregateStockResponses(
+        chunkedResponses.flat()
+      );
+      
+      console.log(`[Dashboard] Successfully fetched sales data for ${monthKey} (from ${chunkedResponses.length} chunks)`)
+      
+      // Aggregate data across all stocks and all dates
+      let totalCash = 0;
+      let totalTransfer = 0;
+      let totalCard = 0;
+      let totalFoxie = 0;
+      let totalWallet = 0;
+      
+      response.forEach((stockData) => {
+        stockData.days.forEach((dayData) => {
+          totalCash += parse(dayData.cash);
+          totalTransfer += parse(dayData.transfer);
+          totalCard += parse(dayData.card);
+          totalFoxie += Math.abs(parse(dayData.foxieUsageRevenue));
+          totalWallet += Math.abs(parse(dayData.walletUsageRevenue));
+        });
+      });
+      
       const data = {
         month: monthKey,
-        tmckqt: parse(parsed.cash) + parse(parsed.transfer) + parse(parsed.card),
-        foxie: Math.abs(parse(parsed.foxieUsageRevenue)),
-        vi: Math.abs(parse(parsed.walletUsageRevenue)),
+        tmckqt: totalCash + totalTransfer + totalCard,
+        foxie: totalFoxie,
+        vi: totalWallet,
       };
 
       // Cache the data
@@ -2000,7 +2142,7 @@ export default function Dashboard() {
         vi: 0,
       };
     }
-  }, [stockQueryParam]);
+  }, [postDirect, actualStockIds]);
 
   // Fetch only current month and previous month (lazy loading)
   React.useEffect(() => {
@@ -2170,7 +2312,11 @@ export default function Dashboard() {
                 }}
                 specialHolidays={specialHolidays}
                 onSpecialHolidaysChange={(days) => setSpecialHolidays(days)}
-                dailyTargetForCurrentDay={isDaily ? dailyTargetForSelectedDay : dailyTargetForCurrentDay}
+                weekendTargetPerDay={weekendTargetPerDay}
+                onWeekendTargetChange={(target) => setWeekendTargetPerDay(target)}
+                holidayTargetPerDay={holidayTargetPerDay}
+                onHolidayTargetChange={(target) => setHolidayTargetPerDay(target)}
+                dailyTargetForCurrentDay={isDaily ? dailyTargetWithRemaining : dailyTargetForCurrentDay}
                 dailyTargetForToday={
                   isDaily ? dailyTargetForSelectedDay : targetUntilNow
                 } // Đến nay cần đạt: ngày hoặc tháng

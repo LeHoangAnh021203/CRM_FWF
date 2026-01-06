@@ -19,12 +19,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { GlobalDatePicker } from "./global-date-picker";
 import { BranchFilter } from "./branch-filter";
 import { SEARCH_TARGETS, normalize } from "../lib/search-targets";
+import { exportCustomerPhonesToExcel } from "../lib/export-excel";
+import { Download } from "lucide-react";
 
 export function Header() {
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [desktopQuery, setDesktopQuery] = useState("");
   const [mobileQuery, setMobileQuery] = useState("");
   const [desktopFocused, setDesktopFocused] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -44,6 +47,23 @@ export function Header() {
   const handleLogout = async () => {
     await logout();
     router.push("/login");
+  };
+
+  const handleExportPhones = async () => {
+    if (isExporting) return;
+    
+    setIsExporting(true);
+    try {
+      await exportCustomerPhonesToExcel();
+      // Show success message (you can add toast notification here)
+      alert("Xuất file Excel thành công!");
+    } catch (error) {
+      console.error("Export error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Có lỗi xảy ra khi xuất file";
+      alert(`Lỗi: ${errorMessage}`);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const getFiltered = (q: string) => {
@@ -225,6 +245,12 @@ export function Header() {
                 <Users className="mr-2 h-4 w-4" />
               User Management
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleExportPhones} disabled={isExporting}>
+                <Download className="mr-2 h-4 w-4" />
+                {isExporting ? "Đang xuất file..." : "Xuất Excel Số điện thoại"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem>
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
