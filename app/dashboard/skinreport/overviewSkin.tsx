@@ -114,7 +114,7 @@ export function OverviewSkin({
               <Shield size={16} />
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-6 lg:grid-cols-[1.3fr_minmax(0,1fr)]">
+          <CardContent className="grid gap-6 grid-cols-1 lg:grid-cols-[1.3fr_minmax(0,1fr)]">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {summaryCards.map((card) => (
                 <div
@@ -176,7 +176,7 @@ export function OverviewSkin({
               <Activity size={16} />
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-6 lg:grid-cols-[1.2fr_minmax(0,1fr)] text-sm text-gray-700">
+          <CardContent className="grid gap-6 grid-cols-1 lg:grid-cols-[1.2fr_minmax(0,1fr)] text-sm text-gray-700">
             <div className="space-y-2">
               <InfoRow
                 label="Hồ sơ có tuổi CRM"
@@ -225,7 +225,7 @@ export function OverviewSkin({
           </CardContent>
         </Card>
 
-        <Card className="rounded-3xl border border-orange-200 bg-white shadow-lg">
+          <Card className="rounded-3xl border border-orange-200 bg-white shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xs uppercase  text-orange-400">
               Phân bổ loại da
@@ -272,8 +272,8 @@ export function OverviewSkin({
             <Sparkles size={16} />
           </CardTitle>
         </CardHeader>
-        <div className="flex">
-          <CardContent className="space-y-3 w-3/4">
+        <div className="flex flex-col gap-4 lg:flex-row">
+          <CardContent className="space-y-3 w-full lg:w-3/4">
             {insights.keyInsights.map((insight) => (
               <div
                 key={insight}
@@ -285,8 +285,8 @@ export function OverviewSkin({
             ))}
           </CardContent>
 
-          <CardContent>
-            <div className="relative h-52 sm:h-64 lg:h-72 overflow-hidden rounded-3xl border border-orange-100 bg-black">
+          <CardContent className="w-full lg:w-1/4">
+            <div className="relative h-64 sm:h-72 lg:h-72 overflow-hidden rounded-3xl border border-orange-100 bg-black">
               <video
                 src="/video/logo_3d.mp4"
                 autoPlay
@@ -302,7 +302,7 @@ export function OverviewSkin({
           </CardContent>
         </div>
         <CardContent className="border-t border-orange-100 bg-orange-50/30 mt-2 rounded-b-3xl">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <p className="text-[11px] uppercase  text-orange-400">
               Sản phẩm nổi bật
             </p>
@@ -313,7 +313,7 @@ export function OverviewSkin({
               Chưa có dữ liệu sản phẩm phù hợp.
             </p>
           ) : (
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-4 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               {topProductHighlights.map((item) => (
                 <div
                   key={item.label}

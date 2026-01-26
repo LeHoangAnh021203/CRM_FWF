@@ -55,7 +55,7 @@ export function KpiSkin({
 }: KpiSkinProps) {
   return (
     <TabsContent value="recommendations" className="space-y-6">
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <Card className="border-gray-100 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -66,53 +66,47 @@ export function KpiSkin({
               Ưu tiên ID xuất hiện ở nhiều nhóm vấn đề
             </p>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
+          <CardContent className="space-y-3">
             {topMultiUseGoods.length === 0 ? (
               <p className="text-sm text-gray-500">
                 Chưa có dữ liệu goods đa nhiệm.
               </p>
             ) : (
-              <table className="w-full text-sm text-left">
-                <thead>
-                  <tr className="text-gray-500">
-                    <th className="py-1">Sản phẩm</th>
-                    <th className="py-1">Xuất hiện</th>
-                    <th className="py-1">Vấn đề</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topMultiUseGoods.map((item) => {
-                    const product = productCatalog.get(item.label);
-                    const productName = product?.name ?? item.label;
-                    return (
-                      <tr key={item.label} className="border-t text-gray-700">
-                        <td className="py-2">
-                          <div className="flex items-center gap-3">
-                            <Image
-                              src={buildProductImageSrc(item.label)}
-                              alt={productName}
-                              className="h-9 w-9 rounded-lg border border-gray-200 object-cover"
-                              width={36}
-                              height={36}
-                              loading="lazy"
-                              unoptimized
-                            />
-                            <span className="font-semibold text-gray-900">
-                              {productName}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-1">
-                          {item.count} lần ({formatPercent(item.percent)})
-                        </td>
-                        <td className="py-1 text-xs text-gray-500">
-                          {item.modules.join(", ")}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="space-y-3">
+                {topMultiUseGoods.map((item) => {
+                  const product = productCatalog.get(item.label);
+                  const productName = product?.name ?? item.label;
+                  return (
+                    <div
+                      key={item.label}
+                      className="flex flex-col gap-2 rounded-2xl border border-gray-100 bg-white/90 p-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Image
+                          src={buildProductImageSrc(item.label)}
+                          alt={productName}
+                          className="h-9 w-9 rounded-lg border border-gray-200 object-cover"
+                          width={36}
+                          height={36}
+                          loading="lazy"
+                          unoptimized
+                        />
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            {productName}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {item.modules.join(", ")}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-700">
+                        {item.count} lần ({formatPercent(item.percent)})
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -123,15 +117,15 @@ export function KpiSkin({
               Theo danh sách tổng hợp từ hệ thống
             </p>
           </CardHeader>
-          <CardContent>
-            <ol className="space-y-2 text-sm text-gray-700">
+          <CardContent className="space-y-3">
+            <ol className="space-y-2">
               {insights.topGoods.map((item, index) => {
                 const product = productCatalog.get(item.label);
                 const productName = product?.name ?? item.label;
                 return (
                   <li
                     key={item.label}
-                    className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2"
+                    className="flex flex-col gap-2 rounded-lg border border-gray-100 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="flex items-center gap-3">
                       <Image
@@ -161,7 +155,7 @@ export function KpiSkin({
         </Card>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <Card className="border-gray-100 shadow-sm">
           <CardHeader>
             <CardTitle>Độ nhạy cảm da</CardTitle>
@@ -169,7 +163,7 @@ export function KpiSkin({
           <CardContent className="space-y-3">
             {insights.sensitivity.map((item) => (
               <div key={item.label} className="space-y-1">
-                <div className="flex justify-between text-sm">
+                <div className="flex flex-col gap-1 text-sm sm:flex-row sm:justify-between">
                   <span className="capitalize">{item.label}</span>
                   <span>{item.percent}%</span>
                 </div>
@@ -185,7 +179,7 @@ export function KpiSkin({
           <CardContent className="space-y-3">
             {insights.darkCircleTypes.map((item) => (
               <div key={item.label} className="space-y-1">
-                <div className="flex justify-between text-sm">
+                <div className="flex flex-col gap-1 text-sm sm:flex-row sm:justify-between">
                   <span>{item.label}</span>
                   <span>{item.percent}%</span>
                 </div>

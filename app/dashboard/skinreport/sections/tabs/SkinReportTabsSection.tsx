@@ -68,14 +68,14 @@ export function SkinReportTabsSection({
   onShowRecords,
 }: SkinReportTabsSectionProps) {
   return (
-    <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-6">
-      <TabsList className="grid grid-cols-2 lg:grid-cols-4 gap-2 bg-transparent">
-        {tabs.map((tab) => (
-          <TabsTrigger
-            key={tab.value}
-            value={tab.value}
-            className="flex flex-col items-center justify-center rounded-lg border border-white/30 bg-white/10 px-4 py-3 text-left text-black data-[state=active]:bg-white data-[state=active]:text-[#f66035] data-[state=active]:shadow-sm"
-          >
+      <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-6">
+        <TabsList className="flex gap-2 overflow-x-auto overflow-y-hidden bg-transparent px-1 py-1 flex-nowrap justify-start">
+          {tabs.map((tab) => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="flex flex-col items-center justify-center rounded-lg border border-white/30 bg-white/10 px-4 py-3 text-left text-black min-w-200px] data-[state=active]:bg-white data-[state=active]:text-[#f66035] data-[state=active]:shadow-sm"
+            >
             <span className="text-sm font-semibold">{tab.label}</span>
             <span className="text-xs text-gray-400">{tab.description}</span>
           </TabsTrigger>

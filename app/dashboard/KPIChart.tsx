@@ -56,11 +56,6 @@ interface KPIChartProps {
   // Special holidays (day numbers in current month)
   specialHolidays?: number[];
   onSpecialHolidaysChange?: (days: number[]) => void;
-  // Weekend and holiday targets
-  weekendTargetPerDay?: number;
-  onWeekendTargetChange?: (target: number) => void;
-  holidayTargetPerDay?: number;
-  onHolidayTargetChange?: (target: number) => void;
 }
 
 const formatCurrency = (value: number) =>
@@ -97,10 +92,6 @@ export default function KPIChart(props: KPIChartProps) {
     onMonthlyTargetChange,
     specialHolidays = [],
     onSpecialHolidaysChange,
-    weekendTargetPerDay = 500000000,
-    onWeekendTargetChange,
-    holidayTargetPerDay = 600000000,
-    onHolidayTargetChange,
   } = props;
   
   const [isEditingTarget, setIsEditingTarget] = React.useState(false);
@@ -144,46 +135,6 @@ export default function KPIChart(props: KPIChartProps) {
     // unique and sorted
     const unique = Array.from(new Set(parsed)).sort((a, b) => a - b);
     onSpecialHolidaysChange(unique);
-  };
-  
-  // Weekend target editing state
-  const [isEditingWeekendTarget, setIsEditingWeekendTarget] = React.useState(false);
-  const [tempWeekendTarget, setTempWeekendTarget] = React.useState(weekendTargetPerDay.toString());
-  React.useEffect(() => {
-    setTempWeekendTarget(weekendTargetPerDay.toString());
-  }, [weekendTargetPerDay]);
-  
-  const handleWeekendTargetSave = () => {
-    const numValue = Number(tempWeekendTarget.replace(/[^\d]/g, ''));
-    if (numValue > 0 && onWeekendTargetChange) {
-      onWeekendTargetChange(numValue);
-      setIsEditingWeekendTarget(false);
-    }
-  };
-  
-  const handleWeekendTargetCancel = () => {
-    setTempWeekendTarget(weekendTargetPerDay.toString());
-    setIsEditingWeekendTarget(false);
-  };
-  
-  // Holiday target editing state
-  const [isEditingHolidayTarget, setIsEditingHolidayTarget] = React.useState(false);
-  const [tempHolidayTarget, setTempHolidayTarget] = React.useState(holidayTargetPerDay.toString());
-  React.useEffect(() => {
-    setTempHolidayTarget(holidayTargetPerDay.toString());
-  }, [holidayTargetPerDay]);
-  
-  const handleHolidayTargetSave = () => {
-    const numValue = Number(tempHolidayTarget.replace(/[^\d]/g, ''));
-    if (numValue > 0 && onHolidayTargetChange) {
-      onHolidayTargetChange(numValue);
-      setIsEditingHolidayTarget(false);
-    }
-  };
-  
-  const handleHolidayTargetCancel = () => {
-    setTempHolidayTarget(holidayTargetPerDay.toString());
-    setIsEditingHolidayTarget(false);
   };
 
   return (
@@ -632,7 +583,7 @@ export default function KPIChart(props: KPIChartProps) {
                     {formatCurrency(
                       kpiViewMode === "monthly"
                         ? dailyTargetForToday
-                        : dailyTargetForCurrentDay
+                        : dailyTargetForCurrentDay + (remainingDailyTarget > 0 ? remainingDailyTarget : 0)
                     )}
                   </p>
                 )}
@@ -684,121 +635,6 @@ export default function KPIChart(props: KPIChartProps) {
                   Đã đặt: {specialHolidays.join(", ")}
                 </div>
               )}
-            </div>
-
-            {/* Weekend and Holiday Targets Editor */}
-            <div className="mt-3 sm:mt-4 border-t border-gray-200 pt-3 space-y-3">
-              <div className="text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                Mục tiêu theo loại ngày:
-              </div>
-              
-              {/* Weekend Target */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <label className="text-xs sm:text-sm font-medium text-gray-700 min-w-[140px]">
-                  Mục tiêu ngày cuối tuần:
-                </label>
-                <div className="flex gap-2 flex-1">
-                  {isEditingWeekendTarget ? (
-                    <>
-                      <input
-                        type="text"
-                        className="flex-1 px-2 py-1 text-sm border-2 border-[#0693e3] rounded focus:outline-none focus:ring-2 focus:ring-[#0693e3]"
-                        value={formatTargetInput(tempWeekendTarget)}
-                        onChange={(e) => setTempWeekendTarget(e.target.value.replace(/[^\d]/g, ''))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleWeekendTargetSave();
-                          if (e.key === 'Escape') handleWeekendTargetCancel();
-                        }}
-                        placeholder="Nhập số tiền"
-                        autoFocus
-                      />
-                      <button
-                        onClick={handleWeekendTargetSave}
-                        className="px-3 py-1 text-sm rounded bg-[#00b894] text-white hover:bg-[#00a082]"
-                      >
-                        ✓
-                      </button>
-                      <button
-                        onClick={handleWeekendTargetCancel}
-                        className="px-3 py-1 text-sm rounded bg-gray-400 text-white hover:bg-gray-500"
-                      >
-                        ✕
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex-1 px-2 py-1 text-sm bg-white/50 rounded border border-gray-200 flex items-center justify-between group">
-                        <span className="text-gray-800 font-medium">
-                          {formatCurrency(weekendTargetPerDay)}
-                        </span>
-                        {onWeekendTargetChange && (
-                          <button
-                            onClick={() => setIsEditingWeekendTarget(true)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-[#0693e3] text-xs hover:text-[#0582c4] ml-2"
-                            title="Chỉnh sửa mục tiêu cuối tuần"
-                          >
-                            ✏️
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Holiday Target */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <label className="text-xs sm:text-sm font-medium text-gray-700 min-w-[140px]">
-                  Mục tiêu ngày đặc biệt:
-                </label>
-                <div className="flex gap-2 flex-1">
-                  {isEditingHolidayTarget ? (
-                    <>
-                      <input
-                        type="text"
-                        className="flex-1 px-2 py-1 text-sm border-2 border-[#0693e3] rounded focus:outline-none focus:ring-2 focus:ring-[#0693e3]"
-                        value={formatTargetInput(tempHolidayTarget)}
-                        onChange={(e) => setTempHolidayTarget(e.target.value.replace(/[^\d]/g, ''))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleHolidayTargetSave();
-                          if (e.key === 'Escape') handleHolidayTargetCancel();
-                        }}
-                        placeholder="Nhập số tiền"
-                        autoFocus
-                      />
-                      <button
-                        onClick={handleHolidayTargetSave}
-                        className="px-3 py-1 text-sm rounded bg-[#00b894] text-white hover:bg-[#00a082]"
-                      >
-                        ✓
-                      </button>
-                      <button
-                        onClick={handleHolidayTargetCancel}
-                        className="px-3 py-1 text-sm rounded bg-gray-400 text-white hover:bg-gray-500"
-                      >
-                        ✕
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex-1 px-2 py-1 text-sm bg-white/50 rounded border border-gray-200 flex items-center justify-between group">
-                        <span className="text-gray-800 font-medium">
-                          {formatCurrency(holidayTargetPerDay)}
-                        </span>
-                        {onHolidayTargetChange && (
-                          <button
-                            onClick={() => setIsEditingHolidayTarget(true)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-[#0693e3] text-xs hover:text-[#0582c4] ml-2"
-                            title="Chỉnh sửa mục tiêu ngày đặc biệt"
-                          >
-                            ✏️
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
             </div>
 
             <div className="pt-3 sm:pt-4 border-t border-gray-200">

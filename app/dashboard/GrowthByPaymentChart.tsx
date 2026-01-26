@@ -1,13 +1,11 @@
 import React from "react";
 import { ApiService } from "@/app/lib/api-service";
 import { useBranchFilter } from "@/app/contexts/BranchContext";
-import { getActualStockIds } from "@/app/constants/branches";
 import { useWindowWidth } from "@/app/hooks/useWindowWidth";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/app/components/ui/card";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from "recharts";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
-import { fetchChunked, aggregateStockResponses } from "@/app/lib/api-chunking";
 
 interface PaymentMonthlyData {
   month: string; // MM/YYYY
@@ -73,24 +71,10 @@ export default function GrowthByPaymentChart({
 }: GrowthByPaymentChartProps) {
   const width = useWindowWidth();
   const { stockId: selectedStockId } = useBranchFilter();
-  const actualStockIds = React.useMemo(() => {
-    return getActualStockIds(selectedStockId || "");
-  }, [selectedStockId]);
-  
-  // Helper function to call POST API via proxy (to avoid CORS issues)
-  const postViaProxy = React.useCallback(async (endpoint: string, data: unknown) => {
-    console.log(`[GrowthByPaymentChart] Calling POST via proxy: ${endpoint}`);
-    console.log(`[GrowthByPaymentChart] Request data:`, data);
-    
-    try {
-      const response = await ApiService.post(endpoint, data);
-      console.log(`[GrowthByPaymentChart] POST successful`);
-      return response;
-    } catch (error) {
-      console.error(`[GrowthByPaymentChart] POST failed:`, error);
-      throw error;
-    }
-  }, []);
+  const stockQueryParam = React.useMemo(
+    () => `&stockId=${selectedStockId || ""}`,
+    [selectedStockId]
+  );
   const isMobile = width < 640; // tailwind sm breakpoint
   const allMonths = React.useMemo(() => data.map(d => d.month), [data]);
   const currentMonth = allMonths.length > 0 ? allMonths[allMonths.length - 1] : "";
@@ -146,88 +130,93 @@ export default function GrowthByPaymentChart({
   }, [allMonths, currentMonth, compareMonth, setCompareMonth]);
 
   // Handle month selection - lazy load if needed (old mode)
-  const handleMonthChange = React.useCallback(
-    async (selectedMonth: string) => {
-      setCompareMonth(selectedMonth);
+  const handleMonthChange = React.useCallback(async (selectedMonth: string) => {
+    setCompareMonth(selectedMonth);
+    
+    // Check if month already exists in data
+    if (data.some(d => d.month === selectedMonth)) {
+      return; // Already loaded
+    }
 
-      if (data.some((d) => d.month === selectedMonth)) {
-        return;
+    // Fetch the month if onMonthSelect callback is provided
+    if (onMonthSelect && selectedMonth) {
+      setLoadingMonth(selectedMonth);
+      try {
+        const [monthStr, yearStr] = selectedMonth.split("/");
+        await onMonthSelect(selectedMonth, monthStr, Number(yearStr));
+        // Parent component will update state via useEffect
+      } catch (err) {
+        console.error(`Failed to load month ${selectedMonth}:`, err);
+      } finally {
+        setLoadingMonth(null);
       }
-
-      if (onMonthSelect && selectedMonth) {
-        setLoadingMonth(selectedMonth);
-        try {
-          const [monthStr, yearStr] = selectedMonth.split("/");
-          await onMonthSelect(selectedMonth, monthStr, Number(yearStr));
-        } catch (err) {
-          console.error(`Failed to load month ${selectedMonth}:`, err);
-        } finally {
-          setLoadingMonth(null);
-        }
-      }
-    },
-    [data, onMonthSelect, setCompareMonth]
-  );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, onMonthSelect]); // setCompareMonth is stable from props
 
   // Handle month1 selection - lazy load if needed (new mode)
-  const handleMonth1Change = React.useCallback(
-    async (selectedMonth: string) => {
-      if (!setMonth1) return;
-      setMonth1(selectedMonth);
+  const handleMonth1Change = React.useCallback(async (selectedMonth: string) => {
+    if (!setMonth1) return;
+    
+    // Set month immediately for UI feedback
+    setMonth1(selectedMonth);
+    
+    // Check if month already exists in data
+    const isAlreadyLoaded = data.some(d => d.month === selectedMonth);
+    
+    if (isAlreadyLoaded) {
+      return; // Already loaded, no need to fetch
+    }
 
-      if (data.some((d) => d.month === selectedMonth)) {
-        return;
+    // Fetch the month if onMonthSelect callback is provided and month is not loaded
+    if (onMonthSelect && selectedMonth) {
+      setLoadingMonth1(selectedMonth);
+      try {
+        const [monthStr, yearStr] = selectedMonth.split("/");
+        const fetchedData = await onMonthSelect(selectedMonth, monthStr, Number(yearStr));
+        // Data will be updated in parent component via useEffect
+        console.log(`✅ Đã tải dữ liệu cho tháng ${selectedMonth}:`, fetchedData);
+      } catch (err) {
+        console.error(`❌ Không thể tải dữ liệu cho tháng ${selectedMonth}:`, err);
+        // Optionally show error to user
+      } finally {
+        setLoadingMonth1(null);
       }
-
-      if (onMonthSelect && selectedMonth) {
-        setLoadingMonth1(selectedMonth);
-        try {
-          const [monthStr, yearStr] = selectedMonth.split("/");
-          const fetchedData = await onMonthSelect(
-            selectedMonth,
-            monthStr,
-            Number(yearStr)
-          );
-          console.log(`✅ Đã tải dữ liệu cho tháng ${selectedMonth}:`, fetchedData);
-        } catch (err) {
-          console.error(`❌ Không thể tải dữ liệu cho tháng ${selectedMonth}:`, err);
-        } finally {
-          setLoadingMonth1(null);
-        }
-      }
-    },
-    [data, onMonthSelect, setMonth1]
-  );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, onMonthSelect, setMonth1]);
 
   // Handle month2 selection - lazy load if needed (new mode)
-  const handleMonth2Change = React.useCallback(
-    async (selectedMonth: string) => {
-      if (!setMonth2) return;
-      setMonth2(selectedMonth);
+  const handleMonth2Change = React.useCallback(async (selectedMonth: string) => {
+    if (!setMonth2) return;
+    
+    // Set month immediately for UI feedback
+    setMonth2(selectedMonth);
+    
+    // Check if month already exists in data
+    const isAlreadyLoaded = data.some(d => d.month === selectedMonth);
+    
+    if (isAlreadyLoaded) {
+      return; // Already loaded, no need to fetch
+    }
 
-      if (data.some((d) => d.month === selectedMonth)) {
-        return;
+    // Fetch the month if onMonthSelect callback is provided and month is not loaded
+    if (onMonthSelect && selectedMonth) {
+      setLoadingMonth2(selectedMonth);
+      try {
+        const [monthStr, yearStr] = selectedMonth.split("/");
+        const fetchedData = await onMonthSelect(selectedMonth, monthStr, Number(yearStr));
+        // Data will be updated in parent component via useEffect
+        console.log(`✅ Đã tải dữ liệu cho tháng ${selectedMonth}:`, fetchedData);
+      } catch (err) {
+        console.error(`❌ Không thể tải dữ liệu cho tháng ${selectedMonth}:`, err);
+        // Optionally show error to user
+      } finally {
+        setLoadingMonth2(null);
       }
-
-      if (onMonthSelect && selectedMonth) {
-        setLoadingMonth2(selectedMonth);
-        try {
-          const [monthStr, yearStr] = selectedMonth.split("/");
-          const fetchedData = await onMonthSelect(
-            selectedMonth,
-            monthStr,
-            Number(yearStr)
-          );
-          console.log(`✅ Đã tải dữ liệu cho tháng ${selectedMonth}:`, fetchedData);
-        } catch (err) {
-          console.error(`❌ Không thể tải dữ liệu cho tháng ${selectedMonth}:`, err);
-        } finally {
-          setLoadingMonth2(null);
-        }
-      }
-    },
-    [data, onMonthSelect, setMonth2]
-  );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, onMonthSelect, setMonth2]);
 
   const [visibleMethods, setVisibleMethods] = React.useState<MethodKey[]>(['tmckqt', 'foxie', 'vi']);
   const [rangeLoading, setRangeLoading] = React.useState(false);
@@ -301,128 +290,28 @@ export default function GrowthByPaymentChart({
           return `${dd}/${mm}/${yyyy}`;
         };
         const build = async (m: string, from: number, to: number) => {
-          const [mm, yyyy] = m.split("/");
-          
-          // Generate array of dates from 'from' day to 'to' day in ISO format (YYYY-MM-DD)
-          const dateStrings: string[] = [];
-          for (let day = from; day <= to; day++) {
-            const date = new Date(Number(yyyy), Number(mm) - 1, day);
-            const isoDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-            dateStrings.push(isoDate);
-          }
-          
-          // Prepare stockIds for API request
-          // For "all branches", API requires [""] (array with empty string), not []
-          const requestStockIds = actualStockIds.length === 0 ? [""] : actualStockIds;
-          
-          // Use chunking for large requests to prevent timeout
-          console.log(`[GrowthByPaymentChart] Fetching data for month ${m}, days ${from}-${to}:`, {
-            requestStockIds,
-            dateCount: dateStrings.length,
-            firstDate: dateStrings[0],
-            lastDate: dateStrings[dateStrings.length - 1]
-          });
-          
-          const chunkedResponses = await fetchChunked(
-            async (stockIds: string[], dates: string[]) => {
-              return await postViaProxy(
-                'real-time/per-stock',
-                { stockIds, dates }
-              ) as Array<{
-                stockId: string;
-                days: Array<{
-                  date: string;
-                  cash?: string | number;
-                  transfer?: string | number;
-                  card?: string | number;
-                  foxieUsageRevenue?: string | number;
-                  walletUsageRevenue?: string | number;
-                }>;
-              }>;
-            },
-            requestStockIds,
-            dateStrings,
-            {
-              maxDatesPerChunk: 10,
-              maxStocksPerChunk: 5,
-              delayBetweenChunks: 300,
-              maxRetries: 2,
-              onProgress: (current, total) => {
-                if (total > 1) {
-                  console.log(`[GrowthByPaymentChart] Month ${m}: Progress ${current}/${total} chunks`);
-                }
-              }
-            }
-          );
-
-          // Aggregate all chunked responses
-          const response = aggregateStockResponses(
-            chunkedResponses.flat()
-          );
-          
-          console.log(`[GrowthByPaymentChart] Response received for month ${m}:`, {
-            stockCount: response.length,
-            totalDays: response.reduce((sum, stock) => sum + stock.days.length, 0),
-            sampleData: response[0]?.days?.[0],
-            chunksProcessed: chunkedResponses.length
-          });
-          
-          // Aggregate data across all stocks and all dates
-          const parse = (v: unknown) => {
-            if (v === null || v === undefined) return 0;
-            if (typeof v === "number") return isNaN(v) ? 0 : v;
-            if (typeof v === "string") {
-              const cleaned = v.replace(/[^0-9.-]/g, "");
-              const parsed = Number(cleaned);
-              return isNaN(parsed) ? 0 : parsed;
-            }
-            return Number(v) || 0;
+          const start = toDateStr(m, from);
+          const end = toDateStr(m, to);
+          const res = await ApiService.get(`real-time/sales-summary?dateStart=${start}&dateEnd=${end}${stockQueryParam}`) as {
+            cash?: string | number;
+            transfer?: string | number;
+            card?: string | number;
+            foxieUsageRevenue?: string | number;
+            walletUsageRevenue?: string | number;
           };
-          
-          let totalCash = 0;
-          let totalTransfer = 0;
-          let totalCard = 0;
-          let totalFoxie = 0;
-          let totalWallet = 0;
-          
-          response.forEach((stockData) => {
-            stockData.days.forEach((dayData) => {
-              totalCash += parse(dayData.cash);
-              totalTransfer += parse(dayData.transfer);
-              totalCard += parse(dayData.card);
-              totalFoxie += Math.abs(parse(dayData.foxieUsageRevenue));
-              totalWallet += Math.abs(parse(dayData.walletUsageRevenue));
-            });
-          });
-          
-          const result = {
-            tmckqt: totalCash + totalTransfer + totalCard,
-            foxie: totalFoxie,
-            vi: totalWallet
+          const parse = (v: unknown) => typeof v === 'string' ? Number((v||'').replace(/[^\d.-]/g, '')) || 0 : Number(v) || 0;
+          return {
+            tmckqt: parse(res.cash) + parse(res.transfer) + parse(res.card),
+            foxie: Math.abs(parse(res.foxieUsageRevenue)),
+            vi: Math.abs(parse(res.walletUsageRevenue))
           };
-          
-          console.log(`[GrowthByPaymentChart] Aggregated result for month ${m}:`, result);
-          
-          return result;
         };
         try {
           const [month1Vals, month2Vals] = await Promise.all([
             build(m1, month1From, month1To),
             build(m2, month2From, month2To)
           ]);
-          
-          console.log(`[GrowthByPaymentChart] Setting overrideByMonth:`, {
-            [m1]: month1Vals,
-            [m2]: month2Vals
-          });
-          
-          setOverrideByMonth(prev => {
-            const updated = { ...prev, [m1]: month1Vals, [m2]: month2Vals };
-            console.log(`[GrowthByPaymentChart] Updated overrideByMonth keys:`, Object.keys(updated));
-            return updated;
-          });
-        } catch (error) {
-          console.error(`[GrowthByPaymentChart] Error fetching range data:`, error);
+          setOverrideByMonth(prev => ({ ...prev, [m1]: month1Vals, [m2]: month2Vals }));
         } finally {
           setRangeLoading(false);
         }
@@ -443,107 +332,25 @@ export default function GrowthByPaymentChart({
         return `${dd}/${mm}/${yyyy}`;
       };
       const build = async (m: string) => {
-        const [mm, yyyy] = m.split("/");
-        
-        // Generate array of dates from 'from' day to 'to' day in ISO format (YYYY-MM-DD)
-        const dateStrings: string[] = [];
-        for (let day = from; day <= to; day++) {
-          const date = new Date(Number(yyyy), Number(mm) - 1, day);
-          const isoDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-          dateStrings.push(isoDate);
-        }
-        
-        // Prepare stockIds for API request
-        // For "all branches", API requires [""] (array with empty string), not []
-        const requestStockIds = actualStockIds.length === 0 ? [""] : actualStockIds;
-        
-        // Use chunking for large requests to prevent timeout
-        const chunkedResponses = await fetchChunked(
-          async (stockIds: string[], dates: string[]) => {
-            return await postViaProxy(
-              'real-time/per-stock',
-              { stockIds, dates }
-            ) as Array<{
-              stockId: string;
-              days: Array<{
-                date: string;
-                cash?: string | number;
-                transfer?: string | number;
-                card?: string | number;
-                foxieUsageRevenue?: string | number;
-                walletUsageRevenue?: string | number;
-              }>;
-            }>;
-          },
-          requestStockIds,
-          dateStrings,
-          {
-            maxDatesPerChunk: 10,
-            maxStocksPerChunk: 5,
-            delayBetweenChunks: 300,
-            maxRetries: 2,
-            onProgress: (current, total) => {
-              if (total > 1) {
-                console.log(`[GrowthByPaymentChart] Old mode month ${m}: Progress ${current}/${total} chunks`);
-              }
-            }
-          }
-        );
-
-        // Aggregate all chunked responses
-        const response = aggregateStockResponses(
-          chunkedResponses.flat()
-        );
-        
-        // Aggregate data across all stocks and all dates
-        const parse = (v: unknown) => {
-          if (v === null || v === undefined) return 0;
-          if (typeof v === "number") return isNaN(v) ? 0 : v;
-          if (typeof v === "string") {
-            const cleaned = v.replace(/[^0-9.-]/g, "");
-            const parsed = Number(cleaned);
-            return isNaN(parsed) ? 0 : parsed;
-          }
-          return Number(v) || 0;
+        const start = toDateStr(m, from);
+        const end = toDateStr(m, to);
+        const res = await ApiService.get(`real-time/sales-summary?dateStart=${start}&dateEnd=${end}${stockQueryParam}`) as {
+          cash?: string | number;
+          transfer?: string | number;
+          card?: string | number;
+          foxieUsageRevenue?: string | number;
+          walletUsageRevenue?: string | number;
         };
-        
-        let totalCash = 0;
-        let totalTransfer = 0;
-        let totalCard = 0;
-        let totalFoxie = 0;
-        let totalWallet = 0;
-        
-        response.forEach((stockData) => {
-          stockData.days.forEach((dayData) => {
-            totalCash += parse(dayData.cash);
-            totalTransfer += parse(dayData.transfer);
-            totalCard += parse(dayData.card);
-            totalFoxie += Math.abs(parse(dayData.foxieUsageRevenue));
-            totalWallet += Math.abs(parse(dayData.walletUsageRevenue));
-          });
-        });
-        
+        const parse = (v: unknown) => typeof v === 'string' ? Number((v||'').replace(/[^\d.-]/g, '')) || 0 : Number(v) || 0;
         return {
-          tmckqt: totalCash + totalTransfer + totalCard,
-          foxie: totalFoxie,
-          vi: totalWallet
+          tmckqt: parse(res.cash) + parse(res.transfer) + parse(res.card),
+          foxie: Math.abs(parse(res.foxieUsageRevenue)),
+          vi: Math.abs(parse(res.walletUsageRevenue))
         };
       };
       try {
         const [nowVals, cmpVals] = await Promise.all([build(currentMonth), build(month)]);
-        
-        console.log(`[GrowthByPaymentChart] Setting overrideByMonth (old mode):`, {
-          [currentMonth]: nowVals,
-          [month]: cmpVals
-        });
-        
-        setOverrideByMonth(prev => {
-          const updated = { ...prev, [currentMonth]: nowVals, [month]: cmpVals };
-          console.log(`[GrowthByPaymentChart] Updated overrideByMonth keys (old mode):`, Object.keys(updated));
-          return updated;
-        });
-      } catch (error) {
-        console.error(`[GrowthByPaymentChart] Error fetching range data (old mode):`, error);
+        setOverrideByMonth(prev => ({ ...prev, [currentMonth]: nowVals, [month]: cmpVals }));
       } finally {
         setRangeLoading(false);
         }
@@ -554,28 +361,18 @@ export default function GrowthByPaymentChart({
     if (useNewMode && appliedRange) {
       fetchRange();
     } else if (!useNewMode && applied) {
-      fetchRange();
+    fetchRange();
     }
-  }, [applied, appliedRange, currentMonth, actualStockIds, postViaProxy, useNewMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applied, appliedRange, currentMonth, useNewMode]);
 
   // Build chart data for 2 months based on user range or overrides
   const comparisonChartData = React.useMemo(() => {
-    const emptyMonthData = { tmckqt: 0, foxie: 0, vi: 0 };
-
     if (useNewMode && month1 && month2) {
       // New mode: use month1 and month2
-      const month1Data = overrideByMonth[month1] || data.find(d => d.month === month1) || emptyMonthData;
-      const month2Data = overrideByMonth[month2] || data.find(d => d.month === month2) || emptyMonthData;
-      
-      console.log(`[GrowthByPaymentChart] Building comparison data for new mode:`, {
-        month1,
-        month2,
-        month1Data: month1Data ? { tmckqt: month1Data.tmckqt, foxie: month1Data.foxie, vi: month1Data.vi } : null,
-        month2Data: month2Data ? { tmckqt: month2Data.tmckqt, foxie: month2Data.foxie, vi: month2Data.vi } : null,
-        overrideByMonthKeys: Object.keys(overrideByMonth),
-        dataMonths: data.map(d => d.month)
-      });
-      
+      const month1Data = overrideByMonth[month1] || data.find(d => d.month === month1);
+      const month2Data = overrideByMonth[month2] || data.find(d => d.month === month2);
+      if (!month1Data || !month2Data) return [];
       return visibleMethods.map(key => ({
         method: METHOD_CONFIG[key].name,
         current: month1Data[key],
@@ -583,18 +380,9 @@ export default function GrowthByPaymentChart({
       }));
     } else {
       // Old mode: use currentMonth and compareMonth
-    const monthNow = overrideByMonth[currentMonth] || data.find(d => d.month === currentMonth) || emptyMonthData;
-    const monthComp = overrideByMonth[compareMonth] || data.find(d => d.month === compareMonth) || emptyMonthData;
-    
-    console.log(`[GrowthByPaymentChart] Building comparison data for old mode:`, {
-      currentMonth,
-      compareMonth,
-      monthNow: monthNow ? { tmckqt: monthNow.tmckqt, foxie: monthNow.foxie, vi: monthNow.vi } : null,
-      monthComp: monthComp ? { tmckqt: monthComp.tmckqt, foxie: monthComp.foxie, vi: monthComp.vi } : null,
-      overrideByMonthKeys: Object.keys(overrideByMonth),
-      dataMonths: data.map(d => d.month)
-    });
-    
+    const monthNow = overrideByMonth[currentMonth] || data.find(d => d.month === currentMonth);
+    const monthComp = overrideByMonth[compareMonth] || data.find(d => d.month === compareMonth);
+    if (!monthNow || !monthComp) return [];
     return visibleMethods.map(key => ({
       method: METHOD_CONFIG[key].name,
       current: monthNow[key],
@@ -767,6 +555,9 @@ export default function GrowthByPaymentChart({
     // Check if any month is loading
     const isMonth1Loading = loadingMonth1 === month1;
     const isMonth2Loading = loadingMonth2 === month2;
+    const isMonth1NotLoaded = month1 && !data.some(d => d.month === month1) && !isMonth1Loading;
+    const isMonth2NotLoaded = month2 && !data.some(d => d.month === month2) && !isMonth2Loading;
+    
     // Show loading state if any month is being loaded
     if (month1 && month2 && (isMonth1Loading || isMonth2Loading)) {
       const loadingMonths = [];

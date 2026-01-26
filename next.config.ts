@@ -42,6 +42,24 @@ const nextConfig: NextConfig = {
   
   // Cấu hình để fix hydration issues
   reactStrictMode: false,
+
+  async rewrites() {
+    const skinApiBase = process.env.NEXT_PUBLIC_SKIN_API_BASE || "http://localhost:3001";
+    return [
+      {
+        source: "/api/scrape/:path*",
+        destination: `${skinApiBase}/api/scrape/:path*`,
+      },
+      {
+        source: "/api/data/:path*",
+        destination: `${skinApiBase}/api/data/:path*`,
+      },
+      {
+        source: "/api/health",
+        destination: `${skinApiBase}/api/health`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -50,7 +50,7 @@ export function DialogListCustomer({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-5xl sm:rounded-3xl">
+      <DialogContent className="w-full max-w-full sm:max-w-5xl sm:rounded-3xl">
         <DialogHeader>
           <DialogTitle className="text-xl">
             Danh sách khách hàng ({insights.totalRecords.toLocaleString("vi-VN")})
@@ -66,7 +66,7 @@ export function DialogListCustomer({
           <div className="space-y-4">
             <div className="max-h-[65vh] overflow-auto pr-1">
               <div className="hidden md:block overflow-x-auto">
-                <table className="min-w-full text-sm">
+                <table className="min-w-full text-sm table-fixed">
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-wider text-orange-400">
                       <th className="py-3">Ảnh</th>

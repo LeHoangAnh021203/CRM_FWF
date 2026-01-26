@@ -1,8 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
-import { pickRecordTime } from "@/app/lib/skin-insights-client";
+// Client-safe Skin Insights utilities
+// Lưu ý: KHÔNG import fs/path hay bất kỳ Node API nào ở file này.
 
-interface LevelModule {
+export interface LevelModule {
   level?: number | string;
   score?: number | string;
   goods?: string;
@@ -14,6 +13,10 @@ export interface RemoteRecord {
   code?: string;
   status?: number | string;
   crt_time?: string;
+  test_time?: string;
+  testTime?: string;
+  createdAt?: string;
+  updatedAt?: string;
   image?: string;
   user_acct?: string;
   customer_nickname?: string;
@@ -91,6 +94,25 @@ export interface SkinRecordSummary {
   aiAge?: number | null;
   image?: string;
   analysis?: RemoteRecord["analysis"];
+  testTime?: string;
+  crtTime?: string;
+}
+
+export interface SpotlightRecord {
+  id?: number;
+  code?: string;
+  resultId?: string;
+  status?: number | string;
+  createdAt?: string;
+  nickname?: string;
+  userAccount?: string;
+  customerPhone?: string;
+  sex?: number | string;
+  age?: number | null;
+  aiAge?: number | null;
+  ageGap?: number | null;
+  goods?: string[];
+  image?: string;
 }
 
 export interface SkinInsights {
@@ -111,34 +133,7 @@ export interface SkinInsights {
   spotlightRecord?: SpotlightRecord | null;
 }
 
-export interface SpotlightRecord {
-  id?: number;
-  code?: string;
-  resultId?: string;
-  status?: number | string;
-  createdAt?: string;
-  nickname?: string;
-  userAccount?: string;
-  customerPhone?: string;
-  sex?: number | string;
-  age?: number | null;
-  aiAge?: number | null;
-  ageGap?: number | null;
-  goods?: string[];
-  image?: string;
-}
-
-const DATA_FILES = [
-  "api_response (1).json",
-  "api_response_1.json",
-  "api_response_2.json",
-  "api_response_3.json",
-  "api_response_4.json",
-  "api_response_5.json",
-];
-
-const dataDir = path.join(process.cwd(), "data");
-
+// Helpers (client-safe)
 const percent = (value: number, total: number) =>
   total === 0 ? 0 : Number(((value / total) * 100).toFixed(1));
 
@@ -166,6 +161,13 @@ const ISSUE_MODULES = [
   "dark_circle",
 ] as const;
 
+export const pickRecordTime = (record: RemoteRecord) =>
+  record.test_time ||
+  record.testTime ||
+  record.crt_time ||
+  record.createdAt ||
+  record.updatedAt;
+
 const asDistribution = (
   map: Record<string, number>,
   total: number
@@ -187,32 +189,8 @@ const collectCounts = (
   map[label] = (map[label] || 0) + 1;
 };
 
-export const readSkinRecords = (): RemoteRecord[] => {
-  const merged: RemoteRecord[] = [];
-  DATA_FILES.forEach((file) => {
-    const filePath = path.join(dataDir, file);
-    if (!fs.existsSync(filePath)) {
-      console.warn(`[skin-insights] File not found: ${filePath}`);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(
-        fs.readFileSync(filePath, "utf8")
-      ) as { data?: { list?: RemoteRecord[] } };
-      if (Array.isArray(parsed.data?.list)) {
-        merged.push(...parsed.data.list);
-      }
-    } catch (error) {
-      console.error(`[skin-insights] Failed to parse ${file}`, error);
-    }
-  });
-
-  return merged;
-};
-
 export const computeSkinInsights = (
-  records: RemoteRecord[] = readSkinRecords()
+  records: RemoteRecord[]
 ): SkinInsights => {
   const total = records.length;
   const sexCounts: Record<string, number> = {};
@@ -421,6 +399,7 @@ export const computeSkinInsights = (
       resultId: record.result_id,
       status: record.status,
       createdAt: pickRecordTime(record),
+      testTime: record.test_time || record.testTime,
       nickname: record.customer_nickname,
       account: record.user_acct,
       phone: record.customer_mobile,
@@ -429,6 +408,7 @@ export const computeSkinInsights = (
       aiAge: predictedAge,
       image: record.image,
       analysis: record.analysis,
+      crtTime: record.crt_time,
     };
   });
 
@@ -451,13 +431,12 @@ export const computeSkinInsights = (
         .map((code: string) => code.trim())
         .filter(Boolean) ?? [];
 
-    const recordTime = pickRecordTime(record);
     spotlightDetails = {
       id: record.id,
       code: record.code,
       resultId: record.result_id,
       status: record.status,
-      createdAt: recordTime,
+      createdAt: pickRecordTime(record),
       nickname: record.customer_nickname,
       userAccount: record.user_acct,
       customerPhone: record.customer_mobile,
@@ -484,7 +463,10 @@ export const computeSkinInsights = (
       poreLvl4 + poreLvl5,
       total
     )}%.`,
-   
+    `Mã sản phẩm nổi bật: ${topGoods
+      .slice(0, 3)
+      .map((item) => item.label)
+      .join(", ")}.`,
   ];
 
   return {
@@ -493,7 +475,7 @@ export const computeSkinInsights = (
     age: ageStats,
     sexDistribution: asDistribution(sexCounts, total),
     skinTypes: asDistribution(skinTypes, total),
-    severity: severityDistribution,
+    severity: severityDistribution as unknown as Record<string, DistributionEntry[]>,
     darkCircleTypes: asDistribution(darkCircles, total),
     sensitivity: asDistribution(sensitivity, total),
     topGoods,

@@ -194,9 +194,6 @@ export async function POST(
   const resolvedParams = await params
   const path = resolvedParams.path.join('/')
   
-  // Increase timeout for per-stock API which may process many dates
-  const timeoutMs = path.includes('per-stock') ? 60000 : 20000; // 60s for per-stock, 20s for others
-  
   try {
     const body = await request.json()
     
@@ -227,20 +224,17 @@ export async function POST(
       hasAuth: !!authHeader,
       hasCookies: !!cookies,
       API_BASE_URL: AUTH_CONFIG.API_BASE_URL,
-      API_PREFIX: AUTH_CONFIG.API_PREFIX,
-      timeoutMs
+      API_PREFIX: AUTH_CONFIG.API_PREFIX
     })
 
     // Forward request to backend
     console.log('🚀 Forwarding POST request to:', backendUrl)
-    console.log('📦 Request body:', JSON.stringify(body).substring(0, 200) + '...')
-    
     const response = await fetch(backendUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
       // Add timeout to prevent hanging requests
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(20000), // 20 second timeout
     })
 
     if (!response.ok) {
@@ -263,28 +257,19 @@ export async function POST(
     return NextResponse.json(data)
     
   } catch (error) {
-    console.error('❌ Proxy POST Error:', {
-      error,
-      path,
-      backendUrl: `${(AUTH_CONFIG.API_BASE_URL || '').replace(/\/+$/, '')}${AUTH_CONFIG.API_PREFIX || ''}/${path}`,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    })
-    
+    console.error('❌ Proxy POST Error:', error)
     const message = error instanceof Error ? error.message : 'Unknown error'
-    const isConnError = /ECONNREFUSED|ENOTFOUND|EAI_AGAIN|fetch failed|timeout|aborted|network/i.test(message)
+    const isConnError = /ECONNREFUSED|ENOTFOUND|EAI_AGAIN|fetch failed|timeout|aborted/i.test(message)
     const isTimeout = /timeout|aborted/i.test(message)
     
     return NextResponse.json(
       { 
         error: `Proxy Error: ${message}`,
         details: isConnError 
-          ? `Cannot connect to backend server. Please check if backend is running at ${AUTH_CONFIG.API_BASE_URL}${AUTH_CONFIG.API_PREFIX || ''}/${path}`
+          ? 'Cannot connect to backend server. Please check if backend is running at ' + AUTH_CONFIG.API_BASE_URL
           : isTimeout
-          ? `Request timeout after ${timeoutMs}ms. Backend server may be slow or unresponsive. This API may need more time to process the request.`
-          : 'Unknown proxy error',
-        path,
-        backendUrl: `${(AUTH_CONFIG.API_BASE_URL || '').replace(/\/+$/, '')}${AUTH_CONFIG.API_PREFIX || ''}/${path}`
+          ? 'Request timeout. Backend server may be slow or unresponsive.'
+          : 'Unknown proxy error'
       },
       { status: isConnError ? 502 : isTimeout ? 504 : 500 }
     )

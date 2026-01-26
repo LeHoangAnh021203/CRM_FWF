@@ -48,8 +48,8 @@ export function DialogDetailCustomer({
   formatDateTime,
 }: DialogDetailCustomerProps) {
   const detailBody = record ? (
-    <div className="max-h-[75vh] min-h-[75vh] overflow-y-auto pr-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
+    <div className="max-h-[75vh] min-h-[60vh] overflow-y-auto pr-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-[320px,1fr]">
         <div className="space-y-4">
           <div className="overflow-hidden rounded-3xl border border-gray-100 bg-gray-50">
             {record.image ? (
@@ -109,7 +109,7 @@ export function DialogDetailCustomer({
             <p className="text-xs uppercase tracking-[0.3em] text-orange-400">
               Tổng quan
             </p>
-            <div className="mt-3 grid gap-3 text-sm text-gray-700 sm:grid-cols-3">
+            <div className="mt-3 grid gap-3 text-sm text-gray-700 grid-cols-1 sm:grid-cols-3">
               <DetailInfo
                 label="Loại da:"
                 value={record.analysis?.skin_type?.type ?? "—"}
@@ -180,7 +180,7 @@ export function DialogDetailCustomer({
                        
                         label={module.label}
                       />
-                      <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <DetailInfo
                           label="Score"
                           value={
