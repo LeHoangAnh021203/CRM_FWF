@@ -101,7 +101,7 @@ export function SkinReportApiClient() {
     if (typeof window !== "undefined" && window.location.hostname) {
       return `http://${window.location.hostname}:3001`;
     }
-    return "http://localhost:3001";
+    return "https://scrape-skin-data.onrender.com";
   })();
 
   const SKIN_INSIGHTS_PATH =

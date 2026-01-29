@@ -44,8 +44,18 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
 
   async rewrites() {
-    const skinApiBase = process.env.NEXT_PUBLIC_SKIN_API_BASE || "http://localhost:3001";
+    const skinApiBase =
+      process.env.NEXT_PUBLIC_SKIN_API_BASE ||
+      "https://scrape-skin-data.onrender.com";
     return [
+      {
+        source: "/api/scrape",
+        destination: `${skinApiBase}/api/scrape`,
+      },
+      {
+        source: "/api/data",
+        destination: `${skinApiBase}/api/data`,
+      },
       {
         source: "/api/scrape/:path*",
         destination: `${skinApiBase}/api/scrape/:path*`,
