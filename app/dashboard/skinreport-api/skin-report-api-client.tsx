@@ -1,18 +1,16 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   computeSkinInsights,
   type RemoteRecord,
   type SkinInsights,
-  type SkinRecordSummary,
 } from "@/app/lib/skin-insights-client";
 import { DialogListCustomer } from "../skinreport/dialogListCustomer";
 import { DialogDetailCustomer } from "../skinreport/dialogDetailCustomer";
 import { SkinReportHeaderSection } from "../skinreport/sections/header/SkinReportHeaderSection";
 import { SkinReportTabsSection } from "../skinreport/sections/tabs/SkinReportTabsSection";
 import { useSkinReportState } from "../skinreport/hooks/useSkinReportState";
-import { parseDateTime } from "../skinreport/transformers";
 import { LoadingSpinner } from "@/app/components/loading";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -20,6 +18,12 @@ import { Input } from "@/app/components/ui/input";
 type DateRange = {
   from: string;
   to: string;
+};
+type SystemStats = {
+  total: number;
+  oldestRecord?: string | null;
+  newestRecord?: string | null;
+  dataTimeRange?: { from?: string | null; to?: string | null };
 };
 const normalizeDateInput = (date: Date): string => {
   const year = date.getFullYear();
@@ -44,52 +48,6 @@ const buildMonthRange = (date: Date): DateRange => {
   };
 };
 
-const isSameRange = (a: DateRange | null, b: DateRange | null) =>
-  Boolean(a && b && a.from === b.from && a.to === b.to);
-
-const parseRangeValue = (raw: unknown): string | null => {
-  if (typeof raw === "string") {
-    const trimmed = raw.trim();
-    if (/^\d{4}-\d{2}-\d{2}$/u.test(trimmed)) {
-      return trimmed;
-    }
-    const asDate = new Date(trimmed);
-    if (!Number.isNaN(asDate.getTime())) {
-      return normalizeDateInput(asDate);
-    }
-    if (/^\d+$/u.test(trimmed)) {
-      const asNumber = Number(trimmed);
-      if (!Number.isNaN(asNumber)) {
-        const date = new Date(asNumber);
-        if (!Number.isNaN(date.getTime())) {
-          return normalizeDateInput(date);
-        }
-      }
-    }
-  }
-  if (typeof raw === "number" && Number.isFinite(raw)) {
-    const date = new Date(raw);
-    if (!Number.isNaN(date.getTime())) {
-      return normalizeDateInput(date);
-    }
-  }
-  return null;
-};
-
-const getLatestMonthRangeFromRecords = (records: SkinRecordSummary[]): DateRange | null => {
-  let newest: Date | null = null;
-  records.forEach((record) => {
-    const candidate =
-      parseDateTime(record.crtTime ?? record.createdAt) ??
-      parseDateTime(record.testTime);
-    if (!candidate) return;
-    if (!newest || candidate.getTime() > newest.getTime()) {
-      newest = candidate;
-    }
-  });
-  return newest ? buildMonthRange(newest) : null;
-};
-
 export function SkinReportApiClient() {
   const [insights, setInsights] = useState<SkinInsights | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,43 +59,25 @@ export function SkinReportApiClient() {
     if (typeof window !== "undefined" && window.location.hostname) {
       return `http://${window.location.hostname}:3001`;
     }
-    return "https://scrape-skin-data.onrender.com";
+    return "http://localhost:3001";
   })();
-
-  const SKIN_INSIGHTS_PATH =
-    process.env.NEXT_PUBLIC_SKIN_API_SKIN_INSIGHTS_PATH || "/api/skin-insights";
-  // Sử dụng đường dẫn tương đối để tự động trỏ về origin của FE (Next.js)
-  const skinInsightsInternalUrl = useMemo(
-    () => `${SKIN_INSIGHTS_PATH}`,
-    [SKIN_INSIGHTS_PATH]
-  );
 
   // Scraper / data API states
   const [health, setHealth] = useState<string | null>(null);
-
-  // Full Sync states
   const [fullSyncLoading, setFullSyncLoading] = useState(false);
   const [dataSyncLoading, setDataSyncLoading] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange>({
-    from: "",
-    to: "",
-  });
-  const [lastSyncInfo, setLastSyncInfo] = useState<{
-    rangeFrom?: string;
-    rangeTo?: string;
-    startedAt?: string;
-    finishedAt?: string | null;
-  }>({});
-  const [initialRangeSet, setInitialRangeSet] = useState(false);
-  const [lastAutoRange, setLastAutoRange] = useState<DateRange | null>(null);
-  const [backendRange, setBackendRange] = useState<DateRange | null>(null);
-  const [statsFullRange, setStatsFullRange] = useState<DateRange | null>(null);
-  const [statsFullRangeRaw, setStatsFullRangeRaw] =
-    useState<{ start?: string; end?: string } | null>(null);
-  const [totalRecordsAll, setTotalRecordsAll] = useState<number | null>(null);
-  const [lastSyncedRange, setLastSyncedRange] = useState<DateRange | null>(null);
-  const initialAutoSyncRef = useRef(true);
-  const [waitingForStableData, setWaitingForStableData] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange>(() =>
+    buildMonthRange(new Date())
+  );
+  const rangeField = "crt_time";
+  const waitingForStableData = fullSyncLoading || dataSyncLoading;
+  const handleManualDateChange =
+    (field: keyof DateRange) =>
+    (value: string) => {
+      setDateRange((prev) => ({ ...prev, [field]: value }));
+    };
+  const initialRangeRef = useRef<DateRange>(dateRange);
+  const initialLoadRef = useRef(true);
   // --- Health check + stats + data preview từ API mới ---
   const HEALTH_PATH =
     process.env.NEXT_PUBLIC_SKIN_API_HEALTH_PATH || "/api/health";
@@ -145,6 +85,10 @@ export function SkinReportApiClient() {
     process.env.NEXT_PUBLIC_SKIN_API_EXPORT_PATH || "/api/data/export";
   const FULL_SYNC_PATH =
     process.env.NEXT_PUBLIC_SKIN_API_FULL_SYNC_PATH || "/api/scrape/full-sync";
+  const VIEW_PATH =
+    process.env.NEXT_PUBLIC_SKIN_API_DATA_VIEW_PATH || "/api/data/view";
+  const STATS_PATH =
+    process.env.NEXT_PUBLIC_SKIN_API_STATS_PATH || "/api/data/stats";
 
   const healthUrl = useMemo(
     () => `${apiBase}${HEALTH_PATH}`,
@@ -158,166 +102,96 @@ export function SkinReportApiClient() {
     () => `${apiBase}${FULL_SYNC_PATH}`,
     [apiBase, FULL_SYNC_PATH]
   );
-  const dataExportUrl = useMemo(() => {
-    const params = new URLSearchParams();
-    params.set("format", "json");
-    if (dateRange.from) params.set("start", dateRange.from);
-    if (dateRange.to) params.set("end", dateRange.to);
-    const query = params.toString();
-    return query ? `${exportUrl}?${query}` : exportUrl;
-  }, [exportUrl, dateRange]);
-
-  const DATA_PATH =
-    process.env.NEXT_PUBLIC_SKIN_API_DATA_PATH || "/api/data";
-
-  // --- Core skin insights fetch (luôn ưu tiên data thật từ BE) ---
-  useEffect(() => {
-    const fetchInsights = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        // Luôn lấy data thật từ BE để tính insights
-        let data: SkinInsights | null = null;
-        let success = false;
-        try {
-          const res = await fetch(`${DATA_PATH}?format=json`);
-          if (res.ok) {
-            const raw = (await res.json()) as RemoteRecord[];
-            data = computeSkinInsights(raw);
-            success = true;
-          }
-        } catch (e) {
-          console.warn("Data JSON fetch failed, falling back...", e);
-        }
-
-        if (!success) {
-          const res = await fetch(skinInsightsInternalUrl);
-          if (!res.ok) {
-            throw new Error(`Failed to fetch: ${res.statusText}`);
-          }
-          data = await res.json();
-        }
-
-        console.log("Fetched skin insights", data?.records?.length, data?.records?.[0]?.createdAt);
-        setInsights(data);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load skin insights"
-        );
-        console.error("Error fetching skin insights:", err);
-      } finally {
-        setLoading(false);
+  const viewUrlBase = useMemo(
+    () => `${apiBase}${VIEW_PATH}`,
+    [apiBase, VIEW_PATH]
+  );
+  const statsUrl = useMemo(
+    () => `${apiBase}${STATS_PATH}?rangeField=crt_time`,
+    [apiBase, STATS_PATH]
+  );
+  const buildRangeQuery = useCallback(
+    (range: DateRange) => {
+      const params = new URLSearchParams();
+      if (range.from) {
+        params.set("start", range.from);
+        params.set("from", range.from);
+        params.set("st", range.from);
       }
-    };
-
-    fetchInsights();
-  }, [DATA_PATH, skinInsightsInternalUrl]);
-
-  useEffect(() => {
-    const rangeKeyMatrix = {
-      from: ["from", "min", "start", "startDate", "rangeStart", "minDate"],
-      to: ["to", "max", "end", "endDate", "rangeEnd", "maxDate"],
-    };
-
-    const pickRange = (map: Record<string, unknown>, keys: string[]) => {
-      for (const key of keys) {
-        const normalized = parseRangeValue(map[key]);
-        if (normalized) {
-          return normalized;
-        }
+      if (range.to) {
+        params.set("end", range.to);
+        params.set("to", range.to);
+        params.set("ed", range.to);
       }
-      return null;
-    };
+      params.set("rangeField", rangeField);
+      return params.toString();
+    },
+    [rangeField]
+  );
+  const rangeFilterString = useMemo(
+    () => buildRangeQuery(dateRange),
+    [buildRangeQuery, dateRange]
+  );
 
-    const normalizeRangeValue = (value: unknown): DateRange | null => {
-      if (!value) return null;
-
-      if (Array.isArray(value) && value.length >= 2) {
-        const from = parseRangeValue(value[0]);
-        const to = parseRangeValue(value[1]);
-        if (from && to) {
-          return { from, to };
-        }
-        return null;
+  const extractRecordsFromPayload = (payload: unknown): RemoteRecord[] | null => {
+    if (Array.isArray(payload)) return payload;
+    if (payload && typeof payload === "object") {
+      const candidate = (payload as Record<string, unknown>).data;
+      if (Array.isArray(candidate)) {
+        return candidate as RemoteRecord[];
       }
+    }
+    return null;
+  };
 
-      if (typeof value === "object") {
-        const map = value as Record<string, unknown>;
-        const from = pickRange(map, rangeKeyMatrix.from);
-        const to = pickRange(map, rangeKeyMatrix.to);
-        if (from && to) {
-          return { from, to };
-        }
+  const dataExportJsonUrl = useMemo(() => {
+    const suffix = rangeFilterString ? `${rangeFilterString}&format=json` : "format=json";
+    return `${exportUrl}?${suffix}`;
+  }, [exportUrl, rangeFilterString]);
+
+  const dataExportCsvUrl = useMemo(() => {
+    const suffix = rangeFilterString ? `${rangeFilterString}&format=csv` : "format=csv";
+    return `${exportUrl}?${suffix}`;
+  }, [exportUrl, rangeFilterString]);
+
+  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
+
+  const fetchSystemStats = React.useCallback(async () => {
+    try {
+      const res = await fetch(statsUrl);
+      if (!res.ok) {
+        console.error("fetchSystemStats failed", res.status);
+        return;
       }
-
-      if (typeof value === "string") {
-        const parts = value.split(/\s*[\u2013\u2014–~-]\s*/u);
-        if (parts.length >= 2) {
-          const from = parseRangeValue(parts[0]);
-          const to = parseRangeValue(parts[1]);
-          if (from && to) {
-            return { from, to };
-          }
-        }
-      }
-
-      return null;
-    };
-
-    const fetchBackendRange = async () => {
-      try {
-        const res = await fetch(`${DATA_PATH}?format=json`);
-        if (!res.ok) return;
-        const payload = await res.json();
-        const fullRangeRaw = payload?.stats?.fullRange ?? payload?.stats?.full_range;
-        setStatsFullRangeRaw(null);
-        if (fullRangeRaw) {
-          const start =
-            typeof fullRangeRaw.start === "string"
-              ? fullRangeRaw.start
-              : typeof fullRangeRaw.from === "string"
-                ? fullRangeRaw.from
-                : undefined;
-          const end =
-            typeof fullRangeRaw.end === "string"
-              ? fullRangeRaw.end
-              : typeof fullRangeRaw.to === "string"
-                ? fullRangeRaw.to
-                : undefined;
-          setStatsFullRangeRaw({ start, end });
-        }
-        const fullRange =
-          normalizeRangeValue(fullRangeRaw) ??
-          normalizeRangeValue(payload?.stats?.fullRange) ??
-          normalizeRangeValue(payload?.stats?.full_range);
-        setStatsFullRange(fullRange ?? null);
-        const paginationTotal =
-          typeof payload?.pagination?.total === "number"
-            ? payload.pagination.total
-            : null;
-        if (paginationTotal != null) {
-          setTotalRecordsAll(paginationTotal);
-        } else if (typeof payload?.stats?.total === "number") {
-          setTotalRecordsAll(payload.stats.total);
-        }
-
-        const range =
-          normalizeRangeValue(payload?.stats?.dataTimeRange) ??
-          normalizeRangeValue(payload?.stats?.range) ??
-          normalizeRangeValue(payload?.range);
-        if (range) {
-          const toDate =
-            parseDateTime(range.to) ?? parseDateTime(range.from);
-          const monthRange = toDate ? buildMonthRange(toDate) : null;
-          setBackendRange(monthRange ?? range);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    void fetchBackendRange();
-  }, [DATA_PATH, lastSyncInfo.finishedAt]);
+      const payload = await res.json();
+      if (!payload || typeof payload !== "object") return;
+      const stats = (payload as Record<string, unknown>).stats;
+      if (!stats || typeof stats !== "object") return;
+      const totalValue = (stats as Record<string, unknown>).total;
+      const total =
+        typeof totalValue === "number"
+          ? totalValue
+          : typeof totalValue === "string"
+          ? Number(totalValue)
+          : 0;
+      const dataTimeRange = (stats as Record<string, unknown>).dataTimeRange;
+      setSystemStats({
+        total: Number.isNaN(total) ? 0 : total,
+        oldestRecord: (stats as Record<string, unknown>).oldestRecord as
+          | string
+          | undefined,
+        newestRecord: (stats as Record<string, unknown>).newestRecord as
+          | string
+          | undefined,
+        dataTimeRange:
+          dataTimeRange && typeof dataTimeRange === "object"
+            ? (dataTimeRange as { from?: string | null; to?: string | null })
+            : undefined,
+      });
+    } catch (err) {
+      console.error("fetch system stats", err);
+    }
+  }, [statsUrl]);
 
   const fetchHealth = React.useCallback(async () => {
     try {
@@ -334,31 +208,27 @@ export function SkinReportApiClient() {
     }
   }, [healthUrl]);
 
-  const startFullSync = React.useCallback(
-    async (save: boolean) => {
+  const startDataSync = React.useCallback(
+    async (targetRange: DateRange) => {
+      if (!targetRange.from || !targetRange.to) {
+        setError("Vui lòng chọn đầy đủ ngày bắt đầu và kết thúc.");
+        return;
+      }
+      if (initialLoadRef.current) {
+        setLoading(true);
+      }
+      setDataSyncLoading(true);
+      setError(null);
       try {
-        setFullSyncLoading(true);
-        const syncStartedAt = new Date().toISOString();
-        setLastSyncInfo({
-          rangeFrom: dateRange.from || undefined,
-          rangeTo: dateRange.to || undefined,
-          startedAt: syncStartedAt,
-          finishedAt: null,
-        });
-
-        const params = new URLSearchParams();
-        params.set("save", save ? "true" : "false");
-        if (dateRange.from) params.set("from", dateRange.from);
-        if (dateRange.to) params.set("to", dateRange.to);
-        params.set("incremental", "true");
-        const query = `?${params.toString()}`;
-        const res = await fetch(`${fullSyncUrl}${query}`, { method: "POST" });
+        const query = buildRangeQuery(targetRange);
+        const url = query ? `${viewUrlBase}?${query}` : viewUrlBase;
+        const res = await fetch(url);
 
         let payload: unknown = null;
         try {
           payload = await res.json();
         } catch {
-          // ignore json parse error, handle by status/text
+          // ignore
         }
 
         if (!res.ok) {
@@ -370,115 +240,75 @@ export function SkinReportApiClient() {
           throw new Error(message);
         }
 
-        // Nếu backend trả trực tiếp data (save=false hoặc vẫn trả data), transform ngay để hiển thị
-        if (payload && typeof payload === "object") {
-          const record = payload as Record<string, unknown>;
-          const startedAt =
-            typeof record.startedAt === "string" ? record.startedAt : undefined;
-          const finishedAt =
-            typeof record.finishedAt === "string"
-              ? record.finishedAt
-              : new Date().toISOString();
-          setLastSyncInfo((prev) => ({
-            ...prev,
-            startedAt: startedAt ?? prev.startedAt,
-            finishedAt,
-          }));
+        const records = extractRecordsFromPayload(payload);
+        if (!records) {
+          throw new Error("Sync data trả về định dạng không mong đợi");
         }
-        if (
-          payload &&
-          typeof payload === "object" &&
-          Array.isArray((payload as Record<string, unknown>).data)
-        ) {
-          const raw = (payload as { data: unknown[] }).data as RemoteRecord[];
-          try {
-            const insights = computeSkinInsights(raw);
-            setInsights(insights);
-          } catch (e) {
-            console.error("Transform raw -> SkinInsights error", e);
-          }
-        } else if (
-          payload &&
-          typeof payload === "object" &&
-          (payload as Record<string, unknown>).saved === true
-        ) {
-          // Nếu server đã lưu vào DB mà không trả data, ưu tiên tải export JSON để tính toán đầy đủ và chính xác
-          try {
-            const expRes = await fetch(`${exportUrl}?format=json`);
-            if (expRes.ok) {
-              const expJson = (await expRes.json()) as RemoteRecord[];
-              const insights = computeSkinInsights(expJson);
-              setInsights(insights);
-            }
-          } catch (e) {
-            console.warn("Export JSON fetch failed", e);
-          }
+        setInsights(computeSkinInsights(records));
+        await fetchSystemStats();
+      } catch (e) {
+        console.error("Sync data error", e);
+        alert(e instanceof Error ? `Sync data lỗi: ${e.message}` : "Sync data lỗi");
+      } finally {
+        setDataSyncLoading(false);
+        if (initialLoadRef.current) {
+          setLoading(false);
+          initialLoadRef.current = false;
         }
+      }
+    },
+    [buildRangeQuery, viewUrlBase, fetchSystemStats]
+  );
+
+  const startFullSync = React.useCallback(
+    async (save: boolean) => {
+      try {
+        setFullSyncLoading(true);
+        const params = new URLSearchParams();
+        params.set("save", save ? "true" : "false");
+        if (dateRange.from) params.set("from", dateRange.from);
+        if (dateRange.to) params.set("to", dateRange.to);
+        params.set("incremental", "true");
+        const res = await fetch(`${fullSyncUrl}?${params.toString()}`, {
+          method: "POST",
+        });
+
+        if (!res.ok) {
+          let message = `Status ${res.status}`;
+          try {
+            const payload = await res.json();
+            const msg = (payload as Record<string, unknown>).message;
+            if (typeof msg === "string") message = msg;
+          } catch {
+            // ignore
+          }
+          throw new Error(message);
+        }
+        await res.json().catch(() => null);
+        await startDataSync(dateRange);
       } catch (e) {
         console.error("Full sync error", e);
         alert(
           e instanceof Error ? `Full sync lỗi: ${e.message}` : "Full sync lỗi"
         );
       } finally {
-        setLastSyncInfo((prev) => ({
-          ...prev,
-          finishedAt: prev.finishedAt ?? new Date().toISOString(),
-        }));
         setFullSyncLoading(false);
       }
     },
-    [fullSyncUrl, exportUrl, dateRange]
+    [fullSyncUrl, dateRange, startDataSync]
   );
 
-  const startDataSync = React.useCallback(async () => {
-    try {
-      setDataSyncLoading(true);
-      const syncStartedAt = new Date().toISOString();
-      setLastSyncInfo({
-        rangeFrom: dateRange.from || undefined,
-        rangeTo: dateRange.to || undefined,
-        startedAt: syncStartedAt,
-        finishedAt: null,
-      });
-
-      const res = await fetch(dataExportUrl);
-
-      let payload: unknown = null;
-      try {
-        payload = await res.json();
-      } catch {
-        // ignore json parse error, handle by status/text
-      }
-
-      if (!res.ok) {
-        let message = `Status ${res.status}`;
-        if (payload && typeof payload === "object") {
-          const msg = (payload as Record<string, unknown>).message;
-          if (typeof msg === "string") message = msg;
-        }
-        throw new Error(message);
-      }
-
-      if (!Array.isArray(payload)) {
-        throw new Error("Sync data trả về định dạng không mong đợi");
-      }
-      const records = payload as RemoteRecord[];
-      setInsights(computeSkinInsights(records));
-    } catch (e) {
-      console.error("Sync data error", e);
-      alert(e instanceof Error ? `Sync data lỗi: ${e.message}` : "Sync data lỗi");
-    } finally {
-      setLastSyncInfo((prev) => ({
-        ...prev,
-        finishedAt: prev.finishedAt ?? new Date().toISOString(),
-      }));
-      setDataSyncLoading(false);
-    }
-  }, [dataExportUrl, dateRange]);
+  useEffect(() => {
+    void startDataSync(initialRangeRef.current);
+  }, [startDataSync]);
 
   useEffect(() => {
     void fetchHealth();
   }, [fetchHealth]);
+
+  useEffect(() => {
+    void fetchSystemStats();
+  }, [fetchSystemStats]);
 
   const {
     activeTab,
@@ -536,36 +366,6 @@ export function SkinReportApiClient() {
     }
   );
 
-  const latestMonthRange = useMemo(
-    () => getLatestMonthRangeFromRecords(insights?.records ?? []),
-    [insights?.records]
-  );
-
-  const activeRange = backendRange ?? latestMonthRange;
-
-  const { oldestRecordAt, newestRecordAt } = useMemo(() => {
-    const records = insights?.records ?? [];
-    let oldest: string | null = null;
-    let newest: string | null = null;
-    records.forEach((record) => {
-      const candidate =
-        parseDateTime(record.crtTime ?? record.createdAt) ??
-        parseDateTime(record.testTime);
-      if (!candidate) return;
-      const formatted = candidate.toISOString();
-      const oldestTime = oldest ? parseDateTime(oldest)?.getTime() : null;
-      const newestTime = newest ? parseDateTime(newest)?.getTime() : null;
-      const candidateTime = candidate.getTime();
-      if (!oldest || (oldestTime != null && candidateTime < oldestTime)) {
-        oldest = record.crtTime ?? record.createdAt ?? record.testTime ?? formatted;
-      }
-      if (!newest || (newestTime != null && candidateTime > newestTime)) {
-        newest = record.crtTime ?? record.createdAt ?? record.testTime ?? formatted;
-      }
-    });
-    return { oldestRecordAt: oldest, newestRecordAt: newest };
-  }, [insights?.records]);
-
   const formatRangeLabel = (value?: string | null) => {
     if (!value) return "—";
     const trimmed = value.trim();
@@ -579,56 +379,16 @@ export function SkinReportApiClient() {
     return value;
   };
 
-  const rawRangeStart =
-    statsFullRangeRaw?.start ||
-    statsFullRange?.from ||
-    backendRange?.from ||
-    latestMonthRange?.from ||
-    oldestRecordAt ||
-    undefined;
-  const rawRangeEnd =
-    statsFullRangeRaw?.end ||
-    statsFullRange?.to ||
-    backendRange?.to ||
-    latestMonthRange?.to ||
-    newestRecordAt ||
-    undefined;
-  const displayRangeStart = formatRangeLabel(rawRangeStart);
-  const displayRangeEnd = formatRangeLabel(rawRangeEnd);
+  const systemRangeStart = systemStats?.dataTimeRange?.from ?? null;
+  const systemRangeEnd = systemStats?.dataTimeRange?.to ?? null;
+  const displayRangeStart = formatRangeLabel(systemRangeStart);
+  const displayRangeEnd = formatRangeLabel(systemRangeEnd);
+  const totalRecordsText = systemStats
+    ? new Intl.NumberFormat("vi-VN").format(systemStats.total)
+    : "Đang tải...";
+  const hasSystemStats = Boolean(systemStats);
 
-  useEffect(() => {
-    if (!activeRange) return;
-    if (isSameRange(activeRange, lastAutoRange)) return;
-    console.log("Auto range update", activeRange, "previous", lastAutoRange);
-    setDateRange(activeRange);
-    setLastAutoRange(activeRange);
-    if (!initialRangeSet) {
-      setInitialRangeSet(true);
-    }
-  }, [activeRange, lastAutoRange, initialRangeSet]);
-
-  useEffect(() => {
-    if (!dateRange.from || !dateRange.to) return;
-    if (lastSyncedRange && isSameRange(dateRange, lastSyncedRange)) return;
-    setLastSyncedRange(dateRange);
-    console.log("Auto sync data triggered after reload", dateRange);
-    const isInitialSync = initialAutoSyncRef.current;
-    if (isInitialSync) {
-      setWaitingForStableData(true);
-      initialAutoSyncRef.current = false;
-    }
-    void (async () => {
-      try {
-        await startDataSync();
-      } finally {
-        if (isInitialSync) {
-          setWaitingForStableData(false);
-        }
-      }
-    })();
-  }, [dateRange, lastSyncedRange, startDataSync]);
-
-  if (loading || waitingForStableData) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner message="Đang tải dữ liệu từ API..." />
@@ -663,6 +423,11 @@ export function SkinReportApiClient() {
   return (
     <div className="p-3 sm:p-6 space-y-6 max-w-full mx-auto">
       {/* Khu vực điều khiển scraper & health */}
+      {waitingForStableData && (
+        <div className="rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-900">
+          Đang cập nhật dữ liệu mới nhất, các tab vẫn sẵn sàng dùng dữ liệu cũ cho tới khi xong.
+        </div>
+      )}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-3 rounded-md border bg-card p-3 sm:p-4">
           <div className="flex items-center justify-between gap-2"></div>
@@ -676,9 +441,7 @@ export function SkinReportApiClient() {
                   id="sync-from"
                   type="date"
                   value={dateRange.from}
-                  onChange={(e) =>
-                    setDateRange((prev) => ({ ...prev, from: e.target.value }))
-                  }
+                  onChange={(e) => handleManualDateChange("from")(e.target.value)}
                   className="h-8 w-40"
                 />
               </div>
@@ -690,9 +453,7 @@ export function SkinReportApiClient() {
                   id="sync-to"
                   type="date"
                   value={dateRange.to}
-                  onChange={(e) =>
-                    setDateRange((prev) => ({ ...prev, to: e.target.value }))
-                  }
+                  onChange={(e) => handleManualDateChange("to")(e.target.value)}
                   className="h-8 w-40"
                 />
               </div>
@@ -716,7 +477,7 @@ export function SkinReportApiClient() {
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={startDataSync}
+                onClick={() => startDataSync(dateRange)}
                 disabled={fullSyncLoading || dataSyncLoading}
                 className="w-full sm:w-auto px-4 py-2"
               >
@@ -741,19 +502,23 @@ export function SkinReportApiClient() {
               Hồ sơ:
             </span>
             <span>
-              Cũ nhất {displayRangeStart} | Mới nhất {displayRangeEnd}</span>
+              Cũ nhất {displayRangeStart} | Mới nhất {displayRangeEnd}
+            </span>
           </p>
           <p className="">
             <span className="font-semibold text-foreground">Tổng hồ sơ toàn hệ thống:</span>{" "}
-            {new Intl.NumberFormat("vi-VN").format(
-              totalRecordsAll ?? insights.totalRecords ?? 0
-            )}
+            {totalRecordsText}
           </p>
+          {!hasSystemStats && (
+            <p className="text-xs text-muted-foreground">
+              Đang lấy dữ liệu tổng hệ thống... Vui lòng đợi một chút.
+            </p>
+          )}
           <div className="space-y-2">
             <h3 className=" font-semibold">Export dữ liệu</h3>
             <div className="flex flex-wrap gap-2">
               <a
-                href={`${exportUrl}?format=json`}
+                href={dataExportJsonUrl}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -765,7 +530,7 @@ export function SkinReportApiClient() {
                 </Button>
               </a>
               <a
-                href={`${exportUrl}?format=csv`}
+                href={dataExportCsvUrl}
                 target="_blank"
                 rel="noopener noreferrer"
               >

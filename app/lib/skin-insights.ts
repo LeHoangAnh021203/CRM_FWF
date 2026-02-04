@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { pickRecordTime } from "@/app/lib/skin-insights-client";
 
 interface LevelModule {
@@ -128,16 +126,6 @@ export interface SpotlightRecord {
   image?: string;
 }
 
-const DATA_FILES = [
-  "api_response (1).json",
-  "api_response_1.json",
-  "api_response_2.json",
-  "api_response_3.json",
-  "api_response_4.json",
-  "api_response_5.json",
-];
-
-const dataDir = path.join(process.cwd(), "data");
 
 const percent = (value: number, total: number) =>
   total === 0 ? 0 : Number(((value / total) * 100).toFixed(1));
@@ -187,32 +175,8 @@ const collectCounts = (
   map[label] = (map[label] || 0) + 1;
 };
 
-export const readSkinRecords = (): RemoteRecord[] => {
-  const merged: RemoteRecord[] = [];
-  DATA_FILES.forEach((file) => {
-    const filePath = path.join(dataDir, file);
-    if (!fs.existsSync(filePath)) {
-      console.warn(`[skin-insights] File not found: ${filePath}`);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(
-        fs.readFileSync(filePath, "utf8")
-      ) as { data?: { list?: RemoteRecord[] } };
-      if (Array.isArray(parsed.data?.list)) {
-        merged.push(...parsed.data.list);
-      }
-    } catch (error) {
-      console.error(`[skin-insights] Failed to parse ${file}`, error);
-    }
-  });
-
-  return merged;
-};
-
 export const computeSkinInsights = (
-  records: RemoteRecord[] = readSkinRecords()
+  records: RemoteRecord[] = []
 ): SkinInsights => {
   const total = records.length;
   const sexCounts: Record<string, number> = {};
