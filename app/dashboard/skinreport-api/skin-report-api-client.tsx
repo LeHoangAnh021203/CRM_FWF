@@ -63,7 +63,7 @@ export function SkinReportApiClient() {
   })();
 
   // Scraper / data API states
-  const [health, setHealth] = useState<string | null>(null);
+  const [, setHealth] = useState<string | null>(null);
   const [fullSyncLoading, setFullSyncLoading] = useState(false);
   const [dataSyncLoading, setDataSyncLoading] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>(() =>
@@ -492,9 +492,7 @@ export function SkinReportApiClient() {
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-semibold">Tình trạng dữ liệu</h2>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Trạng thái API: {health ?? "Đang kiểm tra..."}
-            </p>
+            
           </div>
 
           <p className="grid">

@@ -56,18 +56,12 @@ const menuItems = [
     href: "/dashboard/calendar",
     requiredPermissions: ["ROLE_ADMIN", "ROLE_CEO"],
   },
-  {
-    icon: Bubbles,
-    label: "Skin Report",
-    href: "/dashboard/skinreport",
-    requiredPermissions: ["ROLE_ADMIN", "ROLE_CEO"],
-  },
 
   {
     icon: Bubbles,
     label: "Skin Report API",
     href: "/dashboard/skinreport-api",
-    requiredPermissions: ["ROLE_ADMIN", "ROLE_CEO"],
+    // requiredPermissions: ["ROLE_ADMIN", "ROLE_CEO"],
   },
   {
     icon: Sparkles,
