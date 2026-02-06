@@ -7,6 +7,7 @@ import { usePageStatus } from "@/app/hooks/usePageStatus";
 import { useDashboardData } from "@/app/hooks/useDashboardData";
 import { useDateRange } from "@/app/contexts/DateContext";
 import { useBranchFilter } from "@/app/contexts/BranchContext";
+import { today as intlToday, getLocalTimeZone } from "@internationalized/date";
 import { getActualStockIds, parseNumericValue } from "@/app/constants/branches";
 import { ApiService } from "@/app/lib/api-service";
 import { toDdMmYyyy, toIsoYyyyMmDd } from "@/app/lib/date";
@@ -39,7 +40,8 @@ export default function Dashboard() {
     useNotification();
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
-  const { fromDate, toDate } = useDateRange();
+  const { fromDate, toDate, startDate, endDate, setStartDate, setEndDate } =
+    useDateRange();
   const { stockId: selectedStockId } = useBranchFilter();
   
   // Get actual stockIds (can be multiple for region/city filters)
@@ -83,6 +85,26 @@ export default function Dashboard() {
     // Extract just the date part (YYYY-MM-DD) for comparison
     return toDate.split("T")[0];
   }, [toDate]);
+
+  React.useEffect(() => {
+    if (!startDate || !endDate) return;
+    const datesMatch =
+      startDate.year === endDate.year &&
+      startDate.month === endDate.month &&
+      startDate.day === endDate.day;
+    if (!datesMatch) {
+      setEndDate(startDate);
+    }
+  }, [startDate, endDate, setEndDate]);
+
+  const initialDateSetRef = useRef(false);
+  React.useEffect(() => {
+    if (initialDateSetRef.current) return;
+    initialDateSetRef.current = true;
+    const todayDate = intlToday(getLocalTimeZone());
+    setStartDate(todayDate);
+    setEndDate(todayDate);
+  }, [setStartDate, setEndDate]);
   
   const searchParamQuery = (() => {
     if (typeof window === "undefined") return "";
@@ -2137,51 +2159,6 @@ export default function Dashboard() {
             <DollarSign className="h-6 w-6 text-[#f16a3f]" />
             <h2 className="text-2xl font-bold text-[#334862]">Doanh Số</h2>
           </div>
-
-          {/* KPI Chart */}
-          <div
-            ref={sectionRefs.current.dashboard_kpi}
-            className={
-              highlightKey === "dashboard_kpi"
-                ? "ring-2 ring-[#41d1d9] rounded-lg"
-                : ""
-            }
-          >
-            <LazyLoadingWrapper type="chart" minHeight="400px">
-              {/* Always show KPIChart - let it handle its own loading states internally */}
-              <KPIChart
-                kpiDailySeriesLoading={kpiDailySeriesLoading}
-                kpiDailySeriesError={kpiDailySeriesError}
-                dailyKpiGrowthData={dailyKpiGrowthData}
-                kpiViewMode={kpiViewMode}
-                setKpiViewMode={setKpiViewMode}
-                currentDayForDaily={isDaily ? selectedDay : lastDay}
-                currentPercentage={isDaily ? dailyPercentage : currentPercentage}
-                dailyPercentageForCurrentDay={
-                  isDaily ? dailyPercentage : currentPercentage
-                }
-                kpiMonthlyRevenueLoading={kpiMonthlyRevenueLoading}
-                dailyRevenueLoading={dailyRevenueLoading}
-                targetStatus={isDaily ? dailyStatus : monthlyStatus}
-                monthlyTarget={COMPANY_MONTH_TARGET} // đây là Mục tiêu tháng này - có thể chỉnh sửa
-                onMonthlyTargetChange={(target) => {
-                  setUserMonthlyTarget(target);
-                  localStorage.setItem('kpi_monthly_target', target.toString());
-                }}
-                specialHolidays={specialHolidays}
-                onSpecialHolidaysChange={(days) => setSpecialHolidays(days)}
-                dailyTargetForCurrentDay={isDaily ? dailyTargetForSelectedDay : dailyTargetForCurrentDay}
-                dailyTargetForToday={
-                  isDaily ? dailyTargetForSelectedDay : targetUntilNow
-                } // Đến nay cần đạt: ngày hoặc tháng
-                remainingTarget={isDaily ? dailyKpiLeft : remainingTarget}
-                remainingDailyTarget={isDaily ? dailyKpiLeft : remainingTarget}
-                dailyTargetPercentageForCurrentDay={100.0}
-                currentRevenue={isDaily ? dailyKpiRevenue : currentRevenue}
-              />
-            </LazyLoadingWrapper>
-          </div>
-
           {/* Bảng Tổng Doanh Số */}
           <LazyLoadingWrapper type="table" minHeight="300px">
             <ConditionalRender
@@ -2251,7 +2228,7 @@ export default function Dashboard() {
           </LazyLoadingWrapper>
 
           {/* Growth By Payment Chart */}
-          <LazyLoadingWrapper type="chart" minHeight="450px">
+          {/* <LazyLoadingWrapper type="chart" minHeight="450px">
             {loadingGrowth ? (
               <div className="w-full flex justify-center items-center min-h-[450px] rounded-lg bg-gray-50 text-[#41d1d9] text-lg font-semibold">
                 <div className="flex flex-col items-center gap-3">
@@ -2288,7 +2265,7 @@ export default function Dashboard() {
                 setMonth2ToDay={setMonth2ToDay}
               />
             )}
-          </LazyLoadingWrapper>
+          </LazyLoadingWrapper> */}
         </div>
 
           {/* FOXIE BALANCE SECTION */}

@@ -10,7 +10,7 @@ import {
   Radical,
   CalendarCheck2,
   LayoutDashboard,
-  Bubbles,
+  Bubbles, ChartNoAxesCombined
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import Link from "next/link";
@@ -24,6 +24,12 @@ const menuItems = [
     icon: LayoutDashboard,
     label: "Dashboard",
     href: "/",
+  },
+
+  {
+    icon: ChartNoAxesCombined,
+    label: "KPI",
+    href: "/dashboard/kpi",
   },
   {
     icon: Users,
