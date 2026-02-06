@@ -54,6 +54,8 @@ export function Header() {
       .slice(0, 8);
   };
 
+  const showGlobalDatePicker = pathname !== "/dashboard";
+
   return (
     <header className="bg-white border-b border-gray-200 px-3 py-2 sm:px-6 sm:py-4">
       <div className="flex sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -168,7 +170,9 @@ export function Header() {
 
         {/* Global Date Picker + Branch Filter */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <GlobalDatePicker compact={true} className="flex text-xs" />
+          {showGlobalDatePicker && (
+            <GlobalDatePicker compact={true} className="flex text-xs" />
+          )}
           <BranchFilter />
         </div>
 

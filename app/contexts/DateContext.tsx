@@ -125,6 +125,12 @@ export function DateProvider({
     ) ?? null;
   }, [pathname]);
 
+  const normalizedPathname = useMemo(() => {
+    if (!pathname) return "";
+    return pathname.endsWith("/") && pathname !== "/" ? pathname.slice(0, -1) : pathname;
+  }, [pathname]);
+  const isDashboardRoute = normalizedPathname === "/dashboard";
+
   useEffect(() => {
     let isMounted = true;
 

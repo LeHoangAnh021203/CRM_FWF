@@ -14,6 +14,8 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
   "/dashboard/calendar": ["ROLE_ADMIN", "ROLE_CEO"],
   "/dashboard/generateAI": ["ROLE_ADMIN", "ROLE_CEO"],
   "/dashboard/userManagement": ["ROLE_ADMIN", "ROLE_CEO"],
+  "/dashboard/kpi": ["ROLE_ADMIN", "ROLE_CEO"],
+  "/dashboard/skinreport-api": ["ROLE_ADMIN", "ROLE_CEO", "ROLE_LEADER"],
   // Add more routes as needed
 }
 
@@ -75,4 +77,3 @@ export function PermissionGuard({
 
   return <>{children}</>
 }
-

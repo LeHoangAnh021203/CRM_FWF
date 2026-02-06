@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import KPIChart from "@/app/dashboard/KPIChart";
 import GrowthByPaymentChart from "@/app/dashboard/GrowthByPaymentChart";
-import  { PaymentMethod } from "@/app/dashboard/TotalSaleTable";
+import TotalSaleTable, { PaymentMethod } from "@/app/dashboard/TotalSaleTable";
 import { ApiService } from "@/app/lib/api-service";
 import { toDdMmYyyy, toIsoYyyyMmDd } from "@/app/lib/date";
 import { getActualStockIds, parseNumericValue } from "@/app/constants/branches";
@@ -61,11 +61,6 @@ export default function KpiDashboardPage() {
 
   const fromDateStr = useMemo(() => (fromDate ? fromDate.split("T")[0] : ""), [fromDate]);
   const toDateStr = useMemo(() => (toDate ? toDate.split("T")[0] : ""), [toDate]);
-  const rangeText = useMemo(() => {
-    if (!fromDateStr || !toDateStr) return undefined;
-    return `từ ${formatIsoToDdMm(fromDateStr)} đến ${formatIsoToDdMm(toDateStr)}`;
-  }, [fromDateStr, toDateStr]);
-
   const [salesSummaryData, setSalesSummaryData] = useState<SalesSummaryData | null>(null);
   const [, setSalesLoading] = useState(true);
   const [, setSalesError] = useState<string | null>(null);
@@ -139,7 +134,7 @@ export default function KpiDashboardPage() {
     localStorage.setItem("kpi_monthly_target", target.toString());
   }, []);
 
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
   const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
     today.getDate()
   ).padStart(2, "0")}`;
@@ -154,8 +149,12 @@ export default function KpiDashboardPage() {
   const lastDay = endDateObj ? endDateObj.getDate() : 0;
   const year = endDateObj ? endDateObj.getFullYear() : today.getFullYear();
   const month = endDateObj ? endDateObj.getMonth() : today.getMonth();
-  const holidayDaysSet = new Set<number>(
-    specialHolidays.map((d) => Math.max(1, Math.min(d, daysInMonth)))
+  const holidayDaysSet = useMemo(
+    () =>
+      new Set<number>(
+        specialHolidays.map((d) => Math.max(1, Math.min(d, daysInMonth)))
+      ),
+    [specialHolidays, daysInMonth]
   );
 
   let holidayDaysCount = 0;
@@ -177,14 +176,26 @@ export default function KpiDashboardPage() {
     ? Math.max(0, (COMPANY_MONTH_TARGET - totalFixedTarget) / weekdayDaysCount)
     : 0;
 
-  const getDailyTargetForDay = (day: number) => {
-    if (daysInMonth === 0 || !endDateObj) return 0;
-    const date = new Date(year, month, day);
-    const dayOfWeek = date.getDay();
-    if (holidayDaysSet.has(day)) return holidayTargetPerDay;
-    if (dayOfWeek === 0 || dayOfWeek === 6) return weekendTargetPerDay;
-    return weekdayTargetPerDay;
-  };
+  const getDailyTargetForDay = useCallback(
+    (day: number) => {
+      if (daysInMonth === 0 || !endDateObj) return 0;
+      const date = new Date(year, month, day);
+      const dayOfWeek = date.getDay();
+      if (holidayDaysSet.has(day)) return holidayTargetPerDay;
+      if (dayOfWeek === 0 || dayOfWeek === 6) return weekendTargetPerDay;
+      return weekdayTargetPerDay;
+    },
+    [
+      daysInMonth,
+      endDateObj,
+      holidayDaysSet,
+      month,
+      weekdayTargetPerDay,
+      weekendTargetPerDay,
+      holidayTargetPerDay,
+      year,
+    ]
+  );
 
   const dailyTargetForCurrentDay = todayDay > 0 ? getDailyTargetForDay(todayDay) : 0;
 
@@ -535,7 +546,11 @@ export default function KpiDashboardPage() {
                 ) as Promise<number | string | null | undefined>
               )
             );
-            return results.reduce((sum, value) => sum + parseNumericValue(value), 0);
+            let total = 0;
+            for (const value of results) {
+              total += parseNumericValue(value);
+            }
+            return total;
           }
           const value = (await ApiService.getDirect(
             `real-time/get-actual-revenue?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
@@ -551,7 +566,7 @@ export default function KpiDashboardPage() {
         setActualRevenueToday(dayValue ?? null);
         setActualRevenueMTD(mtdValue ?? null);
       } catch {
-        // ignore
+        
       }
     };
     run();
@@ -766,8 +781,6 @@ export default function KpiDashboardPage() {
           />
         </div>
       </section>
-
-      
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">

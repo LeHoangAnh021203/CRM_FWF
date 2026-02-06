@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState, useRef, Suspense, useEffect } from "react";
+import React, { useState, useRef, Suspense, useEffect, useMemo } from "react";
 import { Notification, useNotification } from "@/app/components/notification";
 import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
 import { useDashboardData } from "@/app/hooks/useDashboardData";
 import { useDateRange } from "@/app/contexts/DateContext";
 import { useBranchFilter } from "@/app/contexts/BranchContext";
-import { today as intlToday, getLocalTimeZone } from "@internationalized/date";
 import { getActualStockIds, parseNumericValue } from "@/app/constants/branches";
 import { ApiService } from "@/app/lib/api-service";
 import { toDdMmYyyy, toIsoYyyyMmDd } from "@/app/lib/date";
@@ -17,14 +16,12 @@ import { DollarSign } from "lucide-react";
 import {
   TotalSaleTable,
   SaleDetail,
-  KPIChart,
   CustomerSection,
   BookingSection,
   BookingByHourChart,
   ServiceSection,
   FoxieBalanceTable,
   SalesByHourTable,
-  GrowthByPaymentChart,
 } from "./lazy-components";
 import { LazyLoadingWrapper, ConditionalRender } from "./LazyLoadingWrapper";
 
@@ -40,8 +37,7 @@ export default function Dashboard() {
     useNotification();
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
-  const { fromDate, toDate, startDate, endDate, setStartDate, setEndDate } =
-    useDateRange();
+  const { fromDate, toDate } = useDateRange();
   const { stockId: selectedStockId } = useBranchFilter();
   
   // Get actual stockIds (can be multiple for region/city filters)
@@ -86,25 +82,13 @@ export default function Dashboard() {
     return toDate.split("T")[0];
   }, [toDate]);
 
-  React.useEffect(() => {
-    if (!startDate || !endDate) return;
-    const datesMatch =
-      startDate.year === endDate.year &&
-      startDate.month === endDate.month &&
-      startDate.day === endDate.day;
-    if (!datesMatch) {
-      setEndDate(startDate);
-    }
-  }, [startDate, endDate, setEndDate]);
-
-  const initialDateSetRef = useRef(false);
-  React.useEffect(() => {
-    if (initialDateSetRef.current) return;
-    initialDateSetRef.current = true;
-    const todayDate = intlToday(getLocalTimeZone());
-    setStartDate(todayDate);
-    setEndDate(todayDate);
-  }, [setStartDate, setEndDate]);
+  const todayLabel = useMemo(() => {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, "0");
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const year = today.getFullYear();
+    return `${day}/${month}/${year}`;
+  }, []);
   
   const searchParamQuery = (() => {
     if (typeof window === "undefined") return "";
@@ -251,10 +235,6 @@ export default function Dashboard() {
     fetchSalesSummary();
   }, [fromDateStr, toDateStr, stockQueryParam, actualStockIds]);
 
-  const [kpiViewMode, setKpiViewMode] = useState<"monthly" | "daily">(
-    "monthly"
-  );
-
   // KPI Monthly revenue API state (for Target KPI only - cumulative from start of month)
   const [kpiMonthlyRevenueLoading, setKpiMonthlyRevenueLoading] =
     useState(true);
@@ -358,7 +338,7 @@ export default function Dashboard() {
   const [bookingError, setBookingError] = useState<string | null>(null);
 
   // Daily revenue API state (for current day only)
-  const [dailyRevenueLoading, setDailyRevenueLoading] = useState(true);
+  const [, setDailyRevenueLoading] = useState(true);
   const [dailyRevenueError, setDailyRevenueError] = useState<string | null>(
     null
   );
@@ -1313,7 +1293,7 @@ export default function Dashboard() {
   const DEFAULT_MONTH_TARGET = 9750000000;
   
   // User-editable monthly target (stored in localStorage)
-  const [userMonthlyTarget, setUserMonthlyTarget] = React.useState<number | null>(() => {
+  const [userMonthlyTarget, ] = React.useState<number | null>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('kpi_monthly_target');
       return stored ? Number(stored) : null;
@@ -1329,7 +1309,7 @@ export default function Dashboard() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   }, [toDate]);
 
-  const [specialHolidays, setSpecialHolidays] = React.useState<number[]>(() => {
+  const [specialHolidays, ] = React.useState<number[]>(() => {
     if (typeof window !== 'undefined') {
       try {
         const raw = localStorage.getItem(`kpi_special_holidays_${currentMonthKeyForHoliday}`);
@@ -1453,11 +1433,7 @@ export default function Dashboard() {
   // Use selected day target for daily mode, or today's target as fallback
   const dailyTargetForSelectedDay = selectedDayTarget || dailyTargetForCurrentDay;
   
-  const dailyPercentage =
-    dailyTargetForSelectedDay > 0
-      ? (dailyKpiRevenue / dailyTargetForSelectedDay) * 100
-      : 0;
-  const dailyKpiLeft = Math.max(0, dailyTargetForSelectedDay - dailyKpiRevenue);
+ 
 
   // ---------- KPI Tháng: sum từ ngày 1 đến ngày cuối range ----------
   const currentRevenue = actualRevenueMTD ?? (() => {
@@ -1474,74 +1450,8 @@ export default function Dashboard() {
     }
     return sum;
   })();
-  const currentPercentage =
-    targetUntilNow > 0 ? (currentRevenue / targetUntilNow) * 100 : 0;
-  const remainingTarget = Math.max(0, targetUntilNow - currentRevenue);
-
-  const dailyKpiGrowthData = React.useMemo(() => {
-    const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-    if (!kpiDailySeries || kpiDailySeries.length === 0) {
-      console.log('⚠️ dailyKpiGrowthData: kpiDailySeries is empty or null', {
-        kpiDailySeries,
-        length: kpiDailySeries?.length
-      });
-      return [];
-    }
-    
-    // Helper to get target for a specific date
-    const getTargetForDate = (dateStr: string): number => {
-      const [yyyy, mm, dd] = dateStr.split("-");
-      const jsDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-      const dayOfWeek = jsDate.getDay();
-      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
-        return weekendTargetPerDay;
-      }
-      return weekdayTargetPerDay;
-    };
-    
-    const result = kpiDailySeries.map((d) => {
-      const [yyyy, mm, dd] = d.isoDate.split("-");
-      const jsDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-      const targetForThisDay = getTargetForDate(d.isoDate);
-      return {
-        day: dayNames[jsDate.getDay()],
-        date: d.dateLabel,
-        revenue: d.total,
-        target: targetForThisDay,
-        percentage:
-          targetForThisDay > 0
-            ? (d.total / targetForThisDay) * 100
-            : 0,
-        isToday: jsDate.toDateString() === new Date().toDateString(),
-      };
-    });
-    
-    console.log('✅ dailyKpiGrowthData calculated:', {
-      length: result.length,
-      sample: result.slice(0, 3),
-      totalRevenue: result.reduce((sum, r) => sum + r.revenue, 0)
-    });
-    
-    return result;
-  }, [kpiDailySeries, weekendTargetPerDay, weekdayTargetPerDay]);
-
-  // Status logic cho hiển thị trạng thái (dùng selected day target)
-  const dailyStatus =
-    dailyTargetForSelectedDay === 0
-      ? "ontrack"
-      : dailyKpiRevenue >= dailyTargetForSelectedDay
-      ? dailyKpiRevenue > dailyTargetForSelectedDay * 1.1
-        ? "ahead"
-        : "ontrack"
-      : "behind";
-  const monthlyStatus =
-    targetUntilNow === 0
-      ? "ontrack"
-      : currentRevenue >= targetUntilNow
-      ? currentRevenue > targetUntilNow * 1.1
-        ? "ahead"
-        : "ontrack"
-      : "behind";
+  
+  
 
   // -------- Render tách riêng cho Ngày và Tháng --------
   React.useEffect(() => {
@@ -1889,24 +1799,24 @@ export default function Dashboard() {
     }
   }, [loading, reportPagePerformance]);
 
-  const isDaily = kpiViewMode === "daily";
+  
 
   // Sample aggregation ( giả lập, bạn cần thay bằng logic thực tế hoặc gọi API tổng hợp từng tháng )
   const [paymentGrowthByMonth, setPaymentGrowthByMonth] = React.useState<
     Array<{ month: string; tmckqt: number; foxie: number; vi: number }>
   >([]);
   const [loadingGrowth, setLoadingGrowth] = React.useState(true);
-  const [compareFromDay, setCompareFromDay] = React.useState(1);
-  const [compareToDay, setCompareToDay] = React.useState(31);
-  const [compareMonth, setCompareMonth] = React.useState("");
+  const [, ] = React.useState(1);
+  const [, ] = React.useState(31);
+  const [, setCompareMonth] = React.useState("");
   
   // New mode: 2 separate months with individual day ranges
-  const [month1, setMonth1] = React.useState<string>("");
-  const [month2, setMonth2] = React.useState<string>("");
-  const [month1FromDay, setMonth1FromDay] = React.useState(1);
-  const [month1ToDay, setMonth1ToDay] = React.useState(31);
-  const [month2FromDay, setMonth2FromDay] = React.useState(1);
-  const [month2ToDay, setMonth2ToDay] = React.useState(31);
+  const [, ] = React.useState<string>("");
+  const [, ] = React.useState<string>("");
+  const [, ] = React.useState(1);
+  const [, ] = React.useState(31);
+  const [, ] = React.useState(1);
+  const [, ] = React.useState(31);
 
   // Cache for individual months to avoid re-fetching
   const monthCacheRef = React.useRef<Map<string, {
@@ -2150,6 +2060,9 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold text-balance ">
               Dashboard Quản Lý Kinh Doanh
             </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Dữ liệu cập nhật đến ngày {todayLabel}
+            </p>
           </div>
         </div>
 

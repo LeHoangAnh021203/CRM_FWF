@@ -151,8 +151,7 @@ export default function GrowthByPaymentChart({
         setLoadingMonth(null);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, onMonthSelect]); // setCompareMonth is stable from props
+  }, [data, onMonthSelect, setCompareMonth, setLoadingMonth]);
 
   // Handle month1 selection - lazy load if needed (new mode)
   const handleMonth1Change = React.useCallback(async (selectedMonth: string) => {
@@ -183,8 +182,7 @@ export default function GrowthByPaymentChart({
         setLoadingMonth1(null);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, onMonthSelect, setMonth1]);
+  }, [data, onMonthSelect, setMonth1, setLoadingMonth1]);
 
   // Handle month2 selection - lazy load if needed (new mode)
   const handleMonth2Change = React.useCallback(async (selectedMonth: string) => {
@@ -215,8 +213,7 @@ export default function GrowthByPaymentChart({
         setLoadingMonth2(null);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, onMonthSelect, setMonth2]);
+  }, [data, onMonthSelect, setMonth2, setLoadingMonth2]);
 
   const [visibleMethods, setVisibleMethods] = React.useState<MethodKey[]>(['tmckqt', 'foxie', 'vi']);
   const [rangeLoading, setRangeLoading] = React.useState(false);
@@ -555,8 +552,6 @@ export default function GrowthByPaymentChart({
     // Check if any month is loading
     const isMonth1Loading = loadingMonth1 === month1;
     const isMonth2Loading = loadingMonth2 === month2;
-    const isMonth1NotLoaded = month1 && !data.some(d => d.month === month1) && !isMonth1Loading;
-    const isMonth2NotLoaded = month2 && !data.some(d => d.month === month2) && !isMonth2Loading;
     
     // Show loading state if any month is being loaded
     if (month1 && month2 && (isMonth1Loading || isMonth2Loading)) {
