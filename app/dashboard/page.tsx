@@ -37,7 +37,7 @@ export default function Dashboard() {
     useNotification();
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
-  const { fromDate, toDate } = useDateRange();
+  const { toDate, rangeAlert } = useDateRange();
   const { stockId: selectedStockId } = useBranchFilter();
   
   // Get actual stockIds (can be multiple for region/city filters)
@@ -69,26 +69,37 @@ export default function Dashboard() {
 
   const { loading, error, apiErrors, apiSuccesses } = useDashboardData();
   
-  // Memoize date strings to prevent unnecessary re-renders
-  const fromDateStr = React.useMemo(() => {
-    if (!fromDate) return "";
-    // Extract just the date part (YYYY-MM-DD) for comparison
-    return fromDate.split("T")[0];
-  }, [fromDate]);
-  
-  const toDateStr = React.useMemo(() => {
-    if (!toDate) return "";
-    // Extract just the date part (YYYY-MM-DD) for comparison
-    return toDate.split("T")[0];
-  }, [toDate]);
-
-  const todayLabel = useMemo(() => {
-    const today = new Date();
-    const day = String(today.getDate()).padStart(2, "0");
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const year = today.getFullYear();
-    return `${day}/${month}/${year}`;
+  const parseDateOnly = React.useCallback((value?: string | null): string => {
+    if (!value) return "";
+    const matched = value.match(/\d{4}-\d{2}-\d{2}/);
+    if (matched) return matched[0];
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return toIsoYyyyMmDd(parsed);
   }, []);
+
+  // Always anchor dashboard data to the latest available day from backend metadata.
+  const latestDataDateStr = React.useMemo(() => {
+    const salesDatasetMax = parseDateOnly(rangeAlert?.maxMap?.sales_transaction);
+    const globalMax = parseDateOnly(rangeAlert?.globalMax);
+    const datePickerValue = toDate ? toDate.split("T")[0] : "";
+    return salesDatasetMax || globalMax || datePickerValue || toIsoYyyyMmDd(new Date());
+  }, [rangeAlert, toDate, parseDateOnly]);
+
+  const latestDataDateObj = React.useMemo(() => {
+    if (!latestDataDateStr) return null;
+    const [year, month, day] = latestDataDateStr.split("-").map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+  }, [latestDataDateStr]);
+
+  const latestDataDateLabel = useMemo(() => {
+    if (!latestDataDateObj) return "";
+    const day = String(latestDataDateObj.getDate()).padStart(2, "0");
+    const month = String(latestDataDateObj.getMonth() + 1).padStart(2, "0");
+    const year = latestDataDateObj.getFullYear();
+    return `${day}/${month}/${year}`;
+  }, [latestDataDateObj]);
   
   const searchParamQuery = (() => {
     if (typeof window === "undefined") return "";
@@ -114,15 +125,15 @@ export default function Dashboard() {
   // Use ApiService with authentication like other pages
   React.useEffect(() => {
     const fetchSalesSummary = async () => {
-      if (!fromDateStr || !toDateStr) return;
+      if (!latestDataDateObj) return;
 
       try {
         setSalesLoading(true);
         setSalesError(null);
 
         // Format dates for API (DD/MM/YYYY format like the API expects)
-        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
-        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(latestDataDateObj);
+        const endDate = toDdMmYyyy(latestDataDateObj);
 
         console.log("🔄 Fetching sales summary via ApiService with dates:", {
           startDate,
@@ -233,7 +244,7 @@ export default function Dashboard() {
     };
 
     fetchSalesSummary();
-  }, [fromDateStr, toDateStr, stockQueryParam, actualStockIds]);
+  }, [latestDataDateObj, stockQueryParam, actualStockIds]);
 
   // KPI Monthly revenue API state (for Target KPI only - cumulative from start of month)
   const [kpiMonthlyRevenueLoading, setKpiMonthlyRevenueLoading] =
@@ -361,13 +372,13 @@ export default function Dashboard() {
   // Fetch service summary (real-time) using ApiService via proxy
   React.useEffect(() => {
     const fetchServiceSummary = async () => {
-      if (!fromDateStr || !toDateStr) return;
+      if (!latestDataDateObj) return;
 
       try {
         setServiceError(null);
 
-        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
-        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(latestDataDateObj);
+        const endDate = toDdMmYyyy(latestDataDateObj);
 
         const data = (await ApiService.getDirect(
           `real-time/service-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
@@ -398,18 +409,18 @@ export default function Dashboard() {
     };
 
     fetchServiceSummary();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
+  }, [latestDataDateObj, stockQueryParam]);
 
   React.useEffect(() => {
     const fetchTopServices = async () => {
-      if (!fromDateStr || !toDateStr) return;
+      if (!latestDataDateObj) return;
 
       try {
         setTopServicesLoading(true);
         setTopServicesError(null);
 
-        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
-        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(latestDataDateObj);
+        const endDate = toDdMmYyyy(latestDataDateObj);
 
         const data = (await ApiService.getDirect(
           `real-time/get-top-10-service?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
@@ -433,19 +444,19 @@ export default function Dashboard() {
     };
 
     fetchTopServices();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
+  }, [latestDataDateObj, stockQueryParam]);
 
   // Fetch new customers by source (real-time) using ApiService via proxy
   React.useEffect(() => {
     const fetchNewCustomers = async () => {
-      if (!fromDateStr || !toDateStr) return;
+      if (!latestDataDateObj) return;
 
       try {
         setNewCustomerLoading(true);
         setNewCustomerError(null);
 
-        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
-        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(latestDataDateObj);
+        const endDate = toDdMmYyyy(latestDataDateObj);
 
         const data = (await ApiService.getDirect(
           `real-time/get-new-customer?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
@@ -466,19 +477,19 @@ export default function Dashboard() {
     };
 
     fetchNewCustomers();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
+  }, [latestDataDateObj, stockQueryParam]);
 
   // Fetch old customers by source (real-time) using ApiService via proxy
   React.useEffect(() => {
     const fetchOldCustomers = async () => {
-      if (!fromDateStr || !toDateStr) return;
+      if (!latestDataDateObj) return;
 
       try {
         setOldCustomerLoading(true);
         setOldCustomerError(null);
 
-        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
-        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(latestDataDateObj);
+        const endDate = toDdMmYyyy(latestDataDateObj);
 
         const data = (await ApiService.getDirect(
           `real-time/get-old-customer?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
@@ -499,7 +510,7 @@ export default function Dashboard() {
     };
 
     fetchOldCustomers();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
+  }, [latestDataDateObj, stockQueryParam]);
 
   // Fetch Foxie balance using ApiService via proxy
   React.useEffect(() => {
@@ -552,14 +563,14 @@ export default function Dashboard() {
   // Fetch sales by hour (real-time) using ApiService via proxy
   React.useEffect(() => {
     const fetchSalesByHour = async () => {
-      if (!fromDateStr || !toDateStr) return;
+      if (!latestDataDateObj) return;
 
       try {
         setSalesByHourLoading(true);
         setSalesByHourError(null);
 
-        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
-        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(latestDataDateObj);
+        const endDate = toDdMmYyyy(latestDataDateObj);
 
         console.log("🔄 Fetching sales by hour via ApiService with dates:", {
           startDate,
@@ -587,15 +598,19 @@ export default function Dashboard() {
     };
 
     fetchSalesByHour();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
+  }, [latestDataDateObj, stockQueryParam]);
 
   // Fetch Actual Revenue for KPI (day and month-to-date)
   React.useEffect(() => {
     const run = async () => {
       try {
-        const today = toDateStr ? new Date(toDateStr) : new Date();
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        const dayStr = toDdMmYyyy(today);
+        if (!latestDataDateObj) return;
+        const firstDay = new Date(
+          latestDataDateObj.getFullYear(),
+          latestDataDateObj.getMonth(),
+          1
+        );
+        const dayStr = toDdMmYyyy(latestDataDateObj);
         const startMonthStr = toDdMmYyyy(firstDay);
 
         const fetchActualRevenue = async (startDate: string, endDate: string) => {
@@ -630,17 +645,17 @@ export default function Dashboard() {
       }
     };
     run();
-  }, [fromDateStr, toDateStr, stockQueryParam, actualStockIds]);
+  }, [latestDataDateObj, stockQueryParam, actualStockIds]);
 
   // Fetch booking by hour (real-time)
   React.useEffect(() => {
     const fetchBookingByHour = async () => {
-      if (!fromDateStr || !toDateStr) return;
+      if (!latestDataDateObj) return;
       try {
         setBookingByHourLoading(true);
         setBookingByHourError(null);
-        const start = toDdMmYyyy(fromDateStr + "T00:00:00");
-        const end = toDdMmYyyy(toDateStr + "T23:59:59");
+        const start = toDdMmYyyy(latestDataDateObj);
+        const end = toDdMmYyyy(latestDataDateObj);
         const data = (await ApiService.getDirect(
           `real-time/get-booking-by-hour?dateStart=${start}&dateEnd=${end}${stockQueryParam}`
         )) as Array<{ count: number; type: string }>;
@@ -653,7 +668,7 @@ export default function Dashboard() {
       }
     };
     fetchBookingByHour();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
+  }, [latestDataDateObj, stockQueryParam]);
 
   const newCustomerTotal = React.useMemo(() => {
     if (!newCustomerData || newCustomerData.length === 0) return 0;
@@ -711,17 +726,17 @@ export default function Dashboard() {
   // Fetch sales detail (real-time) using ApiService via proxy
   React.useEffect(() => {
     const fetchSalesDetail = async () => {
-      if (!fromDateStr || !toDateStr) return;
+      if (!latestDataDateObj) return;
 
       try {
         setSalesDetailLoading(true);
         setSalesDetailError(null);
 
-        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
-        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(latestDataDateObj);
+        const endDate = toDdMmYyyy(latestDataDateObj);
 
         const data = (await ApiService.getDirect(
-          `real-time/sales-detail?dateStart=${startDate}&dateEnd=${endDate}`
+          `real-time/sales-detail?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
         )) as Array<{
           productName: string;
           productPrice: string;
@@ -749,19 +764,19 @@ export default function Dashboard() {
     };
 
     fetchSalesDetail();
-  }, [fromDateStr, toDateStr]);
+  }, [latestDataDateObj, stockQueryParam]);
 
   // Fetch booking data (real-time) using ApiService via proxy
   React.useEffect(() => {
     const fetchBookingData = async () => {
-      if (!fromDateStr || !toDateStr) return;
+      if (!latestDataDateObj) return;
 
       try {
         setBookingLoading(true);
         setBookingError(null);
 
-        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
-        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+        const startDate = toDdMmYyyy(latestDataDateObj);
+        const endDate = toDdMmYyyy(latestDataDateObj);
 
         console.log("🔄 Fetching booking data via ApiService with dates:", {
           startDate,
@@ -793,17 +808,18 @@ export default function Dashboard() {
     };
 
     fetchBookingData();
-  }, [fromDateStr, toDateStr, stockQueryParam]);
+  }, [latestDataDateObj, stockQueryParam]);
 
   // Fetch daily revenue (current day only) using ApiService via proxy
   React.useEffect(() => {
     const fetchDailyRevenue = async () => {
+      if (!latestDataDateObj) return;
       try {
         setDailyRevenueLoading(true);
         setDailyRevenueError(null);
 
-        // Get current date in DD/MM/YYYY format
-        const todayStr = toDdMmYyyy(new Date());
+        // Fetch exactly the latest data date.
+        const todayStr = toDdMmYyyy(latestDataDateObj);
 
         console.log("🔄 Fetching daily revenue for today:", todayStr);
 
@@ -834,17 +850,18 @@ export default function Dashboard() {
     };
 
     fetchDailyRevenue();
-  }, [stockQueryParam]); // Refetch when branch changes
+  }, [latestDataDateObj, stockQueryParam]);
 
   // Fetch KPI monthly revenue (for Target KPI only - cumulative from start of month)
   React.useEffect(() => {
     const fetchKpiMonthlyRevenue = async () => {
+      if (!latestDataDateObj) return;
       try {
         setKpiMonthlyRevenueLoading(true);
         setKpiMonthlyRevenueError(null);
 
-        // Get start of current month and current date
-        const today = new Date();
+        // Get start of month and latest available data date
+        const today = latestDataDateObj;
         const firstDayOfMonth = new Date(
           today.getFullYear(),
           today.getMonth(),
@@ -954,13 +971,14 @@ export default function Dashboard() {
     };
 
     fetchKpiMonthlyRevenue();
-  }, [stockQueryParam, actualStockIds]);
+  }, [latestDataDateObj, stockQueryParam, actualStockIds]);
 
   // Fetch daily KPI series (TM+CK+QT per day) from start of month to today
   const kpiSeriesStockRef = React.useRef<string | null>(null);
   React.useEffect(() => {
+    if (!latestDataDateObj) return;
     // Create a unique key from all relevant dependencies
-    const currentKey = `${selectedStockId}-${stockQueryParam}-${actualStockIds.join(',')}`;
+    const currentKey = `${latestDataDateStr}-${selectedStockId}-${stockQueryParam}-${actualStockIds.join(",")}`;
     if (kpiSeriesStockRef.current === currentKey) return;
     kpiSeriesStockRef.current = currentKey;
     let isCancelled = false;
@@ -980,7 +998,7 @@ export default function Dashboard() {
           return;
         }
 
-        const today = new Date();
+        const today = latestDataDateObj;
         const firstDayOfMonth = new Date(
           today.getFullYear(),
           today.getMonth(),
@@ -1214,7 +1232,7 @@ export default function Dashboard() {
     return () => {
       isCancelled = true;
     };
-  }, [selectedStockId, stockQueryParam, actualStockIds]);
+  }, [latestDataDateObj, latestDataDateStr, selectedStockId, stockQueryParam, actualStockIds]);
 
   // Process sales summary data similar to orders page
   const paymentMethods = React.useMemo(() => {
@@ -1305,9 +1323,9 @@ export default function Dashboard() {
 
   // Special holiday days (per month) entered by the user, persisted in localStorage
   const currentMonthKeyForHoliday = React.useMemo(() => {
-    const now = toDate ? new Date(toDate.split("T")[0]) : new Date();
+    const now = latestDataDateObj || new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }, [toDate]);
+  }, [latestDataDateObj]);
 
   const [specialHolidays, ] = React.useState<number[]>(() => {
     if (typeof window !== 'undefined') {
@@ -1345,18 +1363,15 @@ export default function Dashboard() {
 
   const [highlightKey, setHighlightKey] = React.useState<string | null>(null);
 
-  const endDateObj = React.useMemo(() => {
-    if (!toDate) return null;
-    return new Date(toDate.split("T")[0]);
-  }, [toDate]);
+  const endDateObj = latestDataDateObj;
   const daysInMonth = endDateObj
     ? new Date(endDateObj.getFullYear(), endDateObj.getMonth() + 1, 0).getDate()
     : 0;
   const lastDay = endDateObj ? endDateObj.getDate() : 0;
   
-  // ---------- KPI Ngày: lấy ngày hiện tại (hôm nay) thay vì ngày cuối range ----------
-  const today = new Date();
-  const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
+  // ---------- KPI Ngày: dùng ngày dữ liệu mới nhất ----------
+  const today = latestDataDateObj || new Date();
+  const todayDateStr = latestDataDateStr || `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
     2,
     "0"
   )}-${String(today.getDate()).padStart(2, "0")}`;
@@ -1415,9 +1430,9 @@ export default function Dashboard() {
     return sum;
   }, [daysInMonth, lastDay, year, month, weekendTargetPerDay, weekdayTargetPerDay, endDateObj]);
 
-  // Get selected day from date picker (toDate) or use today
+  // Dashboard daily KPI always uses the latest data date.
   const selectedDay = endDateObj ? endDateObj.getDate() : todayDay;
-  const selectedDateStr = toDateStr || todayDateStr;
+  const selectedDateStr = latestDataDateStr || todayDateStr;
   
   // Calculate target for selected day (for daily mode)
   const selectedDayTarget = selectedDay > 0 ? getDailyTargetForDay(selectedDay) : 0;
@@ -1437,7 +1452,7 @@ export default function Dashboard() {
 
   // ---------- KPI Tháng: sum từ ngày 1 đến ngày cuối range ----------
   const currentRevenue = actualRevenueMTD ?? (() => {
-    if (!kpiDailySeries || !toDate || !endDateObj) return 0;
+    if (!kpiDailySeries || !endDateObj) return 0;
     const monthKey = `${endDateObj.getFullYear()}-${String(
       endDateObj.getMonth() + 1
     ).padStart(2, "0")}`;
@@ -2061,7 +2076,7 @@ export default function Dashboard() {
               Dashboard Quản Lý Kinh Doanh
             </h1>
             <p className="text-sm text-gray-500 mt-1">
-              Dữ liệu cập nhật đến ngày {todayLabel}
+              Dữ liệu cập nhật đến ngày {latestDataDateLabel}
             </p>
           </div>
         </div>

@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import KPIChart from "@/app/dashboard/KPIChart";
 import GrowthByPaymentChart from "@/app/dashboard/GrowthByPaymentChart";
-import TotalSaleTable, { PaymentMethod } from "@/app/dashboard/TotalSaleTable";
+import  { PaymentMethod } from "@/app/dashboard/TotalSaleTable";
 import { ApiService } from "@/app/lib/api-service";
 import { toDdMmYyyy, toIsoYyyyMmDd } from "@/app/lib/date";
 import { getActualStockIds, parseNumericValue } from "@/app/constants/branches";
@@ -61,6 +61,11 @@ export default function KpiDashboardPage() {
 
   const fromDateStr = useMemo(() => (fromDate ? fromDate.split("T")[0] : ""), [fromDate]);
   const toDateStr = useMemo(() => (toDate ? toDate.split("T")[0] : ""), [toDate]);
+  const rangeText = useMemo(() => {
+    if (!fromDateStr || !toDateStr) return undefined;
+    return `từ ${formatIsoToDdMm(fromDateStr)} đến ${formatIsoToDdMm(toDateStr)}`;
+  }, [fromDateStr, toDateStr]);
+
   const [salesSummaryData, setSalesSummaryData] = useState<SalesSummaryData | null>(null);
   const [, setSalesLoading] = useState(true);
   const [, setSalesError] = useState<string | null>(null);
@@ -316,10 +321,6 @@ export default function KpiDashboardPage() {
     ];
   }, [salesSummaryData]);
 
-  const totalRevenue = useMemo(
-    () => paymentMethods.reduce((sum, method) => sum + method.amount, 0),
-    [paymentMethods]
-  );
 
   const [paymentGrowthByMonth, setPaymentGrowthByMonth] = useState<PaymentMonthlyData[]>([]);
   const [compareFromDay, setCompareFromDay] = useState(1);
