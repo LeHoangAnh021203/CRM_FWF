@@ -87,3 +87,21 @@ export interface TotalOrderSumAll {
   comboOrders: number;
   comboOrdersDelta: number;
 }
+
+export interface PaymentRevenueCustomerStatusItem {
+  foxie?: number | null;
+  tmCkQt?: number | null;
+  other?: number | null;
+  cash?: number | null;
+  transfer?: number | null;
+  creditCard?: number | null;
+  wallet?: number | null;
+}
+
+export interface PaymentRevenueCustomerStatusResponse {
+  newCustomer?: PaymentRevenueCustomerStatusItem | null;
+  oldCustomer?: PaymentRevenueCustomerStatusItem | null;
+  unknownCustomer?: PaymentRevenueCustomerStatusItem | null;
+  unknowCustomer?: PaymentRevenueCustomerStatusItem | null;
+  unKnownCustomer?: PaymentRevenueCustomerStatusItem | null;
+}
