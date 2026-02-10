@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -29,6 +29,51 @@ const iconColorMap: Record<SeverityKey, string> = {
   wrinkle: "text-cyan-500",
 };
 
+const ISSUE_LABEL_MAP: Record<string, string> = {
+  acne: "Mụn",
+  pore: "Lỗ chân lông",
+  spot: "Đốm / nám",
+  wrinkle: "Nếp nhăn",
+  ext_water: "Thiếu ẩm bề mặt",
+  collagen: "Collagen suy giảm",
+  pockmark: "Rỗ / texture",
+  blackhead: "Mụn đầu đen",
+  uv_spot: "Đốm UV",
+  pigment: "Sắc tố",
+  dark_circle: "Quầng thâm",
+  sensitive: "Độ nhạy cảm",
+};
+
+const ISSUE_ORDER = [
+  "acne",
+  "spot",
+  "pore",
+  "wrinkle",
+  "blackhead",
+  "ext_water",
+  "collagen",
+  "pockmark",
+  "uv_spot",
+  "pigment",
+  "dark_circle",
+  "sensitive",
+];
+
+const getGender = (sex?: number | string): "male" | "female" | "unknown" => {
+  if (sex === 1 || sex === "1") return "male";
+  if (sex === 2 || sex === "2") return "female";
+  return "unknown";
+};
+
+const toLevel = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
 interface IssueDefinition {
   key: string;
   title: string;
@@ -52,6 +97,10 @@ export function SpecialSkin({
   issueDefinitions,
   formatPercent,
 }: SpecialSkinProps) {
+  const [selectedGenderFilter, setSelectedGenderFilter] = useState<
+    "all" | "male" | "female"
+  >("all");
+
   const severitySummary = useMemo(() => {
     return severityModules.map((key) => {
       const distribution = insights.severity[key] ?? [];
@@ -73,16 +122,196 @@ export function SpecialSkin({
     });
   }, [insights.severity]);
 
-  const scoreTrendPoints = useMemo(() => {
-    return issueDefinitions.map((issue, index) => ({
-      x: index,
-      label: issue.title,
-      value: issue.trend.averageScore ?? 0,
-    }));
-  }, [issueDefinitions]);
+
+
+  const issueOccurrenceSummary = useMemo(() => {
+    const totalRecords = insights.records?.length ?? 0;
+    const issueKeys = Array.from(
+      new Set([...ISSUE_ORDER, ...issueDefinitions.map((issue) => issue.key)])
+    );
+    const rows = issueKeys.map((issueKey) => {
+      let appearCount = 0;
+      let maleCount = 0;
+      let femaleCount = 0;
+      let severeCount = 0;
+      const levelCounts = [0, 0, 0, 0, 0];
+
+      for (const record of insights.records ?? []) {
+        const analysis = record.analysis as
+          | Record<
+            string,
+            {
+              level?: number | string;
+              score?: number | string;
+              type?: string | number;
+            }
+          >
+          | undefined;
+        const issueData = analysis?.[issueKey];
+        if (!issueData) continue;
+
+        const hasLevel =
+          issueData.level !== undefined &&
+          issueData.level !== null &&
+          String(issueData.level).trim() !== "";
+        const hasScore =
+          issueData.score !== undefined &&
+          issueData.score !== null &&
+          String(issueData.score).trim() !== "";
+        const hasType =
+          issueData.type !== undefined &&
+          issueData.type !== null &&
+          String(issueData.type).trim() !== "";
+        if (!hasLevel && !hasScore && !hasType) continue;
+
+        appearCount += 1;
+
+        const gender = getGender(record.sex);
+        if (gender === "male") maleCount += 1;
+        if (gender === "female") femaleCount += 1;
+
+        const level = toLevel(issueData.level);
+        if (level !== null && level >= 1 && level <= 5) {
+          levelCounts[level - 1] += 1;
+          if (level >= 4) severeCount += 1;
+        }
+      }
+      const share = totalRecords > 0 ? (appearCount / totalRecords) * 100 : 0;
+      const severeShare =
+        appearCount > 0 ? (severeCount / appearCount) * 100 : 0;
+
+      return {
+        key: issueKey,
+        title: ISSUE_LABEL_MAP[issueKey] || issueKey,
+        appearCount,
+        share,
+        maleCount,
+        femaleCount,
+        severeCount,
+        severeShare,
+        levelCounts,
+      };
+    });
+    return rows
+      .filter((item) => item.appearCount > 0)
+      .sort((a, b) => b.appearCount - a.appearCount);
+  }, [insights.records, issueDefinitions]);
+
+  const genderTotals = useMemo(() => {
+    let male = 0;
+    let female = 0;
+    for (const record of insights.records ?? []) {
+      const gender = getGender(record.sex);
+      if (gender === "male") male += 1;
+      if (gender === "female") female += 1;
+    }
+    return {
+      all: insights.records?.length ?? 0,
+      male,
+      female,
+    };
+  }, [insights.records]);
+
+  const issueRowsByGender = useMemo(() => {
+    const denominator =
+      selectedGenderFilter === "all"
+        ? genderTotals.all
+        : selectedGenderFilter === "male"
+          ? genderTotals.male
+          : genderTotals.female;
+
+    return issueOccurrenceSummary
+      .map((item) => {
+        const selectedCount =
+          selectedGenderFilter === "all"
+            ? item.appearCount
+            : selectedGenderFilter === "male"
+              ? item.maleCount
+              : item.femaleCount;
+        const selectedShare =
+          denominator > 0 ? (selectedCount / denominator) * 100 : 0;
+        return {
+          ...item,
+          selectedCount,
+          selectedShare,
+        };
+      })
+      .filter((item) => item.selectedCount > 0)
+      .sort((a, b) => b.selectedCount - a.selectedCount);
+  }, [issueOccurrenceSummary, selectedGenderFilter, genderTotals]);
 
   return (
     <TabsContent value="conditions" className="space-y-6 pt-5">
+
+      <Card className="border-gray-100 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-sm uppercase text-orange-500">
+            So sánh tần suất xuất hiện theo vấn đề
+          </CardTitle>
+          <p className="text-xs text-gray-500">
+            Chọn giới tính để xem số lần xuất hiện và tỉ lệ theo từng nhóm khách hàng.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setSelectedGenderFilter("all")}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${selectedGenderFilter === "all"
+                ? "bg-orange-500 text-white"
+                : "bg-orange-50 text-orange-600 hover:bg-orange-100"
+                }`}
+            >
+              Tất cả
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedGenderFilter("male")}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${selectedGenderFilter === "male"
+                ? "bg-orange-500 text-white"
+                : "bg-orange-50 text-orange-600 hover:bg-orange-100"
+                }`}
+            >
+              Nam
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedGenderFilter("female")}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${selectedGenderFilter === "female"
+                ? "bg-orange-500 text-white"
+                : "bg-orange-50 text-orange-600 hover:bg-orange-100"
+                }`}
+            >
+              Nữ
+            </button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs uppercase text-gray-500">
+                  <th className="py-2 pr-4">Hạng</th>
+                  <th className="py-2 pr-4">Nhóm vấn đề</th>
+                  <th className="py-2 pr-4">Số lần xuất hiện</th>
+                  <th className="py-2 pr-4">Tỉ lệ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {issueRowsByGender.map((item, index) => (
+                  <tr key={`summary-${item.key}`} className="border-b last:border-0">
+                    <td className="py-2 pr-4 font-semibold text-gray-900">#{index + 1}</td>
+                    <td className="py-2 pr-4 font-medium text-gray-900">{item.title}</td>
+                    <td className="py-2 pr-4">
+                      {item.selectedCount.toLocaleString("vi-VN")}
+                    </td>
+                    <td className="py-2 pr-4">{formatPercent(item.selectedShare)}</td>
+
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-orange-500">
@@ -192,20 +421,6 @@ export function SpecialSkin({
           </Card>
         ))}
       </div>
-
-      <Card className="border-gray-100 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-sm uppercase text-orange-500">
-            Xu hướng điểm trung bình
-          </CardTitle>
-          <p className="text-xs text-gray-500">
-            So sánh điểm các nhóm vấn đề để ưu tiên nguồn lực
-          </p>
-        </CardHeader>
-        <CardContent>
-          <TrendLineChart points={scoreTrendPoints} />
-        </CardContent>
-      </Card>
     </TabsContent>
   );
 }
@@ -219,50 +434,3 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function TrendLineChart({
-  points,
-}: {
-  points: Array<{ x: number; label: string; value: number }>;
-}) {
-  const width = 320;
-  const height = 120;
-  const maxValue = Math.max(1, ...points.map((p) => p.value));
-  const path = points
-    .map((point, index) => {
-      const x = (index / (points.length - 1 || 1)) * width;
-      const y = height - (point.value / maxValue) * height;
-      return `${x},${y}`;
-    })
-    .join(" ");
-  return (
-    <div>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-32 w-full text-orange-500"
-      >
-        <polyline
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={3}
-          strokeLinecap="round"
-          points={path}
-        />
-        {points.map((point, index) => {
-          const x = (index / (points.length - 1 || 1)) * width;
-          const y = height - (point.value / maxValue) * height;
-          return (
-            <circle key={point.label} cx={x} cy={y} r={4} fill="#fb923c" />
-          );
-        })}
-      </svg>
-      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-500 md:grid-cols-3">
-        {points.map((point) => (
-          <div key={point.label}>
-            <p className="font-semibold text-gray-900">{point.value || "—"}</p>
-            <p className="truncate">{point.label}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}

@@ -1454,6 +1454,12 @@ export default function Dashboard() {
     }
     return sum;
   })();
+
+  // Keep these derived KPI values for upcoming dashboard widgets.
+  void targetUntilNow;
+  void dailyKpiRevenue;
+  void dailyTargetForSelectedDay;
+  void currentRevenue;
   
   
 

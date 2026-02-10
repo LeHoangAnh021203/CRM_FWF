@@ -106,7 +106,7 @@ export function SkinReportApiClient() {
   const [, setHealth] = useState<string | null>(null);
   const [fullSyncLoading, setFullSyncLoading] = useState(false);
   const [dataSyncLoading, setDataSyncLoading] = useState(false);
-  const [lastAutoSyncAt, setLastAutoSyncAt] = useState<string | null>(null);
+  const [, setLastAutoSyncAt] = useState<string | null>(null);
   const [autoSyncDailyStats, setAutoSyncDailyStats] = useState<AutoSyncDailyStats>(
     () => loadAutoSyncDailyStats()
   );
@@ -117,9 +117,9 @@ export function SkinReportApiClient() {
   const waitingForStableData = fullSyncLoading || dataSyncLoading;
   const handleManualDateChange =
     (field: keyof DateRange) =>
-    (value: string) => {
-      setDateRange((prev) => ({ ...prev, [field]: value }));
-    };
+      (value: string) => {
+        setDateRange((prev) => ({ ...prev, [field]: value }));
+      };
   const initialRangeRef = useRef<DateRange>(dateRange);
   const initialLoadRef = useRef(true);
   const autoSyncRunningRef = useRef(false);
@@ -235,8 +235,8 @@ export function SkinReportApiClient() {
         typeof totalValue === "number"
           ? totalValue
           : typeof totalValue === "string"
-          ? Number(totalValue)
-          : 0;
+            ? Number(totalValue)
+            : 0;
       const dataTimeRange = (stats as Record<string, unknown>).dataTimeRange;
       setSystemStats({
         total: Number.isNaN(total) ? 0 : total,
@@ -622,7 +622,7 @@ export function SkinReportApiClient() {
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-semibold">Tình trạng dữ liệu</h2>
             </div>
-            
+
           </div>
 
           <p className="grid">
@@ -640,10 +640,8 @@ export function SkinReportApiClient() {
           {AUTO_FULL_SYNC_ENABLED && (
             <p className="text-xs text-muted-foreground">
               Auto full sync:  {Math.round(AUTO_FULL_SYNC_INTERVAL_MS / 60000)} phút/lần
-              
-              {lastAutoSyncAt
-                ? ` | Lần gần nhất: ${formatRangeLabel(lastAutoSyncAt)}`
-                : " | Chưa chạy lần nào trong phiên này"}
+
+
               {` | Số lượt hôm nay: ${autoSyncDailyStats.count}`}
             </p>
           )}

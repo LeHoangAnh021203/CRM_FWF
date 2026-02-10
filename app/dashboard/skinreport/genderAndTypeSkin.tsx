@@ -18,8 +18,8 @@ const percentWithCount = (percent: number, total: number) => {
   const decimals = Number.isInteger(normalized)
     ? 0
     : Number.isInteger(normalized * 10)
-    ? 1
-    : 2;
+      ? 1
+      : 2;
   const formatted = normalized.toFixed(decimals);
   const count = Math.round((normalized / 100) * total);
   return {
@@ -79,6 +79,10 @@ export function GenderAndTypeSkin({ insights }: GenderAndTypeSkinProps) {
   }, [insights.records]);
 
   const maxAgeBucket = Math.max(1, ...ageBuckets.map((bucket) => bucket.count));
+  const totalAgeBucketCount = ageBuckets.reduce(
+    (sum, bucket) => sum + bucket.count,
+    0
+  );
   const skinTypeColumns = insights.skinTypes.slice(0, 5);
 
   return (
@@ -99,8 +103,8 @@ export function GenderAndTypeSkin({ insights }: GenderAndTypeSkinProps) {
                   item.label === "2"
                     ? "Nữ"
                     : item.label === "1"
-                    ? "Nam"
-                    : item.label;
+                      ? "Nam"
+                      : item.label;
                 const { percent, count } = percentWithCount(
                   item.percent,
                   insights.totalRecords
@@ -129,78 +133,66 @@ export function GenderAndTypeSkin({ insights }: GenderAndTypeSkinProps) {
             )}
           </CardContent>
         </Card>
-
         <Card className="border-orange-100 shadow-sm">
           <CardHeader>
             <CardTitle className="text-sm uppercase  text-orange-500">
-              Độ tuổi
+              Phân bố loại da
             </CardTitle>
+            <p className="text-xs text-gray-500">
+              Ưu tiên oil/mid_oil đang chiếm đa số hồ sơ
+            </p>
           </CardHeader>
-          <CardContent className="grid grid-cols-3 gap-3 text-center">
-            <AgeCard label="Nhỏ nhất" value={insights.age.min} />
-            <AgeCard label="Trung vị" value={insights.age.median} />
-            <AgeCard label="Lớn nhất" value={insights.age.max} />
+          <CardContent className="space-y-4">
+            {insights.skinTypes.length === 0 ? (
+              <p className="text-sm text-gray-500">Chưa có dữ liệu.</p>
+            ) : (
+              <>
+                <div className="flex items-end gap-3">
+                  {skinTypeColumns.map((type) => (
+                    <div
+                      key={`${type.label}-viz`}
+                      className="flex flex-1 flex-col items-center"
+                    >
+                      <div
+                        className="w-full rounded-t-xl bg-gradient-to-t from-orange-600 via-orange-400 to-orange-200"
+                        style={{ height: `${Math.max(type.percent, 6)}%` }}
+                      ></div>
+                      <p className="mt-2 text-[10px] uppercase text-gray-500">
+                        {type.label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {insights.skinTypes.map((type) => {
+                  const { percent, count } = percentWithCount(
+                    type.percent,
+                    insights.totalRecords
+                  );
+                  return (
+                    <div key={type.label} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm text-gray-600">
+                        <div className="font-medium capitalize text-gray-900">
+                          {type.label}
+                        </div>
+                        <div>
+                          {percent}% ·{" "}
+                          <span className="font-semibold text-gray-900">
+                            {count.toLocaleString("vi-VN")} /{" "}
+                            {insights.totalRecords.toLocaleString("vi-VN")}
+                          </span>
+                        </div>
+                      </div>
+                      <Progress value={Number(percent)} className="h-1.5" />
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </CardContent>
         </Card>
       </section>
 
-      <Card className="border-orange-100 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-sm uppercase  text-orange-500">
-            Phân bố loại da
-          </CardTitle>
-          <p className="text-xs text-gray-500">
-            Ưu tiên oil/mid_oil đang chiếm đa số hồ sơ
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {insights.skinTypes.length === 0 ? (
-            <p className="text-sm text-gray-500">Chưa có dữ liệu.</p>
-          ) : (
-            <>
-              <div className="flex items-end gap-3">
-                {skinTypeColumns.map((type) => (
-                  <div
-                    key={`${type.label}-viz`}
-                    className="flex flex-1 flex-col items-center"
-                  >
-                    <div
-                      className="w-full rounded-t-xl bg-gradient-to-t from-orange-600 via-orange-400 to-orange-200"
-                      style={{ height: `${Math.max(type.percent, 6)}%` }}
-                    ></div>
-                    <p className="mt-2 text-[10px] uppercase text-gray-500">
-                      {type.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              {insights.skinTypes.map((type) => {
-                const { percent, count } = percentWithCount(
-                  type.percent,
-                  insights.totalRecords
-                );
-                return (
-                  <div key={type.label} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <div className="font-medium capitalize text-gray-900">
-                        {type.label}
-                      </div>
-                      <div>
-                        {percent}% ·{" "}
-                        <span className="font-semibold text-gray-900">
-                          {count.toLocaleString("vi-VN")} /{" "}
-                          {insights.totalRecords.toLocaleString("vi-VN")}
-                        </span>
-                      </div>
-                    </div>
-                    <Progress value={Number(percent)} className="h-1.5" />
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </CardContent>
-      </Card>
+
 
       <Card className="border-orange-100 shadow-sm">
         <CardHeader>
@@ -219,30 +211,43 @@ export function GenderAndTypeSkin({ insights }: GenderAndTypeSkinProps) {
           ) : (
             <div className="space-y-4">
               <div className="flex items-end gap-3">
-                {ageBuckets.map((bucket) => (
-                  <div key={bucket.label} className="flex-1">
-                    <div className="flex h-32 items-end">
-                      <div
-                        className="w-full rounded-t-xl bg-gradient-to-t from-orange-200 via-orange-300 to-orange-500"
-                        style={{
-                          height: `${
-                            (bucket.count / maxAgeBucket) * 100 || 4
-                          }%`,
-                        }}
-                      ></div>
+                {ageBuckets.map((bucket) => {
+                  const heightPercent = Math.max(
+                    (bucket.count / maxAgeBucket) * 100 || 0,
+                    4
+                  );
+                  const bucketPercent =
+                    totalAgeBucketCount > 0
+                      ? (bucket.count / totalAgeBucketCount) * 100
+                      : 0;
+                  return (
+                    <div key={bucket.label} className="flex-1">
+                      <div className="relative flex h-36 items-end">
+                        <span
+                          className="absolute left-1/2 -translate-x-1/2 text-[11px] font-semibold text-orange-600"
+                          style={{ bottom: `calc(${heightPercent}% + 4px)` }}
+                        >
+                          {bucketPercent.toFixed(1).replace(".0", "")}%
+                        </span>
+                        <div
+                          className="w-full rounded-t-xl bg-gradient-to-t from-orange-200 via-orange-300 to-orange-500"
+                          style={{
+                            height: `${heightPercent}%`,
+                          }}
+                        ></div>
+                      </div>
+                      <div className="mt-2 text-center">
+                        <p className="text-xs font-semibold text-gray-900">
+                          {bucket.count.toLocaleString("vi-VN")}
+                        </p>
+                        <p className="text-[10px] uppercase text-gray-500">
+                          {bucket.label}
+                        </p>
+                      </div>
                     </div>
-                    <div className="mt-2 text-center">
-                      <p className="text-xs font-semibold text-gray-900">
-                        {bucket.count.toLocaleString("vi-VN")}
-                      </p>
-                      <p className="text-[10px] uppercase text-gray-500">
-                        {bucket.label}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
-              <AgeSparkline buckets={ageBuckets} maxCount={maxAgeBucket} />
             </div>
           )}
         </CardContent>
@@ -251,14 +256,7 @@ export function GenderAndTypeSkin({ insights }: GenderAndTypeSkinProps) {
   );
 }
 
-function AgeCard({ label, value }: { label: string; value: number | null }) {
-  return (
-    <div className="rounded-2xl border border-orange-50 bg-orange-50/40 p-3">
-      <p className="text-xs uppercase  text-gray-500">{label}</p>
-      <p className="text-lg font-semibold text-gray-900">{value ?? "—"}</p>
-    </div>
-  );
-}
+
 
 function GenderDonut({
   malePercent,
@@ -318,52 +316,3 @@ function GenderDonut({
   );
 }
 
-function AgeSparkline({
-  buckets,
-  maxCount,
-}: {
-  buckets: Array<{ label: string; count: number }>;
-  maxCount: number;
-}) {
-  const width = 220;
-  const height = 70;
-  const points = buckets
-    .map((bucket, index) => {
-      const x = (index / (buckets.length - 1 || 1)) * width;
-      const y = height - (bucket.count / (maxCount || 1)) * height;
-      return `${x},${y}`;
-    })
-    .join(" ");
-  return (
-    <div className="flex items-center justify-center">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-20 w-full max-w-[260px]"
-        role="img"
-        aria-label="Xu hướng nhóm tuổi"
-      >
-        <defs>
-          <linearGradient id="ageSparkline" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#fdba74" />
-            <stop offset="100%" stopColor="#f97316" />
-          </linearGradient>
-        </defs>
-        <polyline
-          points={points}
-          fill="none"
-          stroke="url(#ageSparkline)"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        {buckets.map((bucket, index) => {
-          const x = (index / (buckets.length - 1 || 1)) * width;
-          const y = height - (bucket.count / (maxCount || 1)) * height;
-          return (
-            <circle key={bucket.label} cx={x} cy={y} r="3" fill="#f97316" />
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
