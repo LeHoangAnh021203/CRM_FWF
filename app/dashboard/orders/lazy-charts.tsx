@@ -21,3 +21,6 @@ export const LazyOrderPaymentRegionData = lazy(() => import('./OrderPaymentRegio
 export const LazyOrderDailyBreakdown = lazy(() => import('./OrderDailyBreakdown'));
 export const LazyOrderStatCardsWithAPI = lazy(() => import('./OrderStatCardsWithAPI'));
 export const LazyShopTypeRevenueChart = lazy(() => import('./ShopTypeRevenueChart'));
+export const LazyOrderPaymentRevenueCustomerStatus = lazy(
+  () => import("./OrderPaymentRevenueCustomerStatus")
+);

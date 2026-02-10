@@ -17,4 +17,6 @@ export const ORDER_ENDPOINTS = {
   regionOrderBreakdownTable: "sales/region-order-breakdown-table",
   regionOrderBreakdown: "sales/region-order-breakdown",
   overallOrderSummary: "sales/overall-order-summary",
+  paymentRevenueCustomerStatus:
+    "customer-sale/payment-revenue-customer-status",
 } as const;

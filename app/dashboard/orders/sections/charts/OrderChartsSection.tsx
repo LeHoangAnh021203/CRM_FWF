@@ -4,6 +4,7 @@ import type {
   TotalOrderSumAll,
   RegionalSalesByDayData,
   CustomerTypeSalesByDayData,
+  PaymentRevenueCustomerStatusResponse,
 } from "../../types";
 import type { StoreTableRow } from "../../OrderActualStoreSale";
 import type { RegionStat } from "../../OrderActualCollection";
@@ -23,6 +24,7 @@ import {
   LazyOrderTop10StoreOfOrder,
   LazyOrderOfStore,
   LazyOrderStatCardsWithAPI,
+  LazyOrderPaymentRevenueCustomerStatus,
 } from "../../lazy-charts";
 import { formatAxisDate, formatMoneyShort } from "../../transformers";
 
@@ -87,6 +89,9 @@ interface OrderChartsSectionProps {
   overallOrderSummaryError: string | null;
   ordersChartData: OrdersChartDataPoint[];
   chartOrderData: ChartOrderData[];
+  paymentRevenueCustomerStatus: PaymentRevenueCustomerStatusResponse | null;
+  paymentRevenueCustomerStatusLoading: boolean;
+  paymentRevenueCustomerStatusError: string | null;
 }
 
 export function OrderChartsSection({
@@ -116,6 +121,9 @@ export function OrderChartsSection({
   overallOrderSummaryError,
   ordersChartData,
   chartOrderData,
+  paymentRevenueCustomerStatus,
+  paymentRevenueCustomerStatusLoading,
+  paymentRevenueCustomerStatusError,
 }: OrderChartsSectionProps) {
   return (
     <>
@@ -178,6 +186,34 @@ export function OrderChartsSection({
           totalPercentChange={totalPercentChange}
           pieRegionRevenueData={pieRegionRevenueData}
           isMobile={isMobile}
+        />
+      </Suspense>
+
+      <Suspense
+        fallback={
+          <div className="w-full bg-white rounded-xl shadow-lg mt-5 p-2 sm:p-4 animate-pulse">
+            <div className="h-6 bg-gray-200 rounded w-96 max-w-full mb-4 mx-auto"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-xl border border-gray-200 p-4 space-y-3">
+                  <div className="h-5 bg-gray-200 rounded w-28"></div>
+                  {[1, 2, 3, 4, 5].map((line) => (
+                    <div key={line} className="flex items-center justify-between">
+                      <div className="h-4 bg-gray-200 rounded w-24"></div>
+                      <div className="h-4 bg-gray-200 rounded w-20"></div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <LazyOrderPaymentRevenueCustomerStatus
+          data-search-ref="orders_payment_revenue_customer_status"
+          data={paymentRevenueCustomerStatus}
+          loading={paymentRevenueCustomerStatusLoading}
+          error={paymentRevenueCustomerStatusError}
         />
       </Suspense>
 

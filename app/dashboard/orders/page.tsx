@@ -17,6 +17,7 @@ import { useOrderApiData } from "./hooks/useOrderApiData";
 import type {
   CustomerTypeSalesByDayData,
   DataPoint,
+  PaymentRevenueCustomerStatusResponse,
   RawDataRow,
   RegionalSalesByDayData,
   RegionStatData,
@@ -362,6 +363,17 @@ export default function CustomerReportPage() {
     deltaCardPurchaseOrders: number;
   }>(orderUrl(ORDER_ENDPOINTS.overallOrderSummary), fromDate, toDate, 13);
 
+  const {
+    data: paymentRevenueCustomerStatus,
+    loading: paymentRevenueCustomerStatusLoading,
+    error: paymentRevenueCustomerStatusError,
+  } = useOrderApiData<PaymentRevenueCustomerStatusResponse>(
+    orderUrl(ORDER_ENDPOINTS.paymentRevenueCustomerStatus),
+    fromDate,
+    toDate,
+    14
+  );
+
   // Track overall loading and error states for notifications
   const allLoadingStates = [
     regionRevenueLoading,
@@ -377,6 +389,7 @@ export default function CustomerReportPage() {
     overallOrderSummaryLoading,
     overallSummaryLoading,
     dailyShopTypeLoading,
+    paymentRevenueCustomerStatusLoading,
   ];
 
   const allErrorStates = [
@@ -393,6 +406,7 @@ export default function CustomerReportPage() {
     overallOrderSummaryError,
     overallSummaryError,
     dailyShopTypeError,
+    paymentRevenueCustomerStatusError,
   ];
 
   const isLoading = allLoadingStates.some((loading) => loading);
@@ -583,6 +597,11 @@ export default function CustomerReportPage() {
           overallOrderSummaryError={overallOrderSummaryError}
           ordersChartData={ordersChartData}
           chartOrderData={chartOrderData}
+          paymentRevenueCustomerStatus={paymentRevenueCustomerStatus}
+          paymentRevenueCustomerStatusLoading={
+            paymentRevenueCustomerStatusLoading
+          }
+          paymentRevenueCustomerStatusError={paymentRevenueCustomerStatusError}
         />
       </div>
     </div>
