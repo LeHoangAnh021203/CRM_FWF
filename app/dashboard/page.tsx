@@ -5,7 +5,6 @@ import { Notification, useNotification } from "@/app/components/notification";
 import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
 import { usePageStatus } from "@/app/hooks/usePageStatus";
 import { useDashboardData } from "@/app/hooks/useDashboardData";
-import { useDateRange } from "@/app/contexts/DateContext";
 import { useBranchFilter } from "@/app/contexts/BranchContext";
 import { getActualStockIds, parseNumericValue } from "@/app/constants/branches";
 import { ApiService } from "@/app/lib/api-service";
@@ -37,7 +36,6 @@ export default function Dashboard() {
     useNotification();
   const hasShownSuccess = useRef(false);
   const hasShownError = useRef(false);
-  const { toDate, rangeAlert } = useDateRange();
   const { stockId: selectedStockId } = useBranchFilter();
   
   // Get actual stockIds (can be multiple for region/city filters)
@@ -69,37 +67,28 @@ export default function Dashboard() {
 
   const { loading, error, apiErrors, apiSuccesses } = useDashboardData();
   
-  const parseDateOnly = React.useCallback((value?: string | null): string => {
-    if (!value) return "";
-    const matched = value.match(/\d{4}-\d{2}-\d{2}/);
-    if (matched) return matched[0];
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return "";
-    return toIsoYyyyMmDd(parsed);
+  // Keep a stable "today" key for effects, but sync it with current local date on mount/runtime.
+  const [todayKey, setTodayKey] = useState(() => toIsoYyyyMmDd(new Date()));
+  useEffect(() => {
+    const syncTodayKey = () => {
+      const next = toIsoYyyyMmDd(new Date());
+      setTodayKey((prev) => (prev === next ? prev : next));
+    };
+
+    syncTodayKey();
+    const timer = window.setInterval(syncTodayKey, 60_000);
+    return () => window.clearInterval(timer);
   }, []);
 
-  // Always anchor dashboard data to the latest available day from backend metadata.
-  const latestDataDateStr = React.useMemo(() => {
-    const salesDatasetMax = parseDateOnly(rangeAlert?.maxMap?.sales_transaction);
-    const globalMax = parseDateOnly(rangeAlert?.globalMax);
-    const datePickerValue = toDate ? toDate.split("T")[0] : "";
-    return salesDatasetMax || globalMax || datePickerValue || toIsoYyyyMmDd(new Date());
-  }, [rangeAlert, toDate, parseDateOnly]);
-
-  const latestDataDateObj = React.useMemo(() => {
-    if (!latestDataDateStr) return null;
-    const [year, month, day] = latestDataDateStr.split("-").map(Number);
-    if (!year || !month || !day) return null;
+  const latestDataDateStr = todayKey;
+  const latestDataDateObj = useMemo(() => {
+    const [year, month, day] = todayKey.split("-").map(Number);
     return new Date(year, month - 1, day);
-  }, [latestDataDateStr]);
-
-  const latestDataDateLabel = useMemo(() => {
-    if (!latestDataDateObj) return "";
-    const day = String(latestDataDateObj.getDate()).padStart(2, "0");
-    const month = String(latestDataDateObj.getMonth() + 1).padStart(2, "0");
-    const year = latestDataDateObj.getFullYear();
-    return `${day}/${month}/${year}`;
-  }, [latestDataDateObj]);
+  }, [todayKey]);
+  const latestDataDateLabel = useMemo(
+    () => toDdMmYyyy(latestDataDateObj),
+    [latestDataDateObj]
+  );
   
   const searchParamQuery = (() => {
     if (typeof window === "undefined") return "";

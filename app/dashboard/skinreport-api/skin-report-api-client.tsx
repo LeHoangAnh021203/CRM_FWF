@@ -25,6 +25,16 @@ type SystemStats = {
   newestRecord?: string | null;
   dataTimeRange?: { from?: string | null; to?: string | null };
 };
+
+type AutoSyncDailyStats = {
+  dayKey: string;
+  count: number;
+};
+
+const AUTO_SYNC_STATS_STORAGE_KEY = "skin_auto_full_sync_daily_stats";
+const DEFAULT_AUTO_SYNC_START_HOUR = 9;
+const DEFAULT_AUTO_SYNC_END_HOUR = 22;
+
 const normalizeDateInput = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -48,6 +58,36 @@ const buildMonthRange = (date: Date): DateRange => {
   };
 };
 
+const buildLatestDayRange = (): DateRange => {
+  const today = normalizeDateInput(new Date());
+  return { from: today, to: today };
+};
+
+const getTodayKey = () => normalizeDateInput(new Date());
+
+const loadAutoSyncDailyStats = (): AutoSyncDailyStats => {
+  if (typeof window === "undefined") {
+    return { dayKey: getTodayKey(), count: 0 };
+  }
+  try {
+    const raw = localStorage.getItem(AUTO_SYNC_STATS_STORAGE_KEY);
+    if (!raw) return { dayKey: getTodayKey(), count: 0 };
+    const parsed = JSON.parse(raw) as Partial<AutoSyncDailyStats>;
+    const todayKey = getTodayKey();
+    if (parsed.dayKey === todayKey && Number.isFinite(parsed.count)) {
+      return { dayKey: todayKey, count: Number(parsed.count) };
+    }
+    return { dayKey: todayKey, count: 0 };
+  } catch {
+    return { dayKey: getTodayKey(), count: 0 };
+  }
+};
+
+const persistAutoSyncDailyStats = (stats: AutoSyncDailyStats) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(AUTO_SYNC_STATS_STORAGE_KEY, JSON.stringify(stats));
+};
+
 export function SkinReportApiClient() {
   const [insights, setInsights] = useState<SkinInsights | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,6 +106,10 @@ export function SkinReportApiClient() {
   const [, setHealth] = useState<string | null>(null);
   const [fullSyncLoading, setFullSyncLoading] = useState(false);
   const [dataSyncLoading, setDataSyncLoading] = useState(false);
+  const [lastAutoSyncAt, setLastAutoSyncAt] = useState<string | null>(null);
+  const [autoSyncDailyStats, setAutoSyncDailyStats] = useState<AutoSyncDailyStats>(
+    () => loadAutoSyncDailyStats()
+  );
   const [dateRange, setDateRange] = useState<DateRange>(() =>
     buildMonthRange(new Date())
   );
@@ -78,6 +122,7 @@ export function SkinReportApiClient() {
     };
   const initialRangeRef = useRef<DateRange>(dateRange);
   const initialLoadRef = useRef(true);
+  const autoSyncRunningRef = useRef(false);
   // --- Health check + stats + data preview từ API mới ---
   const HEALTH_PATH =
     process.env.NEXT_PUBLIC_SKIN_API_HEALTH_PATH || "/api/health";
@@ -89,6 +134,24 @@ export function SkinReportApiClient() {
     process.env.NEXT_PUBLIC_SKIN_API_DATA_VIEW_PATH || "/api/data/view";
   const STATS_PATH =
     process.env.NEXT_PUBLIC_SKIN_API_STATS_PATH || "/api/data/stats";
+  const AUTO_FULL_SYNC_ENABLED =
+    process.env.NEXT_PUBLIC_SKIN_AUTO_FULL_SYNC !== "false";
+  const AUTO_FULL_SYNC_INTERVAL_MS = (() => {
+    const raw = process.env.NEXT_PUBLIC_SKIN_AUTO_FULL_SYNC_INTERVAL_MS;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 60_000) return parsed;
+    return 30 * 60 * 1000;
+  })();
+  const AUTO_FULL_SYNC_START_HOUR = (() => {
+    const raw = Number(process.env.NEXT_PUBLIC_SKIN_AUTO_FULL_SYNC_START_HOUR);
+    if (Number.isFinite(raw) && raw >= 0 && raw <= 23) return raw;
+    return DEFAULT_AUTO_SYNC_START_HOUR;
+  })();
+  const AUTO_FULL_SYNC_END_HOUR = (() => {
+    const raw = Number(process.env.NEXT_PUBLIC_SKIN_AUTO_FULL_SYNC_END_HOUR);
+    if (Number.isFinite(raw) && raw >= 1 && raw <= 24) return raw;
+    return DEFAULT_AUTO_SYNC_END_HOUR;
+  })();
 
   const healthUrl = useMemo(
     () => `${apiBase}${HEALTH_PATH}`,
@@ -261,13 +324,14 @@ export function SkinReportApiClient() {
   );
 
   const startFullSync = React.useCallback(
-    async (save: boolean) => {
+    async (save: boolean, targetRange?: DateRange) => {
       try {
         setFullSyncLoading(true);
+        const range = targetRange ?? dateRange;
         const params = new URLSearchParams();
         params.set("save", save ? "true" : "false");
-        if (dateRange.from) params.set("from", dateRange.from);
-        if (dateRange.to) params.set("to", dateRange.to);
+        if (range.from) params.set("from", range.from);
+        if (range.to) params.set("to", range.to);
         params.set("incremental", "true");
         const res = await fetch(`${fullSyncUrl}?${params.toString()}`, {
           method: "POST",
@@ -285,7 +349,7 @@ export function SkinReportApiClient() {
           throw new Error(message);
         }
         await res.json().catch(() => null);
-        await startDataSync(dateRange);
+        await startDataSync(range);
       } catch (e) {
         console.error("Full sync error", e);
         alert(
@@ -309,6 +373,72 @@ export function SkinReportApiClient() {
   useEffect(() => {
     void fetchSystemStats();
   }, [fetchSystemStats]);
+
+  useEffect(() => {
+    const syncDailyKey = () => {
+      const todayKey = getTodayKey();
+      setAutoSyncDailyStats((prev) => {
+        if (prev.dayKey === todayKey) return prev;
+        const resetStats = { dayKey: todayKey, count: 0 };
+        persistAutoSyncDailyStats(resetStats);
+        return resetStats;
+      });
+    };
+
+    syncDailyKey();
+    const timer = window.setInterval(syncDailyKey, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!AUTO_FULL_SYNC_ENABLED) return;
+
+    const runAutoSync = async () => {
+      if (autoSyncRunningRef.current || fullSyncLoading || dataSyncLoading) return;
+      const currentHour = new Date().getHours();
+      if (
+        currentHour < AUTO_FULL_SYNC_START_HOUR ||
+        currentHour >= AUTO_FULL_SYNC_END_HOUR
+      ) {
+        return;
+      }
+      autoSyncRunningRef.current = true;
+      try {
+        const latestDayRange = buildLatestDayRange();
+        await startFullSync(true, latestDayRange);
+        setLastAutoSyncAt(new Date().toISOString());
+        setAutoSyncDailyStats((prev) => {
+          const todayKey = getTodayKey();
+          const next: AutoSyncDailyStats =
+            prev.dayKey === todayKey
+              ? { dayKey: todayKey, count: prev.count + 1 }
+              : { dayKey: todayKey, count: 1 };
+          persistAutoSyncDailyStats(next);
+          return next;
+        });
+      } catch (err) {
+        console.error("Auto full sync failed", err);
+      } finally {
+        autoSyncRunningRef.current = false;
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void runAutoSync();
+    }, AUTO_FULL_SYNC_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    AUTO_FULL_SYNC_ENABLED,
+    AUTO_FULL_SYNC_INTERVAL_MS,
+    AUTO_FULL_SYNC_START_HOUR,
+    AUTO_FULL_SYNC_END_HOUR,
+    fullSyncLoading,
+    dataSyncLoading,
+    startFullSync,
+  ]);
 
   const {
     activeTab,
@@ -507,6 +637,16 @@ export function SkinReportApiClient() {
             <span className="font-semibold text-foreground">Tổng hồ sơ toàn hệ thống:</span>{" "}
             {totalRecordsText}
           </p>
+          {AUTO_FULL_SYNC_ENABLED && (
+            <p className="text-xs text-muted-foreground">
+              Auto full sync:  {Math.round(AUTO_FULL_SYNC_INTERVAL_MS / 60000)} phút/lần
+              
+              {lastAutoSyncAt
+                ? ` | Lần gần nhất: ${formatRangeLabel(lastAutoSyncAt)}`
+                : " | Chưa chạy lần nào trong phiên này"}
+              {` | Số lượt hôm nay: ${autoSyncDailyStats.count}`}
+            </p>
+          )}
           {!hasSystemStats && (
             <p className="text-xs text-muted-foreground">
               Đang lấy dữ liệu tổng hệ thống... Vui lòng đợi một chút.
