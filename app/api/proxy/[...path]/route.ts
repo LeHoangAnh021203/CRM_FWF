@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AUTH_CONFIG } from '@/app/lib/auth-config'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 const getTimeoutMs = (
   envKey: string,
@@ -12,9 +12,9 @@ const getTimeoutMs = (
   return defaultValue
 }
 
-const GET_TIMEOUT_MS = getTimeoutMs('PROXY_GET_TIMEOUT_MS', 60000)
-const POST_TIMEOUT_MS = getTimeoutMs('PROXY_POST_TIMEOUT_MS', 60000)
-const PATCH_TIMEOUT_MS = getTimeoutMs('PROXY_PATCH_TIMEOUT_MS', 60000)
+const GET_TIMEOUT_MS = getTimeoutMs('PROXY_GET_TIMEOUT_MS', 120000)
+const POST_TIMEOUT_MS = getTimeoutMs('PROXY_POST_TIMEOUT_MS', 120000)
+const PATCH_TIMEOUT_MS = getTimeoutMs('PROXY_PATCH_TIMEOUT_MS', 120000)
 
 // In development, allow self-signed/expired certs from backend to avoid local proxy failures.
 // Never enable this in production unless you explicitly accept the security risk.
