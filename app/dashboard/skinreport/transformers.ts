@@ -1,11 +1,15 @@
-import type { DistributionEntry, IssueTrend, SkinRecordSummary } from "@/app/lib/skin-insights";
+import type {
+  DistributionEntry,
+  IssueTrend,
+  SkinRecordSummary,
+} from "@/app/lib/skin-insights";
 
 export const sumPercent = (items: DistributionEntry[] = [], labels: string[]) =>
   Number(
     items
       .filter((item) => labels.includes(item.label))
       .reduce((total, item) => total + item.percent, 0)
-      .toFixed(1)
+      .toFixed(1),
   );
 
 export const formatPercent = (value?: number) =>
@@ -31,7 +35,7 @@ export const parseDateTime = (value?: string) => {
 
   // Handle "YYYY-MM-DD HH:mm[:ss]" as local time.
   const isoLocalMatch = trimmed.match(
-    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/,
   );
   if (isoLocalMatch) {
     const [, y, m, d, hh, mm, ss] = isoLocalMatch;
@@ -41,14 +45,14 @@ export const parseDateTime = (value?: string) => {
       Number(d),
       Number(hh),
       Number(mm),
-      Number(ss || 0)
+      Number(ss || 0),
     );
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
   // Handle "M/D/YYYY, H:mm[:ss] AM/PM"
   const usMatch = trimmed.match(
-    /^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AP]M)$/i
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AP]M)$/i,
   );
   if (usMatch) {
     const [, mm, dd, yyyy, hh, min, ss, period] = usMatch;
@@ -65,7 +69,7 @@ export const parseDateTime = (value?: string) => {
       Number(dd),
       hour,
       Number(min),
-      Number(ss || 0)
+      Number(ss || 0),
     );
     return Number.isNaN(date.getTime()) ? null : date;
   }
@@ -85,7 +89,7 @@ export const formatDateTime = (value?: string) => {
 
 export const getTrend = (
   trends: Partial<Record<string, IssueTrend>>,
-  key: string
+  key: string,
 ): IssueTrend => {
   return (
     trends[key] ?? {
@@ -109,7 +113,7 @@ export const buildSortedRecords = (records: SkinRecordSummary[] = []) =>
 export const buildPaginatedRecords = (
   records: SkinRecordSummary[],
   page: number,
-  pageSize: number
+  pageSize: number,
 ) => {
   const start = (page - 1) * pageSize;
   return records.slice(start, start + pageSize);

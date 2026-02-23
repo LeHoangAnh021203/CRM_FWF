@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AUTH_CONFIG } from '@/app/lib/auth-config'
 
+export const maxDuration = 60
+
+const getTimeoutMs = (
+  envKey: string,
+  defaultValue: number
+): number => {
+  const raw = Number(process.env[envKey])
+  if (Number.isFinite(raw) && raw >= 5000) return raw
+  return defaultValue
+}
+
+const GET_TIMEOUT_MS = getTimeoutMs('PROXY_GET_TIMEOUT_MS', 60000)
+const POST_TIMEOUT_MS = getTimeoutMs('PROXY_POST_TIMEOUT_MS', 60000)
+const PATCH_TIMEOUT_MS = getTimeoutMs('PROXY_PATCH_TIMEOUT_MS', 60000)
+
+// In development, allow self-signed/expired certs from backend to avoid local proxy failures.
+// Never enable this in production unless you explicitly accept the security risk.
+if (process.env.NODE_ENV === 'development') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+}
+
 // Temporary fix for SSL certificate mismatch in production
 // TODO: Fix backend certificate to include backend.facewashfox.com or use correct domain
 // WARNING: This bypasses SSL verification - only use temporarily!
@@ -59,8 +80,7 @@ export async function GET(
     const response = await fetch(backendUrl, {
       method: 'GET',
       headers,
-      // Add timeout for better error handling - reduced to 20s for Vercel compatibility
-      signal: AbortSignal.timeout(20000), // 20 second timeout
+      signal: AbortSignal.timeout(GET_TIMEOUT_MS),
     })
 
     if (!response.ok) {
@@ -138,8 +158,7 @@ export async function PATCH(
       method: 'PATCH',
       headers,
       body: JSON.stringify(body),
-      // Add timeout to prevent hanging requests
-      signal: AbortSignal.timeout(20000), // 20 second timeout
+      signal: AbortSignal.timeout(PATCH_TIMEOUT_MS),
     })
     
     const responseText = await response.text()
@@ -233,8 +252,7 @@ export async function POST(
       method: 'POST',
       headers,
       body: JSON.stringify(body),
-      // Add timeout to prevent hanging requests
-      signal: AbortSignal.timeout(20000), // 20 second timeout
+      signal: AbortSignal.timeout(POST_TIMEOUT_MS),
     })
 
     if (!response.ok) {

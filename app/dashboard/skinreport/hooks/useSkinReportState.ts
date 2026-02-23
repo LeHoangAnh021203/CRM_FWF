@@ -49,7 +49,7 @@ export function useSkinReportState(insights: SkinInsights) {
         title: "Chênh lệch tuổi AI",
         value: `${insights.dataQuality.averageAgeGap} năm`,
         description: `${formatPercent(
-          insights.dataQuality.mismatchShare
+          insights.dataQuality.mismatchShare,
         )} lệch ≥ 5 năm`,
         icon: Activity,
         tab: "overview",
@@ -77,7 +77,7 @@ export function useSkinReportState(insights: SkinInsights) {
       insights.dataQuality.averageAgeGap,
       insights.dataQuality.mismatchShare,
       insights.totalRecords,
-    ]
+    ],
   );
 
   const tabs: SkinReportTab[] = skinReportTabs;
@@ -102,14 +102,16 @@ export function useSkinReportState(insights: SkinInsights) {
       {
         key: "pore",
         title: "Lỗ chân lông to",
-        description: "Kết hợp dầu vùng T-zone + thiếu ẩm khiến pore mở rộng rõ.",
+        description:
+          "Kết hợp dầu vùng T-zone + thiếu ẩm khiến pore mở rộng rõ.",
         action: "Kiểm soát dầu vùng T-zone song song dưỡng ẩm.",
         trend: poreTrend,
       },
       {
         key: "wrinkle",
         title: "Nếp nhăn vùng mắt/rãnh má",
-        description: "Nếp nhăn level 3-4 tập trung tại đuôi mắt và rãnh mũi má.",
+        description:
+          "Nếp nhăn level 3-4 tập trung tại đuôi mắt và rãnh mũi má.",
         action: "Ưu tiên sản phẩm chống lão hoá & chăm sóc vùng mắt.",
         trend: wrinkleTrend,
       },
@@ -121,22 +123,25 @@ export function useSkinReportState(insights: SkinInsights) {
         trend: pockmarkTrend,
       },
     ],
-    [collagenTrend, extWaterTrend, pockmarkTrend, poreTrend, wrinkleTrend]
+    [collagenTrend, extWaterTrend, pockmarkTrend, poreTrend, wrinkleTrend],
   );
 
   const topMultiUseGoods = useMemo(
-    () => insights.multiUseGoods.filter((item) => item.modules.length > 1).slice(0, 8),
-    [insights.multiUseGoods]
+    () =>
+      insights.multiUseGoods
+        .filter((item) => item.modules.length > 1)
+        .slice(0, 8),
+    [insights.multiUseGoods],
   );
 
   const sortedRecords = useMemo(
     () => buildSortedRecords(insights.records ?? []),
-    [insights.records]
+    [insights.records],
   );
   const totalPages = Math.max(1, Math.ceil(sortedRecords.length / PAGE_SIZE));
   const paginatedRecords = useMemo(
     () => buildPaginatedRecords(sortedRecords, recordPage, PAGE_SIZE),
-    [sortedRecords, recordPage]
+    [sortedRecords, recordPage],
   );
 
   const moduleDetails = useMemo<ModuleDetailEntry[]>(() => {
@@ -160,7 +165,7 @@ export function useSkinReportState(insights: SkinInsights) {
         title: "Hydration score",
         target: "+15 điểm / 4 tuần",
         evidence: `Thiếu ẩm độ 4-5: ${formatPercent(
-          extWaterTrend.highShare
+          extWaterTrend.highShare,
         )} hồ sơ`,
       },
       {
@@ -172,14 +177,14 @@ export function useSkinReportState(insights: SkinInsights) {
         title: "Collagen score",
         target: "+10 điểm / 8 tuần",
         evidence: `Collagen độ 4-5: ${formatPercent(
-          collagenTrend.highShare
+          collagenTrend.highShare,
         )} hồ sơ`,
       },
       {
         title: "Wrinkle score",
         target: "+8 điểm / 8 tuần",
         evidence: `Nhóm nếp nhăn độ 3-5: ${formatPercent(
-          (wrinkleTrend.highShare ?? 0) + (wrinkleTrend.mediumShare ?? 0)
+          (wrinkleTrend.highShare ?? 0) + (wrinkleTrend.mediumShare ?? 0),
         )} hồ sơ`,
       },
     ],
@@ -189,7 +194,7 @@ export function useSkinReportState(insights: SkinInsights) {
       poreTrend.highShare,
       wrinkleTrend.highShare,
       wrinkleTrend.mediumShare,
-    ]
+    ],
   );
 
   const handleCardClick = (tab?: string) => {

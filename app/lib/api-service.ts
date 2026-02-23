@@ -286,7 +286,9 @@ export class ApiService {
           const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
             method: 'GET',
             headers,
-            signal: AbortSignal.timeout(20000), // 20s timeout for proxy
+            // Keep client timeout slightly higher than proxy route timeout
+            // so we can receive proxy error payloads instead of client abort first.
+            signal: AbortSignal.timeout(30000),
           })
 
           if (!response.ok) {
@@ -302,8 +304,16 @@ export class ApiService {
           console.log('[ApiService] Proxy fallback successful')
           return response.json()
         } catch (proxyError) {
+          const proxyMessage =
+            proxyError instanceof Error && proxyError.name === 'AbortError'
+              ? 'Proxy fallback request timed out'
+              : proxyError instanceof Error
+              ? proxyError.message
+              : String(proxyError)
           // If both fail, throw the original direct error with context
-          throw new Error(`Direct fetch failed (CORS/network): ${directError instanceof Error ? directError.message : String(directError)}. Proxy fallback also failed: ${proxyError instanceof Error ? proxyError.message : String(proxyError)}`)
+          throw new Error(
+            `Direct fetch failed: ${directError instanceof Error ? directError.message : String(directError)}. Proxy fallback also failed: ${proxyMessage}`
+          )
         }
       } else {
         // Re-throw non-network errors (auth, parsing, etc.)

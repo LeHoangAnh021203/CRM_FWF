@@ -6,6 +6,14 @@ interface LevelModule {
   goods?: string;
 }
 
+export interface RecommendedGood {
+  id: string;
+  name?: string | null;
+  image?: string | null;
+  price?: number | string | null;
+  category?: string | null;
+}
+
 export interface RemoteRecord {
   id?: number;
   result_id?: string;
@@ -18,6 +26,8 @@ export interface RemoteRecord {
   customer_sex?: number | string;
   customer_age?: number | string;
   customer_mobile?: string;
+  recommendedGoodsIds?: string[];
+  recommendedGoods?: RecommendedGood[];
   analysis?: {
     age?: { result?: number };
     skin_type?: LevelModule & { type?: string };
@@ -89,6 +99,8 @@ export interface SkinRecordSummary {
   aiAge?: number | null;
   image?: string;
   analysis?: RemoteRecord["analysis"];
+  recommendedGoodsIds?: string[];
+  recommendedGoods?: RecommendedGood[];
 }
 
 export interface SkinInsights {
@@ -294,7 +306,13 @@ export const computeSkinInsights = (
     collectCounts(darkCircles, record.analysis?.dark_circle?.type ?? "UNKNOWN");
     collectCounts(sensitivity, record.analysis?.sensitive?.type ?? "UNKNOWN");
 
-    registerGoods("final_result", record.analysis?.final_result?.goods);
+    const fallbackRecommendedIds = Array.isArray(record.recommendedGoodsIds)
+      ? record.recommendedGoodsIds.join(",")
+      : "";
+    registerGoods(
+      "final_result",
+      record.analysis?.final_result?.goods || fallbackRecommendedIds
+    );
     ISSUE_MODULES.forEach((moduleKey) => {
       const moduleData =
         (record.analysis?.[
@@ -393,6 +411,12 @@ export const computeSkinInsights = (
       aiAge: predictedAge,
       image: record.image,
       analysis: record.analysis,
+      recommendedGoodsIds: Array.isArray(record.recommendedGoodsIds)
+        ? record.recommendedGoodsIds
+        : undefined,
+      recommendedGoods: Array.isArray(record.recommendedGoods)
+        ? record.recommendedGoods
+        : undefined,
     };
   });
 
@@ -413,7 +437,10 @@ export const computeSkinInsights = (
       record.analysis?.final_result?.goods
         ?.split(",")
         .map((code: string) => code.trim())
-        .filter(Boolean) ?? [];
+        .filter(Boolean) ??
+      (Array.isArray(record.recommendedGoodsIds)
+        ? record.recommendedGoodsIds
+        : []);
 
     const recordTime = pickRecordTime(record);
     spotlightDetails = {

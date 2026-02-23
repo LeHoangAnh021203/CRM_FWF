@@ -54,7 +54,14 @@ export function Header() {
       .slice(0, 8);
   };
 
-  const showGlobalDatePicker = pathname !== "/dashboard";
+  const hiddenExactRoutes = ["/dashboard"];
+  const hiddenPrefixRoutes = ["/dashboard/kpi", "/dashboard/skinreport-api"];
+  const shouldHideGlobalDatePicker =
+    hiddenExactRoutes.includes(pathname) ||
+    hiddenPrefixRoutes.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    );
+  const showGlobalDatePicker = !shouldHideGlobalDatePicker;
 
   return (
     <header className="bg-white border-b border-gray-200 px-3 py-2 sm:px-6 sm:py-4">

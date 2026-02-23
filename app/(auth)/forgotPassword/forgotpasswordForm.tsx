@@ -27,6 +27,26 @@ export function ForgotPasswordForm() {
 
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
 
+  const extractApiErrorMessage = (data: unknown, fallback: string) => {
+    if (!data || typeof data !== "object") return fallback;
+    const payload = data as Record<string, unknown>;
+    const details =
+      payload.details && typeof payload.details === "object"
+        ? (payload.details as Record<string, unknown>)
+        : null;
+
+    const detailsMessage =
+      (details && typeof details.details === "string" && details.details) ||
+      (details && typeof details.message === "string" && details.message) ||
+      "";
+    const errorMessage =
+      (typeof payload.error === "string" && payload.error) ||
+      (typeof payload.message === "string" && payload.message) ||
+      "";
+
+    return detailsMessage || errorMessage || fallback;
+  };
+
   const focusOtpInput = (index: number) => {
     const input = otpRefs.current[index];
     if (input) {
@@ -115,7 +135,7 @@ export function ForgotPasswordForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send OTP");
+        throw new Error(extractApiErrorMessage(data, "Failed to send OTP"));
       }
 
       resetOtp();
@@ -168,7 +188,7 @@ export function ForgotPasswordForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to reset password");
+        throw new Error(extractApiErrorMessage(data, "Failed to reset password"));
       }
 
       setIsPasswordReset(true);

@@ -1,4 +1,4 @@
-import type { SkinReportTab } from "./types";
+import type { SkinReportTab } from "@/app/dashboard/skinreport/types";
 
 export const moduleDisplay = [
   { key: "skin_type", label: "Sebum" },

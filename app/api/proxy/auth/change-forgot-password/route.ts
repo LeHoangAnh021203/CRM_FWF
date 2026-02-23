@@ -101,9 +101,34 @@ export async function POST(request: NextRequest) {
           error: errorData,
         });
 
+        const detailsMessage =
+          errorData &&
+          typeof errorData === "object" &&
+          typeof (errorData as Record<string, unknown>).details === "string"
+            ? (errorData as Record<string, unknown>).details
+            : "";
+        const apiMessage =
+          errorData &&
+          typeof errorData === "object" &&
+          typeof (errorData as Record<string, unknown>).message === "string"
+            ? (errorData as Record<string, unknown>).message
+            : "";
+        const apiError =
+          errorData &&
+          typeof errorData === "object" &&
+          typeof (errorData as Record<string, unknown>).error === "string"
+            ? (errorData as Record<string, unknown>).error
+            : "";
+
+        const friendlyMessage =
+          detailsMessage ||
+          (apiMessage && apiMessage !== "An unexpected error occurred" ? apiMessage : "") ||
+          apiError ||
+          `HTTP ${apiResponse.status}: ${apiResponse.statusText}`;
+
         return NextResponse.json(
           { 
-            error: errorData.message || errorData.error || `HTTP ${apiResponse.status}: ${apiResponse.statusText}`,
+            error: friendlyMessage,
             details: errorData 
           },
           { status: apiResponse.status }
@@ -175,4 +200,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
