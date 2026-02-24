@@ -2,6 +2,14 @@ const API_BASE_URL = "/api/proxy"
 import { TokenService } from './token-service'
 import { AUTH_CONFIG } from './auth-config'
 
+type DirectGetOptions = {
+  cacheTtlMs?: number
+  forceRefresh?: boolean
+  directTimeoutMs?: number
+  proxyTimeoutMs?: number
+  abortRetries?: number
+}
+
 // Helper function to create AbortSignal with timeout
 function createTimeoutSignal(timeoutMs: number): AbortSignal {
   if (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
@@ -15,6 +23,9 @@ function createTimeoutSignal(timeoutMs: number): AbortSignal {
 }
 
 export class ApiService {
+  private static directGetCache = new Map<string, { expiresAt: number; data: unknown }>()
+  private static directGetInflight = new Map<string, Promise<unknown>>()
+
   static async get(endpoint: string, token?: string, timeoutMs: number = 30000): Promise<unknown> {
     const validToken = token || await TokenService.getValidAccessToken()
     
@@ -202,7 +213,7 @@ export class ApiService {
   // Client-side direct fetch (bypasses Vercel proxy timeout)
   // Use this for long-running API calls from client components
   // Falls back to proxy if direct fetch fails (CORS issues)
-  static async getDirect(endpoint: string, token?: string): Promise<unknown> {
+  static async getDirect(endpoint: string, token?: string, options?: DirectGetOptions): Promise<unknown> {
     // Only works on client-side
     if (typeof window === 'undefined') {
       throw new Error('getDirect can only be used on client-side')
@@ -226,99 +237,137 @@ export class ApiService {
       'Authorization': `Bearer ${validToken}`
     }
 
-    // Try direct fetch first (bypasses Vercel timeout)
-    try {
-      console.log('[ApiService] Attempting direct fetch to:', directUrl)
-      
-      const response = await fetch(directUrl, {
-        method: 'GET',
-        headers,
-        // Client-side fetch has no timeout limit on Vercel
-        // Add timeout for better error handling (60s for long-running requests)
-        signal: AbortSignal.timeout(60000),
-      })
+    const cacheTtlMs = options?.cacheTtlMs ?? 20_000
+    const directTimeoutMs = options?.directTimeoutMs ?? 60_000
+    const proxyTimeoutMs = options?.proxyTimeoutMs ?? 130_000
+    const abortRetries = options?.abortRetries ?? 1
+    const forceProxyOnly = process.env.NEXT_PUBLIC_FORCE_PROXY === 'true'
+    const cacheKey = `${validToken.slice(-16)}::${endpoint}`
+    const now = Date.now()
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          console.log('Token expired; refresh disabled -> logout')
-          window.dispatchEvent(new CustomEvent('auth-expired'))
-          throw new Error('Authentication failed - please login again')
-        }
-        
-        // Get error details from response
-        let errorDetails = ''
-        try {
-          const errorText = await response.text()
-          if (errorText) {
-            try {
-              const errorJson = JSON.parse(errorText)
-              errorDetails = errorJson.error || errorJson.message || errorText
-            } catch {
-              errorDetails = errorText
-            }
-          }
-        } catch {
-          // Ignore errors when reading response
-        }
-        
-        const errorMessage = errorDetails 
-          ? `GET request failed: ${response.status} - ${errorDetails}`
-          : `GET request failed: ${response.status}`
-        
-        throw new Error(errorMessage)
+    if (!options?.forceRefresh) {
+      const cached = this.directGetCache.get(cacheKey)
+      if (cached && cached.expiresAt > now) {
+        return cached.data
       }
+      const inflight = this.directGetInflight.get(cacheKey)
+      if (inflight) {
+        return inflight
+      }
+    }
 
-      console.log('[ApiService] Direct fetch successful')
-      return response.json()
-    } catch (directError) {
-      // If direct fetch fails (CORS, network error, etc.), fallback to proxy
-      const isNetworkError = directError instanceof TypeError && 
-                            (directError.message.includes('Failed to fetch') || 
-                             directError.message.includes('NetworkError') ||
-                             directError.message.includes('CORS'))
-      
-      if (isNetworkError) {
-        console.warn('[ApiService] Direct fetch failed (likely CORS), falling back to proxy:', directError.message)
-        console.log('[ApiService] Falling back to proxy endpoint:', `${API_BASE_URL}/${endpoint}`)
-        
-        // Fallback to proxy (may timeout on Vercel, but better than nothing)
+    const callWithRetry = async (
+      fn: () => Promise<unknown>,
+      label: string
+    ): Promise<unknown> => {
+      let attempt = 0
+      while (true) {
         try {
+          return await fn()
+        } catch (error) {
+          const isAbort = error instanceof Error && error.name === 'AbortError'
+          if (!isAbort || attempt >= abortRetries) throw error
+          attempt += 1
+          console.warn(`[ApiService] ${label} aborted. Retry ${attempt}/${abortRetries}`)
+        }
+      }
+    }
+
+    const requestPromise = (async (): Promise<unknown> => {
+      if (forceProxyOnly) {
+        console.log('[ApiService] Force proxy mode enabled. Skipping direct fetch.')
+        const payload = await callWithRetry(async () => {
           const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
             method: 'GET',
             headers,
-            // Keep client timeout slightly higher than proxy route timeout
-            // so we can receive proxy error payloads instead of client abort first.
-            signal: AbortSignal.timeout(30000),
+            signal: AbortSignal.timeout(proxyTimeoutMs),
           })
-
           if (!response.ok) {
             if (response.status === 401) {
               window.dispatchEvent(new CustomEvent('auth-expired'))
               throw new Error('Authentication failed - please login again')
             }
-            
             const errorText = await response.text().catch(() => '')
-            throw new Error(`Proxy fallback failed: ${response.status} - ${errorText}`)
+            throw new Error(`Proxy request failed: ${response.status}${errorText ? ` - ${errorText}` : ''}`)
           }
-
-          console.log('[ApiService] Proxy fallback successful')
           return response.json()
-        } catch (proxyError) {
-          const proxyMessage =
-            proxyError instanceof Error && proxyError.name === 'AbortError'
-              ? 'Proxy fallback request timed out'
-              : proxyError instanceof Error
-              ? proxyError.message
-              : String(proxyError)
-          // If both fail, throw the original direct error with context
-          throw new Error(
-            `Direct fetch failed: ${directError instanceof Error ? directError.message : String(directError)}. Proxy fallback also failed: ${proxyMessage}`
-          )
-        }
-      } else {
-        // Re-throw non-network errors (auth, parsing, etc.)
-        throw directError
+        }, 'proxy only fetch')
+
+        this.directGetCache.set(cacheKey, {
+          data: payload,
+          expiresAt: Date.now() + cacheTtlMs,
+        })
+        return payload
       }
+
+      try {
+        console.log('[ApiService] Attempting direct fetch to:', directUrl)
+        const payload = await callWithRetry(async () => {
+          const response = await fetch(directUrl, {
+            method: 'GET',
+            headers,
+            signal: AbortSignal.timeout(directTimeoutMs),
+          })
+          if (!response.ok) {
+            if (response.status === 401) {
+              console.log('Token expired; refresh disabled -> logout')
+              window.dispatchEvent(new CustomEvent('auth-expired'))
+              throw new Error('Authentication failed - please login again')
+            }
+            const errorText = await response.text().catch(() => '')
+            throw new Error(`GET request failed: ${response.status}${errorText ? ` - ${errorText}` : ''}`)
+          }
+          return response.json()
+        }, 'direct fetch')
+
+        this.directGetCache.set(cacheKey, {
+          data: payload,
+          expiresAt: Date.now() + cacheTtlMs,
+        })
+        console.log('[ApiService] Direct fetch successful')
+        return payload
+      } catch (directError) {
+        const directMessage = directError instanceof Error ? directError.message : String(directError)
+        const isNetworkError =
+          directError instanceof TypeError ||
+          /Failed to fetch|NetworkError|CORS|fetch failed|certificate|timeout|aborted/i.test(directMessage)
+
+        if (!isNetworkError) throw directError
+
+        console.warn('[ApiService] Direct fetch failed, falling back to proxy:', directMessage)
+        console.log('[ApiService] Falling back to proxy endpoint:', `${API_BASE_URL}/${endpoint}`)
+
+        const payload = await callWithRetry(async () => {
+          const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+            method: 'GET',
+            headers,
+            signal: AbortSignal.timeout(proxyTimeoutMs),
+          })
+          if (!response.ok) {
+            if (response.status === 401) {
+              window.dispatchEvent(new CustomEvent('auth-expired'))
+              throw new Error('Authentication failed - please login again')
+            }
+            const errorText = await response.text().catch(() => '')
+            throw new Error(`Proxy fallback failed: ${response.status}${errorText ? ` - ${errorText}` : ''}`)
+          }
+          return response.json()
+        }, 'proxy fallback')
+
+        this.directGetCache.set(cacheKey, {
+          data: payload,
+          expiresAt: Date.now() + cacheTtlMs,
+        })
+        console.log('[ApiService] Proxy fallback successful')
+        return payload
+      }
+    })()
+
+    this.directGetInflight.set(cacheKey, requestPromise)
+    try {
+      return await requestPromise
+    } finally {
+      this.directGetInflight.delete(cacheKey)
     }
   }
 

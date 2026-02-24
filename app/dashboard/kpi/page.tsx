@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import KPIChart from "@/app/dashboard/KPIChart";
 import GrowthByPaymentChart from "@/app/dashboard/GrowthByPaymentChart";
-import  { PaymentMethod } from "@/app/dashboard/TotalSaleTable";
+import { PaymentMethod } from "@/app/dashboard/TotalSaleTable";
 import { ApiService } from "@/app/lib/api-service";
 import { toDdMmYyyy, toIsoYyyyMmDd } from "@/app/lib/date";
 import { getActualStockIds, parseNumericValue } from "@/app/constants/branches";
@@ -47,6 +47,28 @@ const formatCurrency = (value: number) => currencyFormatter.format(value);
 const formatIsoToDdMm = (iso: string) => (iso ? iso.split("-").reverse().join("/") : iso);
 
 const DEFAULT_MONTH_TARGET = 9750000000;
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const index = cursor++;
+        if (index >= items.length) return;
+        results[index] = await mapper(items[index], index);
+      }
+    })
+  );
+
+  return results;
+}
 
 export default function KpiDashboardPage() {
   const { fromDate, toDate } = useDateRange();
@@ -275,18 +297,18 @@ export default function KpiDashboardPage() {
   const dailyStatus = dailyTargetForSelectedDay === 0
     ? "ontrack"
     : dailyKpiRevenue >= dailyTargetForSelectedDay
-    ? dailyKpiRevenue > dailyTargetForSelectedDay * 1.1
-      ? "ahead"
-      : "ontrack"
-    : "behind";
+      ? dailyKpiRevenue > dailyTargetForSelectedDay * 1.1
+        ? "ahead"
+        : "ontrack"
+      : "behind";
 
   const monthlyStatus = targetUntilNow === 0
     ? "ontrack"
     : currentRevenue >= targetUntilNow
-    ? currentRevenue > targetUntilNow * 1.1
-      ? "ahead"
-      : "ontrack"
-    : "behind";
+      ? currentRevenue > targetUntilNow * 1.1
+        ? "ahead"
+        : "ontrack"
+      : "behind";
 
   const paymentMethods = useMemo<PaymentMethod[]>(() => {
     if (!salesSummaryData) return [];
@@ -484,12 +506,13 @@ export default function KpiDashboardPage() {
       try {
         let data: SalesSummaryData;
         if (actualStockIds.length > 1) {
-          const results = await Promise.all(
-            actualStockIds.map((sid) =>
-              ApiService.getDirect(
+          const results = await mapWithConcurrency(
+            actualStockIds,
+            3,
+            async (sid) =>
+              (await ApiService.getDirect(
                 `real-time/sales-summary-copied?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
-              ) as Promise<SalesSummaryData>
-            )
+              )) as SalesSummaryData
           );
           const aggregate = (key: keyof SalesSummaryData) =>
             results
@@ -540,12 +563,13 @@ export default function KpiDashboardPage() {
 
         const fetchActualRevenue = async (startDate: string, endDate: string) => {
           if (actualStockIds.length > 1) {
-            const results = await Promise.all(
-              actualStockIds.map((sid) =>
-                ApiService.getDirect(
+            const results = await mapWithConcurrency(
+              actualStockIds,
+              3,
+              async (sid) =>
+                (await ApiService.getDirect(
                   `real-time/get-actual-revenue?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
-                ) as Promise<number | string | null | undefined>
-              )
+                )) as number | string | null | undefined
             );
             let total = 0;
             for (const value of results) {
@@ -567,7 +591,7 @@ export default function KpiDashboardPage() {
         setActualRevenueToday(dayValue ?? null);
         setActualRevenueMTD(mtdValue ?? null);
       } catch {
-        
+
       }
     };
     run();
@@ -600,13 +624,12 @@ export default function KpiDashboardPage() {
 
       try {
         if (actualStockIds.length > 1) {
-          await Promise.all(
-            actualStockIds.map((sid) =>
-              ApiService.getDirect(
-                `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
-              )
-            )
-          );
+          await mapWithConcurrency(actualStockIds, 3, async (sid) => {
+            await ApiService.getDirect(
+              `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
+            );
+            return null;
+          });
         } else {
           await ApiService.getDirect(
             `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
@@ -660,8 +683,7 @@ export default function KpiDashboardPage() {
 
         const toIso = (date: Date) => toIsoYyyyMmDd(date);
 
-        const results = await Promise.all(
-          dates.map(async (date) => {
+        const results = await mapWithConcurrency(dates, 2, async (date) => {
             const formatted = toDdMmYyyy(date);
             const fetchPerDate = async () => {
               if (actualStockIds.length > 1) {
@@ -712,8 +734,7 @@ export default function KpiDashboardPage() {
                 total: 0,
               };
             }
-          })
-        );
+          });
 
         if (!isCancelled) {
           setKpiDailySeries(results);

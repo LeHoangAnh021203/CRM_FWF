@@ -31,6 +31,28 @@ interface PaymentMethod {
   transactions: number;
 }
 
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const index = cursor++;
+        if (index >= items.length) return;
+        results[index] = await mapper(items[index], index);
+      }
+    })
+  );
+
+  return results;
+}
+
 export default function Dashboard() {
   const { notification, showSuccess, showError, hideNotification } =
     useNotification();
@@ -235,12 +257,10 @@ export default function Dashboard() {
     fetchSalesSummary();
   }, [latestDataDateObj, stockQueryParam, actualStockIds]);
 
-  // KPI Monthly revenue API state (for Target KPI only - cumulative from start of month)
-  const [kpiMonthlyRevenueLoading, setKpiMonthlyRevenueLoading] =
-    useState(true);
-  const [kpiMonthlyRevenueError, setKpiMonthlyRevenueError] = useState<
-    string | null
-  >(null);
+  // KPI Monthly revenue warm-up request has been removed to avoid duplicate sales-summary calls.
+  // Keep these flags stable for existing notification/auth logic.
+  const kpiMonthlyRevenueLoading = false;
+  const kpiMonthlyRevenueError: string | null = null;
 
   // Service summary API state
   const [serviceSummaryData, setServiceSummaryData] = useState<{
@@ -337,11 +357,8 @@ export default function Dashboard() {
   const [bookingLoading, setBookingLoading] = useState(true);
   const [bookingError, setBookingError] = useState<string | null>(null);
 
-  // Daily revenue API state (for current day only)
-  const [, setDailyRevenueLoading] = useState(true);
-  const [dailyRevenueError, setDailyRevenueError] = useState<string | null>(
-    null
-  );
+  // Daily revenue warm-up request has been removed to avoid duplicate sales-summary calls.
+  const dailyRevenueError: string | null = null;
 
   // KPI daily series (real per-day data from start of month to today)
   const [kpiDailySeries, setKpiDailySeries] = useState<Array<{
@@ -799,169 +816,6 @@ export default function Dashboard() {
     fetchBookingData();
   }, [latestDataDateObj, stockQueryParam]);
 
-  // Fetch daily revenue (current day only) using ApiService via proxy
-  React.useEffect(() => {
-    const fetchDailyRevenue = async () => {
-      if (!latestDataDateObj) return;
-      try {
-        setDailyRevenueLoading(true);
-        setDailyRevenueError(null);
-
-        // Fetch exactly the latest data date.
-        const todayStr = toDdMmYyyy(latestDataDateObj);
-
-        console.log("🔄 Fetching daily revenue for today:", todayStr);
-
-        const data = (await ApiService.getDirect(
-          `real-time/sales-summary?dateStart=${todayStr}&dateEnd=${todayStr}${stockQueryParam}`
-        )) as {
-          totalRevenue: string;
-          cash: string;
-          transfer: string;
-          card: string;
-          actualRevenue: string;
-          foxieUsageRevenue: string;
-          walletUsageRevenue: string;
-          toPay: string;
-          debt: string;
-        };
-
-        console.log("✅ Daily revenue data received:", data);
-        // setDailyRevenueData(data); // This line is removed
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to fetch daily revenue";
-        setDailyRevenueError(errorMessage);
-        console.error("❌ Daily revenue fetch error:", err);
-      } finally {
-        setDailyRevenueLoading(false);
-      }
-    };
-
-    fetchDailyRevenue();
-  }, [latestDataDateObj, stockQueryParam]);
-
-  // Fetch KPI monthly revenue (for Target KPI only - cumulative from start of month)
-  React.useEffect(() => {
-    const fetchKpiMonthlyRevenue = async () => {
-      if (!latestDataDateObj) return;
-      try {
-        setKpiMonthlyRevenueLoading(true);
-        setKpiMonthlyRevenueError(null);
-
-        // Get start of month and latest available data date
-        const today = latestDataDateObj;
-        const firstDayOfMonth = new Date(
-          today.getFullYear(),
-          today.getMonth(),
-          1
-        );
-
-        const startDate = toDdMmYyyy(firstDayOfMonth);
-        const endDate = toDdMmYyyy(today);
-
-        console.log(
-          "🔄 Fetching KPI monthly revenue (cumulative from start of month):",
-          { startDate, endDate, actualStockIds: actualStockIds.length }
-        );
-
-        let data: {
-          totalRevenue: string;
-          cash: string;
-          transfer: string;
-          card: string;
-          actualRevenue: string;
-          foxieUsageRevenue: string;
-          walletUsageRevenue: string;
-          toPay: string;
-          debt: string;
-        };
-
-        if (actualStockIds.length > 1) {
-          // Multiple stockIds - fetch each and aggregate
-          console.log(`🔄 Fetching ${actualStockIds.length} branches for KPI monthly revenue and aggregating...`);
-          const results = await Promise.all(
-            actualStockIds.map((sid) =>
-              ApiService.getDirect(
-                `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
-              ) as Promise<{
-                totalRevenue?: string | number;
-                cash?: string | number;
-                transfer?: string | number;
-                card?: string | number;
-                actualRevenue?: string | number;
-                foxieUsageRevenue?: string | number;
-                walletUsageRevenue?: string | number;
-                toPay?: string | number;
-                debt?: string | number;
-              }>
-            )
-          );
-
-          // Aggregate all results
-          data = {
-            totalRevenue: results
-              .reduce((sum, r) => sum + parseNumericValue(r.totalRevenue), 0)
-              .toString(),
-            cash: results
-              .reduce((sum, r) => sum + parseNumericValue(r.cash), 0)
-              .toString(),
-            transfer: results
-              .reduce((sum, r) => sum + parseNumericValue(r.transfer), 0)
-              .toString(),
-            card: results
-              .reduce((sum, r) => sum + parseNumericValue(r.card), 0)
-              .toString(),
-            actualRevenue: results
-              .reduce((sum, r) => sum + parseNumericValue(r.actualRevenue), 0)
-              .toString(),
-            foxieUsageRevenue: results
-              .reduce((sum, r) => sum + parseNumericValue(r.foxieUsageRevenue), 0)
-              .toString(),
-            walletUsageRevenue: results
-              .reduce((sum, r) => sum + parseNumericValue(r.walletUsageRevenue), 0)
-              .toString(),
-            toPay: results
-              .reduce((sum, r) => sum + parseNumericValue(r.toPay), 0)
-              .toString(),
-            debt: results
-              .reduce((sum, r) => sum + parseNumericValue(r.debt), 0)
-              .toString(),
-          };
-          console.log(`✅ Aggregated KPI monthly revenue from ${actualStockIds.length} branches:`, data);
-        } else {
-          // Single stockId or all branches - use existing query param
-          data = (await ApiService.getDirect(
-            `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
-          )) as {
-            totalRevenue: string;
-            cash: string;
-            transfer: string;
-            card: string;
-            actualRevenue: string;
-            foxieUsageRevenue: string;
-            walletUsageRevenue: string;
-            toPay: string;
-            debt: string;
-          };
-          console.log("✅ KPI monthly revenue data received:", data);
-        }
-        // setKpiMonthlyRevenueData(data); // This line is removed
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : "Failed to fetch KPI monthly revenue";
-        setKpiMonthlyRevenueError(errorMessage);
-        console.error("❌ KPI monthly revenue fetch error:", err);
-      } finally {
-        setKpiMonthlyRevenueLoading(false);
-      }
-    };
-
-    fetchKpiMonthlyRevenue();
-  }, [latestDataDateObj, stockQueryParam, actualStockIds]);
-
   // Fetch daily KPI series (TM+CK+QT per day) from start of month to today
   const kpiSeriesStockRef = React.useRef<string | null>(null);
   React.useEffect(() => {
@@ -1024,13 +878,12 @@ export default function Dashboard() {
           return isNaN(num) ? 0 : num;
         };
 
-        // Batch requests to avoid overwhelming the API (max 5 concurrent requests per batch)
-        const BATCH_SIZE = 5;
-        const fetchPromises = dates.map(async (d, dateIndex) => {
+        // Use worker pool to prevent burst calls that often trigger cancellations/timeouts.
+        const fetchByDate = async (d: Date, dateIndex: number) => {
           const ddmmyyyy = toDdMmYyyy(d);
           try {
             // Add small delay to batch requests
-            if (dateIndex > 0 && dateIndex % BATCH_SIZE === 0) {
+            if (dateIndex > 0 && dateIndex % 5 === 0) {
               await new Promise(resolve => setTimeout(resolve, 100));
             }
 
@@ -1170,9 +1023,9 @@ export default function Dashboard() {
               total: 0,
             };
           }
-        });
+        };
 
-        const fetchedResults = await Promise.all(fetchPromises);
+        const fetchedResults = await mapWithConcurrency(dates, 2, fetchByDate);
         if (!isCancelled) {
           results.push(...fetchedResults);
           const totalRevenue = results.reduce((sum, r) => sum + r.total, 0);
