@@ -1,0 +1,2368 @@
+"use client";
+
+import React, { useState, useRef, Suspense, useEffect, useMemo } from "react";
+import { Notification, useNotification } from "@/app/components/notification";
+import { SEARCH_TARGETS, normalize } from "@/app/lib/search-targets";
+import { usePageStatus } from "@/app/hooks/usePageStatus";
+import { useDashboardData } from "@/app/hooks/useDashboardData";
+import { useDateRange } from "@/app/contexts/DateContext";
+import { useBranchFilter } from "@/app/contexts/BranchContext";
+import { getActualStockIds, parseNumericValue } from "@/app/constants/branches";
+import { ApiService } from "@/app/lib/api-service";
+import { toDdMmYyyy, toIsoYyyyMmDd } from "@/app/lib/date";
+
+import { QuickActions } from "@/app/components/quick-actions";
+import { DollarSign } from "lucide-react";
+import {
+  TotalSaleTable,
+  SaleDetail,
+  CustomerSection,
+  BookingSection,
+  BookingByHourChart,
+  ServiceSection,
+  FoxieBalanceTable,
+  SalesByHourTable,
+} from "./lazy-components";
+import { LazyLoadingWrapper, ConditionalRender } from "./LazyLoadingWrapper";
+
+interface PaymentMethod {
+  method: string;
+  amount: number;
+  percentage: number;
+  transactions: number;
+}
+
+export default function Dashboard() {
+  const { notification, showSuccess, showError, hideNotification } =
+    useNotification();
+  const hasShownSuccess = useRef(false);
+  const hasShownError = useRef(false);
+  const { fromDate, toDate } = useDateRange();
+  const { stockId: selectedStockId } = useBranchFilter();
+  
+  // Get actual stockIds (can be multiple for region/city filters)
+  const actualStockIds = React.useMemo(() => {
+    return getActualStockIds(selectedStockId || "");
+  }, [selectedStockId]);
+  
+  // Create query param - if multiple stockIds, we'll call multiple APIs and aggregate
+  const stockQueryParam = React.useMemo(() => {
+    if (actualStockIds.length === 0) {
+      return "&stockId="; // All branches require blank stockId param
+    } else if (actualStockIds.length === 1) {
+      return `&stockId=${actualStockIds[0]}`;
+    } else {
+      // Multiple stockIds - for now, try comma-separated
+      // If backend doesn't support, we'll need to aggregate manually
+      return `&stockId=${actualStockIds.join(",")}`;
+    }
+  }, [actualStockIds]);
+  
+  // Track which data sections have been loaded and notified
+  const notifiedDataRef = useRef<Set<string>>(new Set());
+  const {
+    reportPageError,
+    reportDataLoadSuccess,
+    reportPagePerformance,
+    reportDataLoadError,
+  } = usePageStatus("dashboard");
+
+  const { loading, error, apiErrors, apiSuccesses } = useDashboardData();
+  
+  // Memoize date strings to prevent unnecessary re-renders
+  const fromDateStr = React.useMemo(() => {
+    if (!fromDate) return "";
+    // Extract just the date part (YYYY-MM-DD) for comparison
+    return fromDate.split("T")[0];
+  }, [fromDate]);
+  
+  const toDateStr = React.useMemo(() => {
+    if (!toDate) return "";
+    // Extract just the date part (YYYY-MM-DD) for comparison
+    return toDate.split("T")[0];
+  }, [toDate]);
+
+  const todayLabel = useMemo(() => {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, "0");
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const year = today.getFullYear();
+    return `${day}/${month}/${year}`;
+  }, []);
+  
+  const searchParamQuery = (() => {
+    if (typeof window === "undefined") return "";
+    const url = new URL(window.location.href);
+    return url.searchParams.get("q") || "";
+  })();
+
+  // Fetch sales summary data using direct API call (like the original)
+  const [salesSummaryData, setSalesSummaryData] = useState<{
+    totalRevenue: string;
+    cash: string;
+    transfer: string;
+    card: string;
+    actualRevenue: string;
+    foxieUsageRevenue: string;
+    walletUsageRevenue: string;
+    toPay: string;
+    debt: string;
+  } | null>(null);
+  const [salesLoading, setSalesLoading] = useState(true);
+  const [salesError, setSalesError] = useState<string | null>(null);
+
+  // Use ApiService with authentication like other pages
+  React.useEffect(() => {
+    const fetchSalesSummary = async () => {
+      if (!fromDateStr || !toDateStr) return;
+
+      try {
+        setSalesLoading(true);
+        setSalesError(null);
+
+        // Format dates for API (DD/MM/YYYY format like the API expects)
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+
+        console.log("🔄 Fetching sales summary via ApiService with dates:", {
+          startDate,
+          endDate,
+        });
+
+        // If multiple stockIds, fetch each one and aggregate
+        let data: {
+          totalRevenue: string;
+          cash: string;
+          transfer: string;
+          card: string;
+          actualRevenue: string;
+          foxieUsageRevenue: string;
+          walletUsageRevenue: string;
+          toPay: string;
+          debt: string;
+        };
+
+        if (actualStockIds.length > 1) {
+          // Multiple stockIds - fetch each and aggregate
+          console.log(`🔄 Fetching ${actualStockIds.length} branches and aggregating...`);
+          const results = await Promise.all(
+            actualStockIds.map((sid) =>
+              ApiService.getDirect(
+                `real-time/sales-summary-copied?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
+              ) as Promise<{
+                totalRevenue?: string | number;
+                cash?: string | number;
+                transfer?: string | number;
+                card?: string | number;
+                actualRevenue?: string | number;
+                foxieUsageRevenue?: string | number;
+                walletUsageRevenue?: string | number;
+                toPay?: string | number;
+                debt?: string | number;
+              }>
+            )
+          );
+
+          // Aggregate all results
+          data = {
+            totalRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.totalRevenue), 0)
+              .toString(),
+            cash: results
+              .reduce((sum, r) => sum + parseNumericValue(r.cash), 0)
+              .toString(),
+            transfer: results
+              .reduce((sum, r) => sum + parseNumericValue(r.transfer), 0)
+              .toString(),
+            card: results
+              .reduce((sum, r) => sum + parseNumericValue(r.card), 0)
+              .toString(),
+            actualRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.actualRevenue), 0)
+              .toString(),
+            foxieUsageRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.foxieUsageRevenue), 0)
+              .toString(),
+            walletUsageRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.walletUsageRevenue), 0)
+              .toString(),
+            toPay: results
+              .reduce((sum, r) => sum + parseNumericValue(r.toPay), 0)
+              .toString(),
+            debt: results
+              .reduce((sum, r) => sum + parseNumericValue(r.debt), 0)
+              .toString(),
+          };
+          console.log(`✅ Aggregated data from ${actualStockIds.length} branches:`, data);
+        } else {
+          // Single stockId or all branches - use existing query param
+          data = (await ApiService.getDirect(
+            `real-time/sales-summary-copied?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+          )) as {
+            totalRevenue: string;
+            cash: string;
+            transfer: string;
+            card: string;
+            actualRevenue: string;
+            foxieUsageRevenue: string;
+            walletUsageRevenue: string;
+            toPay: string;
+            debt: string;
+          };
+          console.log("✅ Sales summary data received:", data);
+        }
+
+        console.log("🔍 Debug - Data structure check:", {
+          hasTotalRevenue: !!data.totalRevenue,
+          hasCash: !!data.cash,
+          hasTransfer: !!data.transfer,
+          hasCard: !!data.card,
+          hasFoxieUsageRevenue: !!data.foxieUsageRevenue,
+          hasWalletUsageRevenue: !!data.walletUsageRevenue,
+        });
+
+        setSalesSummaryData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch sales summary";
+        setSalesError(errorMessage);
+        console.error("❌ Sales summary fetch error:", err);
+      } finally {
+        setSalesLoading(false);
+      }
+    };
+
+    fetchSalesSummary();
+  }, [fromDateStr, toDateStr, stockQueryParam, actualStockIds]);
+
+  // KPI Monthly revenue API state (for Target KPI only - cumulative from start of month)
+  const [kpiMonthlyRevenueLoading, setKpiMonthlyRevenueLoading] =
+    useState(true);
+  const [kpiMonthlyRevenueError, setKpiMonthlyRevenueError] = useState<
+    string | null
+  >(null);
+
+  // Service summary API state
+  const [serviceSummaryData, setServiceSummaryData] = useState<{
+    totalServices: string;
+    totalServicesServing: string;
+    totalServiceDone: string;
+    items: Array<{
+      serviceName: string;
+      serviceUsageAmount: string;
+      serviceUsagePercentage: string;
+    }>;
+  } | null>(null);
+  const [serviceError, setServiceError] = useState<string | null>(null);
+  const [topServicesData, setTopServicesData] = useState<
+    Array<{
+      serviceName: string;
+      serviceUsageAmount: string;
+      serviceUsagePercentage: string;
+    }> | null
+  >(null);
+  const [topServicesLoading, setTopServicesLoading] = useState(true);
+  const [topServicesError, setTopServicesError] = useState<string | null>(null);
+
+  // Auth expiration modal state
+  const [authExpired, setAuthExpired] = useState(false);
+
+  // New customers API state (for current date range)
+  const [newCustomerData, setNewCustomerData] = useState<Array<{
+    count: number;
+    type: string;
+  }> | null>(null);
+  const [newCustomerLoading, setNewCustomerLoading] = useState(true);
+  const [newCustomerError, setNewCustomerError] = useState<string | null>(null);
+
+  // Old customers API state (for current date range)
+  const [oldCustomerData, setOldCustomerData] = useState<Array<{
+    count: number;
+    type: string;
+  }> | null>(null);
+  const [oldCustomerLoading, setOldCustomerLoading] = useState(true);
+  const [oldCustomerError, setOldCustomerError] = useState<string | null>(null);
+
+  // Foxie balance API state
+  const [foxieBalanceData, setFoxieBalanceData] = useState<{
+    the_tien_kha_dung: number;
+  } | null>(null);
+  const [foxieBalanceLoading, setFoxieBalanceLoading] = useState(true);
+  const [foxieBalanceError, setFoxieBalanceError] = useState<string | null>(
+    null
+  );
+
+  // Sales by hour API state
+  const [salesByHourData, setSalesByHourData] = useState<Array<{
+    date: string;
+    totalSales: number;
+    timeRange: string;
+  }> | null>(null);
+  const [salesByHourLoading, setSalesByHourLoading] = useState(true);
+  const [salesByHourError, setSalesByHourError] = useState<string | null>(null);
+
+  // Sales detail API state
+  const [salesDetailData, setSalesDetailData] = useState<Array<{
+    productName: string;
+    productPrice: string;
+    productQuantity: string;
+    productDiscount: string;
+    productCode: string;
+    productUnit: string;
+    formatTable: string;
+    cash: string;
+    transfer: string;
+    card: string;
+    wallet: string;
+    foxie: string;
+  }> | null>(null);
+  const [salesDetailLoading, setSalesDetailLoading] = useState(true);
+  const [salesDetailError, setSalesDetailError] = useState<string | null>(null);
+
+  // Booking by hour API state
+  const [bookingByHourData, setBookingByHourData] = useState<Array<{ type: string; count: number }> | null>(null);
+  const [bookingByHourLoading, setBookingByHourLoading] = useState(true);
+  const [bookingByHourError, setBookingByHourError] = useState<string | null>(null);
+
+  // Booking API state
+  const [bookingData, setBookingData] = useState<{
+    notConfirmed: string;
+    confirmed: string;
+    denied: string;
+    customerCome: string;
+    customerNotCome: string;
+    cancel: string;
+    autoConfirmed: string;
+  } | null>(null);
+  const [bookingLoading, setBookingLoading] = useState(true);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+
+  // Daily revenue API state (for current day only)
+  const [, setDailyRevenueLoading] = useState(true);
+  const [dailyRevenueError, setDailyRevenueError] = useState<string | null>(
+    null
+  );
+
+  // KPI daily series (real per-day data from start of month to today)
+  const [kpiDailySeries, setKpiDailySeries] = useState<Array<{
+    dateLabel: string; // DD/MM
+    isoDate: string; // yyyy-MM-dd
+    total: number; // cash+transfer+card
+  }> | null>(null);
+  const [kpiDailySeriesLoading, setKpiDailySeriesLoading] = useState(true);
+  const [kpiDailySeriesError, setKpiDailySeriesError] = useState<string | null>(
+    null
+  );
+
+  // Actual revenue (new API) for KPI
+  const [actualRevenueToday, setActualRevenueToday] = useState<number | null>(null);
+  const [actualRevenueMTD, setActualRevenueMTD] = useState<number | null>(null);
+
+  // Fetch service summary (real-time) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchServiceSummary = async () => {
+      if (!fromDateStr || !toDateStr) return;
+
+      try {
+        setServiceError(null);
+
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+
+        const data = (await ApiService.getDirect(
+          `real-time/service-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+        )) as {
+          totalServices: string;
+          totalServicesServing: string;
+          totalServiceDone: string;
+          items: Array<{
+            serviceName: string;
+            serviceUsageAmount: string;
+            serviceUsagePercentage: string;
+          }>;
+        };
+
+        
+
+        setServiceSummaryData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch service summary";
+        setServiceError(errorMessage);
+        console.error("❌ Service summary fetch error:", err);
+      } finally {
+        // setServiceLoading(false); // Removed as per edit hint
+      }
+    };
+
+    fetchServiceSummary();
+  }, [fromDateStr, toDateStr, stockQueryParam]);
+
+  React.useEffect(() => {
+    const fetchTopServices = async () => {
+      if (!fromDateStr || !toDateStr) return;
+
+      try {
+        setTopServicesLoading(true);
+        setTopServicesError(null);
+
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+
+        const data = (await ApiService.getDirect(
+          `real-time/get-top-10-service?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+        )) as Array<{
+          serviceName: string;
+          serviceUsageAmount: string;
+          serviceUsagePercentage: string;
+        }>;
+
+        setTopServicesData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch top service usage";
+        setTopServicesError(errorMessage);
+        console.error("❌ Top services fetch error:", err);
+      } finally {
+        setTopServicesLoading(false);
+      }
+    };
+
+    fetchTopServices();
+  }, [fromDateStr, toDateStr, stockQueryParam]);
+
+  // Fetch new customers by source (real-time) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchNewCustomers = async () => {
+      if (!fromDateStr || !toDateStr) return;
+
+      try {
+        setNewCustomerLoading(true);
+        setNewCustomerError(null);
+
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+
+        const data = (await ApiService.getDirect(
+          `real-time/get-new-customer?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+        )) as Array<{
+          count: number;
+          type: string;
+        }>;
+
+        setNewCustomerData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch new customers";
+        setNewCustomerError(errorMessage);
+        console.error("❌ New customers fetch error:", err);
+      } finally {
+        setNewCustomerLoading(false);
+      }
+    };
+
+    fetchNewCustomers();
+  }, [fromDateStr, toDateStr, stockQueryParam]);
+
+  // Fetch old customers by source (real-time) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchOldCustomers = async () => {
+      if (!fromDateStr || !toDateStr) return;
+
+      try {
+        setOldCustomerLoading(true);
+        setOldCustomerError(null);
+
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+
+        const data = (await ApiService.getDirect(
+          `real-time/get-old-customer?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+        )) as Array<{
+          count: number;
+          type: string;
+        }>;
+
+        setOldCustomerData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch old customers";
+        setOldCustomerError(errorMessage);
+        console.error("❌ Old customers fetch error:", err);
+      } finally {
+        setOldCustomerLoading(false);
+      }
+    };
+
+    fetchOldCustomers();
+  }, [fromDateStr, toDateStr, stockQueryParam]);
+
+  // Fetch Foxie balance using ApiService via proxy
+  React.useEffect(() => {
+    const fetchFoxieBalance = async () => {
+      try {
+        setFoxieBalanceLoading(true);
+        setFoxieBalanceError(null);
+
+        console.log("🔄 Fetching Foxie balance via direct API call");
+
+        // Use direct API call instead of proxy for this specific endpoint
+        const response = await fetch(
+          "https://app.facewashfox.com/api/ws/fwf@the_tien_kha_dung",
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${
+                typeof window !== "undefined"
+                  ? localStorage.getItem("token") || ""
+                  : ""
+              }`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = (await response.json()) as {
+          the_tien_kha_dung: number;
+        };
+
+        console.log("✅ Foxie balance data received:", data);
+        setFoxieBalanceData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch Foxie balance";
+        setFoxieBalanceError(errorMessage);
+        console.error("❌ Foxie balance fetch error:", err);
+      } finally {
+        setFoxieBalanceLoading(false);
+      }
+    };
+
+    fetchFoxieBalance();
+  }, []); // Empty dependency - fetch once on mount
+
+  // Fetch sales by hour (real-time) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchSalesByHour = async () => {
+      if (!fromDateStr || !toDateStr) return;
+
+      try {
+        setSalesByHourLoading(true);
+        setSalesByHourError(null);
+
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+
+        console.log("🔄 Fetching sales by hour via ApiService with dates:", {
+          startDate,
+          endDate,
+        });
+
+        const data = (await ApiService.getDirect(
+          `real-time/get-sales-by-hour?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+        )) as Array<{
+          date: string;
+          totalSales: number;
+          timeRange: string;
+        }>;
+
+        console.log("✅ Sales by hour data received:", data);
+        setSalesByHourData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch sales by hour";
+        setSalesByHourError(errorMessage);
+        console.error("❌ Sales by hour fetch error:", err);
+      } finally {
+        setSalesByHourLoading(false);
+      }
+    };
+
+    fetchSalesByHour();
+  }, [fromDateStr, toDateStr, stockQueryParam]);
+
+  // Fetch Actual Revenue for KPI (day and month-to-date)
+  React.useEffect(() => {
+    const run = async () => {
+      try {
+        const today = toDateStr ? new Date(toDateStr) : new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const dayStr = toDdMmYyyy(today);
+        const startMonthStr = toDdMmYyyy(firstDay);
+
+        const fetchActualRevenue = async (startDate: string, endDate: string) => {
+          if (actualStockIds.length > 1) {
+            const results = await Promise.all(
+              actualStockIds.map((sid) =>
+                ApiService.getDirect(
+                  `real-time/get-actual-revenue?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
+                ) as Promise<number | string | null | undefined>
+              )
+            );
+            return results.reduce(
+              (sum: number, value) => sum + parseNumericValue(value),
+              0
+            );
+          }
+
+          const value = (await ApiService.getDirect(
+            `real-time/get-actual-revenue?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+          )) as number | string | null | undefined;
+          return parseNumericValue(value);
+        };
+
+        const [dayValue, mtdValue] = await Promise.all([
+          fetchActualRevenue(dayStr, dayStr),
+          fetchActualRevenue(startMonthStr, dayStr),
+        ]);
+        setActualRevenueToday(dayValue ?? null);
+        setActualRevenueMTD(mtdValue ?? null);
+      } catch {
+        // ignore
+      }
+    };
+    run();
+  }, [fromDateStr, toDateStr, stockQueryParam, actualStockIds]);
+
+  // Fetch booking by hour (real-time)
+  React.useEffect(() => {
+    const fetchBookingByHour = async () => {
+      if (!fromDateStr || !toDateStr) return;
+      try {
+        setBookingByHourLoading(true);
+        setBookingByHourError(null);
+        const start = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const end = toDdMmYyyy(toDateStr + "T23:59:59");
+        const data = (await ApiService.getDirect(
+          `real-time/get-booking-by-hour?dateStart=${start}&dateEnd=${end}${stockQueryParam}`
+        )) as Array<{ count: number; type: string }>;
+        setBookingByHourData(data || []);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to fetch booking by hour";
+        setBookingByHourError(msg);
+      } finally {
+        setBookingByHourLoading(false);
+      }
+    };
+    fetchBookingByHour();
+  }, [fromDateStr, toDateStr, stockQueryParam]);
+
+  const newCustomerTotal = React.useMemo(() => {
+    if (!newCustomerData || newCustomerData.length === 0) return 0;
+    return newCustomerData.reduce(
+      (sum, item) => sum + Number(item.count || 0),
+      0
+    );
+  }, [newCustomerData]);
+
+  const oldCustomerTotal = React.useMemo(() => {
+    if (!oldCustomerData || oldCustomerData.length === 0) return 0;
+    return oldCustomerData.reduce(
+      (sum, item) => sum + Number(item.count || 0),
+      0
+    );
+  }, [oldCustomerData]);
+
+  // --- colorPalette useMemo để tránh deps bị warning ---
+  const colorPalette = React.useMemo(
+    () => [
+      "#f16a3f",
+      "#0693e3",
+      "#00d084",
+      "#fcb900",
+      "#9b51e0",
+      "#41d1d9",
+      "#ff6b6b",
+      "#7bdcb5",
+      "#ff6900",
+      "#4ecdc4",
+    ],
+    []
+  );
+
+  const newCustomerPieData = React.useMemo(() => {
+    if (!newCustomerData || newCustomerData.length === 0)
+      return [] as Array<{ name: string; value: number; color: string }>;
+    return newCustomerData.map((item, idx) => ({
+      name: item.type,
+      value: Number(item.count || 0),
+      color: colorPalette[idx % colorPalette.length],
+    }));
+  }, [newCustomerData, colorPalette]);
+
+  const oldCustomerPieData = React.useMemo(() => {
+    if (!oldCustomerData || oldCustomerData.length === 0)
+      return [] as Array<{ name: string; value: number; color: string }>;
+    return oldCustomerData.map((item, idx) => ({
+      name: item.type,
+      value: Number(item.count || 0),
+      color: colorPalette[idx % colorPalette.length],
+    }));
+  }, [oldCustomerData, colorPalette]);
+
+  // Fetch sales detail (real-time) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchSalesDetail = async () => {
+      if (!fromDateStr || !toDateStr) return;
+
+      try {
+        setSalesDetailLoading(true);
+        setSalesDetailError(null);
+
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+
+        const data = (await ApiService.getDirect(
+          `real-time/sales-detail?dateStart=${startDate}&dateEnd=${endDate}`
+        )) as Array<{
+          productName: string;
+          productPrice: string;
+          productQuantity: string;
+          productDiscount: string;
+          productCode: string;
+          productUnit: string;
+          formatTable: string;
+          cash: string;
+          transfer: string;
+          card: string;
+          wallet: string;
+          foxie: string;
+        }>;
+
+        setSalesDetailData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch sales detail";
+        setSalesDetailError(errorMessage);
+        console.error("❌ Sales detail fetch error:", err);
+      } finally {
+        setSalesDetailLoading(false);
+      }
+    };
+
+    fetchSalesDetail();
+  }, [fromDateStr, toDateStr]);
+
+  // Fetch booking data (real-time) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchBookingData = async () => {
+      if (!fromDateStr || !toDateStr) return;
+
+      try {
+        setBookingLoading(true);
+        setBookingError(null);
+
+        const startDate = toDdMmYyyy(fromDateStr + "T00:00:00");
+        const endDate = toDdMmYyyy(toDateStr + "T23:59:59");
+
+        console.log("🔄 Fetching booking data via ApiService with dates:", {
+          startDate,
+          endDate,
+        });
+
+        const data = (await ApiService.getDirect(
+          `real-time/booking?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+        )) as {
+          notConfirmed: string;
+          confirmed: string;
+          denied: string;
+          customerCome: string;
+          customerNotCome: string;
+          cancel: string;
+          autoConfirmed: string;
+        };
+
+        console.log("✅ Booking data received:", data);
+        setBookingData(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch booking data";
+        setBookingError(errorMessage);
+        console.error("❌ Booking data fetch error:", err);
+      } finally {
+        setBookingLoading(false);
+      }
+    };
+
+    fetchBookingData();
+  }, [fromDateStr, toDateStr, stockQueryParam]);
+
+  // Fetch daily revenue (current day only) using ApiService via proxy
+  React.useEffect(() => {
+    const fetchDailyRevenue = async () => {
+      try {
+        setDailyRevenueLoading(true);
+        setDailyRevenueError(null);
+
+        // Get current date in DD/MM/YYYY format
+        const todayStr = toDdMmYyyy(new Date());
+
+        console.log("🔄 Fetching daily revenue for today:", todayStr);
+
+        const data = (await ApiService.getDirect(
+          `real-time/sales-summary?dateStart=${todayStr}&dateEnd=${todayStr}${stockQueryParam}`
+        )) as {
+          totalRevenue: string;
+          cash: string;
+          transfer: string;
+          card: string;
+          actualRevenue: string;
+          foxieUsageRevenue: string;
+          walletUsageRevenue: string;
+          toPay: string;
+          debt: string;
+        };
+
+        console.log("✅ Daily revenue data received:", data);
+        // setDailyRevenueData(data); // This line is removed
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch daily revenue";
+        setDailyRevenueError(errorMessage);
+        console.error("❌ Daily revenue fetch error:", err);
+      } finally {
+        setDailyRevenueLoading(false);
+      }
+    };
+
+    fetchDailyRevenue();
+  }, [stockQueryParam]); // Refetch when branch changes
+
+  // Fetch KPI monthly revenue (for Target KPI only - cumulative from start of month)
+  React.useEffect(() => {
+    const fetchKpiMonthlyRevenue = async () => {
+      try {
+        setKpiMonthlyRevenueLoading(true);
+        setKpiMonthlyRevenueError(null);
+
+        // Get start of current month and current date
+        const today = new Date();
+        const firstDayOfMonth = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          1
+        );
+
+        const startDate = toDdMmYyyy(firstDayOfMonth);
+        const endDate = toDdMmYyyy(today);
+
+        console.log(
+          "🔄 Fetching KPI monthly revenue (cumulative from start of month):",
+          { startDate, endDate, actualStockIds: actualStockIds.length }
+        );
+
+        let data: {
+          totalRevenue: string;
+          cash: string;
+          transfer: string;
+          card: string;
+          actualRevenue: string;
+          foxieUsageRevenue: string;
+          walletUsageRevenue: string;
+          toPay: string;
+          debt: string;
+        };
+
+        if (actualStockIds.length > 1) {
+          // Multiple stockIds - fetch each and aggregate
+          console.log(`🔄 Fetching ${actualStockIds.length} branches for KPI monthly revenue and aggregating...`);
+          const results = await Promise.all(
+            actualStockIds.map((sid) =>
+              ApiService.getDirect(
+                `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
+              ) as Promise<{
+                totalRevenue?: string | number;
+                cash?: string | number;
+                transfer?: string | number;
+                card?: string | number;
+                actualRevenue?: string | number;
+                foxieUsageRevenue?: string | number;
+                walletUsageRevenue?: string | number;
+                toPay?: string | number;
+                debt?: string | number;
+              }>
+            )
+          );
+
+          // Aggregate all results
+          data = {
+            totalRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.totalRevenue), 0)
+              .toString(),
+            cash: results
+              .reduce((sum, r) => sum + parseNumericValue(r.cash), 0)
+              .toString(),
+            transfer: results
+              .reduce((sum, r) => sum + parseNumericValue(r.transfer), 0)
+              .toString(),
+            card: results
+              .reduce((sum, r) => sum + parseNumericValue(r.card), 0)
+              .toString(),
+            actualRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.actualRevenue), 0)
+              .toString(),
+            foxieUsageRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.foxieUsageRevenue), 0)
+              .toString(),
+            walletUsageRevenue: results
+              .reduce((sum, r) => sum + parseNumericValue(r.walletUsageRevenue), 0)
+              .toString(),
+            toPay: results
+              .reduce((sum, r) => sum + parseNumericValue(r.toPay), 0)
+              .toString(),
+            debt: results
+              .reduce((sum, r) => sum + parseNumericValue(r.debt), 0)
+              .toString(),
+          };
+          console.log(`✅ Aggregated KPI monthly revenue from ${actualStockIds.length} branches:`, data);
+        } else {
+          // Single stockId or all branches - use existing query param
+          data = (await ApiService.getDirect(
+            `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+          )) as {
+            totalRevenue: string;
+            cash: string;
+            transfer: string;
+            card: string;
+            actualRevenue: string;
+            foxieUsageRevenue: string;
+            walletUsageRevenue: string;
+            toPay: string;
+            debt: string;
+          };
+          console.log("✅ KPI monthly revenue data received:", data);
+        }
+        // setKpiMonthlyRevenueData(data); // This line is removed
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch KPI monthly revenue";
+        setKpiMonthlyRevenueError(errorMessage);
+        console.error("❌ KPI monthly revenue fetch error:", err);
+      } finally {
+        setKpiMonthlyRevenueLoading(false);
+      }
+    };
+
+    fetchKpiMonthlyRevenue();
+  }, [stockQueryParam, actualStockIds]);
+
+  // Fetch daily KPI series (TM+CK+QT per day) from start of month to today
+  const kpiSeriesStockRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    // Create a unique key from all relevant dependencies
+    const currentKey = `${selectedStockId}-${stockQueryParam}-${actualStockIds.join(',')}`;
+    if (kpiSeriesStockRef.current === currentKey) return;
+    kpiSeriesStockRef.current = currentKey;
+    let isCancelled = false;
+
+    const fetchDailySeries = async () => {
+      try {
+        setKpiDailySeriesLoading(true);
+        setKpiDailySeriesError(null);
+
+        console.log(`📊 KPI Daily Series: Starting fetch for stockId="${selectedStockId}", actualStockIds=[${actualStockIds.join(', ')}] (count: ${actualStockIds.length})`);
+        
+        // Debug: Log if actualStockIds is empty when it shouldn't be
+        if (selectedStockId && selectedStockId.startsWith('region:') && actualStockIds.length === 0) {
+          console.error(`❌ KPI Daily Series: Region filter "${selectedStockId}" resulted in empty actualStockIds!`);
+          setKpiDailySeriesError(`Không tìm thấy chi nhánh cho khu vực "${selectedStockId}". Vui lòng kiểm tra lại cấu hình.`);
+          setKpiDailySeriesLoading(false);
+          return;
+        }
+
+        const today = new Date();
+        const firstDayOfMonth = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          1
+        );
+
+        const toIso = (date: Date) => toIsoYyyyMmDd(date);
+
+        const results: Array<{
+          dateLabel: string;
+          isoDate: string;
+          total: number;
+        }> = [];
+
+        const dates: Date[] = [];
+        for (
+          let d = new Date(firstDayOfMonth);
+          d <= today;
+          d.setDate(d.getDate() + 1)
+        ) {
+          dates.push(new Date(d));
+        }
+
+        const parseCurrency = (v: unknown) => {
+          if (v === null || v === undefined) return 0;
+          if (typeof v === "number") return isNaN(v) ? 0 : v;
+          if (typeof v === "string") {
+            const cleaned = v.replace(/[^0-9.-]/g, "");
+            const parsed = Number(cleaned);
+            return isNaN(parsed) ? 0 : parsed;
+          }
+          // Try to convert to number
+          const num = Number(v);
+          return isNaN(num) ? 0 : num;
+        };
+
+        // Batch requests to avoid overwhelming the API (max 5 concurrent requests per batch)
+        const BATCH_SIZE = 5;
+        const fetchPromises = dates.map(async (d, dateIndex) => {
+          const ddmmyyyy = toDdMmYyyy(d);
+          try {
+            // Add small delay to batch requests
+            if (dateIndex > 0 && dateIndex % BATCH_SIZE === 0) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            let total = 0;
+            let hasError = false;
+            let errorCount = 0;
+
+            if (actualStockIds.length > 1) {
+              // Multiple stockIds - fetch each and aggregate
+              console.log(`📊 KPI Daily Series [${ddmmyyyy}]: Fetching ${actualStockIds.length} branches and aggregating...`);
+              
+              // Batch branch requests too (max 10 concurrent)
+              const BRANCH_BATCH_SIZE = 10;
+              const branchResults: Array<{
+                cash?: string | number;
+                transfer?: string | number;
+                card?: string | number;
+              }> = [];
+
+              for (let i = 0; i < actualStockIds.length; i += BRANCH_BATCH_SIZE) {
+                const batch = actualStockIds.slice(i, i + BRANCH_BATCH_SIZE);
+                const batchResults = await Promise.allSettled(
+                  batch.map(async (sid) => {
+                    try {
+                      const data = await ApiService.getDirect(
+                        `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}&stockId=${sid}`
+                      ) as {
+                        cash?: string | number;
+                        transfer?: string | number;
+                        card?: string | number;
+                      };
+                      // Log successful fetch for debugging
+                      const dayTotal = parseCurrency(data.cash) + parseCurrency(data.transfer) + parseCurrency(data.card);
+                      if (dayTotal > 0) {
+                        console.log(`  ✓ Branch ${sid}: ${dayTotal.toLocaleString('vi-VN')} VND`);
+                      }
+                      return { sid, data, success: true };
+                    } catch (err) {
+                      const errorMsg = err instanceof Error ? err.message : String(err);
+                      console.error(`❌ KPI Daily Series: Error fetching branch ${sid} for ${ddmmyyyy}:`, errorMsg);
+                      errorCount++;
+                      return { sid, data: { cash: 0, transfer: 0, card: 0 }, success: false };
+                    }
+                  })
+                );
+
+                batchResults.forEach((result, idx) => {
+                  if (result.status === 'fulfilled') {
+                    const value = result.value;
+                    if (value && value.data) {
+                      branchResults.push(value.data);
+                      if (!value.success) hasError = true;
+                    } else {
+                      console.warn(`⚠️ KPI Daily Series: Unexpected result structure for batch item ${idx}:`, result);
+                      branchResults.push({ cash: 0, transfer: 0, card: 0 });
+                      hasError = true;
+                    }
+                  } else {
+                    console.error(`❌ KPI Daily Series: Promise rejected for batch item ${idx}:`, result.reason);
+                    branchResults.push({ cash: 0, transfer: 0, card: 0 });
+                    hasError = true;
+                    errorCount++;
+                  }
+                });
+
+                // Small delay between batches
+                if (i + BRANCH_BATCH_SIZE < actualStockIds.length) {
+                  await new Promise(resolve => setTimeout(resolve, 50));
+                }
+              }
+
+              // Aggregate all results
+              total = branchResults.reduce((sum, r) => {
+                const cash = parseCurrency(r.cash);
+                const transfer = parseCurrency(r.transfer);
+                const card = parseCurrency(r.card);
+                const dayTotal = cash + transfer + card;
+                return sum + dayTotal;
+              }, 0);
+
+              if (hasError) {
+                console.warn(`⚠️ KPI Daily Series [${ddmmyyyy}]: ${errorCount}/${actualStockIds.length} branches failed, but continuing with available data. Total: ${total.toLocaleString('vi-VN')} VND`);
+              } else {
+                console.log(`✅ KPI Daily Series [${ddmmyyyy}]: Aggregated total: ${total.toLocaleString('vi-VN')} VND from ${actualStockIds.length} branches (${branchResults.length} results)`);
+              }
+              
+              // Additional debug: if total is 0 and we have branches, log more details
+              if (total === 0 && actualStockIds.length > 0 && branchResults.length > 0) {
+                console.warn(`⚠️ KPI Daily Series [${ddmmyyyy}]: Total is 0 but we have ${branchResults.length} branch results. Sample:`, branchResults.slice(0, 3));
+              }
+            } else if (actualStockIds.length === 1) {
+              // Single stockId
+              console.log(`📊 KPI Daily Series [${ddmmyyyy}]: Fetching single branch ${actualStockIds[0]}...`);
+              const data = (await ApiService.getDirect(
+                `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}&stockId=${actualStockIds[0]}`
+              )) as {
+                cash?: string | number;
+                transfer?: string | number;
+                card?: string | number;
+              };
+              total =
+                parseCurrency(data.cash) +
+                parseCurrency(data.transfer) +
+                parseCurrency(data.card);
+              console.log(`✅ KPI Daily Series [${ddmmyyyy}]: Single branch total: ${total.toLocaleString('vi-VN')} VND`);
+            } else {
+              // All branches - still need to send blank stockId param
+              console.log(`📊 KPI Daily Series [${ddmmyyyy}]: Fetching all branches (stockId=blank)...`);
+              const data = (await ApiService.getDirect(
+                `real-time/sales-summary?dateStart=${ddmmyyyy}&dateEnd=${ddmmyyyy}${stockQueryParam}`
+              )) as {
+                cash?: string | number;
+                transfer?: string | number;
+                card?: string | number;
+              };
+              total =
+                parseCurrency(data.cash) +
+                parseCurrency(data.transfer) +
+                parseCurrency(data.card);
+              console.log(`✅ KPI Daily Series [${ddmmyyyy}]: All branches total: ${total.toLocaleString('vi-VN')} VND`);
+            }
+
+            return {
+              dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
+                d.getMonth() + 1
+              ).padStart(2, "0")}`,
+              isoDate: toIso(d),
+              total,
+            };
+          } catch (err) {
+            console.error(`❌ Failed to fetch data for ${ddmmyyyy}:`, err);
+            return {
+              dateLabel: `${String(d.getDate()).padStart(2, "0")}/${String(
+                d.getMonth() + 1
+              ).padStart(2, "0")}`,
+              isoDate: toIso(d),
+              total: 0,
+            };
+          }
+        });
+
+        const fetchedResults = await Promise.all(fetchPromises);
+        if (!isCancelled) {
+          results.push(...fetchedResults);
+          const totalRevenue = results.reduce((sum, r) => sum + r.total, 0);
+          console.log(`📊 KPI Daily Series: Fetched ${results.length} days of data`);
+          console.log(`📊 KPI Daily Series: Total revenue sum: ${totalRevenue.toLocaleString('vi-VN')} VND`);
+          
+          if (results.length === 0) {
+            console.warn('⚠️ KPI Daily Series: No data fetched! Check API responses.');
+            setKpiDailySeriesError('Không có dữ liệu cho khoảng thời gian này');
+            setKpiDailySeries([]);
+          } else if (totalRevenue === 0 && actualStockIds.length > 0) {
+            // If we have stockIds but got all zeros, there might be an issue
+            console.warn(`⚠️ KPI Daily Series: All data is zero for ${actualStockIds.length} branches. This might indicate an API issue.`);
+            console.warn(`  Selected stockId: "${selectedStockId}", actualStockIds: [${actualStockIds.join(', ')}]`);
+            // Don't set error if it's a valid region - might just be no sales data
+            // Only set error if it's a specific branch
+            if (selectedStockId && !selectedStockId.startsWith('region:') && !selectedStockId.startsWith('city:')) {
+              setKpiDailySeriesError('Không có dữ liệu doanh thu cho chi nhánh này. Vui lòng kiểm tra lại.');
+            }
+            setKpiDailySeries(results);
+          } else {
+            // Clear any previous errors if we have data
+            setKpiDailySeriesError(null);
+            setKpiDailySeries(results);
+            console.log(`✅ KPI Daily Series: Successfully set ${results.length} days of data with total revenue: ${totalRevenue.toLocaleString('vi-VN')} VND`);
+          }
+        }
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch daily KPI series";
+        if (!isCancelled) {
+          setKpiDailySeriesError(message);
+          setKpiDailySeries([]);
+        }
+        console.error("❌ Daily KPI series fetch error:", err);
+      } finally {
+        if (!isCancelled) {
+          setKpiDailySeriesLoading(false);
+        }
+      }
+    };
+
+    fetchDailySeries();
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedStockId, stockQueryParam, actualStockIds]);
+
+  // Process sales summary data similar to orders page
+  const paymentMethods = React.useMemo(() => {
+    console.log("🔍 Debug - salesSummaryData:", salesSummaryData);
+
+    if (!salesSummaryData) {
+      console.log("❌ No salesSummaryData available, returning empty array");
+      return [];
+    }
+
+    const totalRevenue = parseFloat(salesSummaryData.totalRevenue);
+    const cashAmount = parseFloat(salesSummaryData.cash);
+    const transferAmount = parseFloat(salesSummaryData.transfer);
+    const cardAmount = parseFloat(salesSummaryData.card);
+    const foxieAmount = Math.abs(
+      parseFloat(salesSummaryData.foxieUsageRevenue)
+    ); // Make positive
+    const walletAmount = Math.abs(
+      parseFloat(salesSummaryData.walletUsageRevenue)
+    ); // Make positive
+
+    console.log("🔍 Debug - Parsed amounts:", {
+      totalRevenue,
+      cashAmount,
+      transferAmount,
+      cardAmount,
+      foxieAmount,
+      walletAmount,
+    });
+
+    const methods: PaymentMethod[] = [
+      {
+        method: "TM+CK+QT",
+        amount: cashAmount + transferAmount + cardAmount,
+        percentage:
+          totalRevenue > 0
+            ? Math.round(
+                ((cashAmount + transferAmount + cardAmount) / totalRevenue) *
+                  100
+              )
+            : 0,
+        transactions: Math.floor(
+          (cashAmount + transferAmount + cardAmount) / 100000
+        ), // Estimate transactions
+      },
+      {
+        method: "Thanh toán ví",
+        amount: walletAmount,
+        percentage:
+          totalRevenue > 0
+            ? Math.round((walletAmount / totalRevenue) * 100)
+            : 0,
+        transactions: Math.floor(walletAmount / 100000), // Estimate transactions
+      },
+      {
+        method: "Thẻ Foxie",
+        amount: foxieAmount,
+        percentage:
+          totalRevenue > 0 ? Math.round((foxieAmount / totalRevenue) * 100) : 0,
+        transactions: Math.floor(foxieAmount / 100000), // Estimate transactions
+      },
+    ];
+
+    return methods;
+  }, [salesSummaryData]);
+
+  console.log("🔍 Debug - paymentMethods:", paymentMethods);
+  console.log("🔍 Debug - Using real data:", paymentMethods.length > 0);
+
+  const totalRevenue = paymentMethods.reduce(
+    (sum: number, method: PaymentMethod) => sum + method.amount,
+    0
+  );
+
+  // Default target, can be overridden by user input
+  const DEFAULT_MONTH_TARGET = 9750000000;
+  
+  // User-editable monthly target (stored in localStorage)
+  const [userMonthlyTarget, ] = React.useState<number | null>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('kpi_monthly_target');
+      return stored ? Number(stored) : null;
+    }
+    return null;
+  });
+  
+  const COMPANY_MONTH_TARGET = userMonthlyTarget ?? DEFAULT_MONTH_TARGET;
+
+  // Special holiday days (per month) entered by the user, persisted in localStorage
+  const currentMonthKeyForHoliday = React.useMemo(() => {
+    const now = toDate ? new Date(toDate.split("T")[0]) : new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, [toDate]);
+
+  const [specialHolidays, ] = React.useState<number[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(`kpi_special_holidays_${currentMonthKeyForHoliday}`);
+        if (!raw) return [];
+        const arr = JSON.parse(raw) as number[];
+        return Array.isArray(arr) ? arr.filter((d) => Number.isFinite(d)) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(
+        `kpi_special_holidays_${currentMonthKeyForHoliday}`,
+        JSON.stringify(specialHolidays)
+      );
+    }
+  }, [specialHolidays, currentMonthKeyForHoliday]);
+  const sectionRefs = React.useRef({
+    dashboard_total_sale_table: React.createRef<HTMLDivElement>(),
+    dashboard_foxie_balance: React.createRef<HTMLDivElement>(),
+    dashboard_sales_by_hour: React.createRef<HTMLDivElement>(),
+    dashboard_sale_detail: React.createRef<HTMLDivElement>(),
+    dashboard_kpi: React.createRef<HTMLDivElement>(),
+    dashboard_customer_section: React.createRef<HTMLDivElement>(),
+    dashboard_booking_section: React.createRef<HTMLDivElement>(),
+    dashboard_service_section: React.createRef<HTMLDivElement>(),
+  });
+  const normalizeKey = (s: string) => normalize(s).replace(/\s+/g, "");
+
+  const [highlightKey, setHighlightKey] = React.useState<string | null>(null);
+
+  const endDateObj = React.useMemo(() => {
+    if (!toDate) return null;
+    return new Date(toDate.split("T")[0]);
+  }, [toDate]);
+  const daysInMonth = endDateObj
+    ? new Date(endDateObj.getFullYear(), endDateObj.getMonth() + 1, 0).getDate()
+    : 0;
+  const lastDay = endDateObj ? endDateObj.getDate() : 0;
+  
+  // ---------- KPI Ngày: lấy ngày hiện tại (hôm nay) thay vì ngày cuối range ----------
+  const today = new Date();
+  const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(today.getDate()).padStart(2, "0")}`;
+  const todayDay = today.getDate();
+  
+  const weekendTargetPerDay = 500000000; // 500M per weekend day
+  const holidayTargetPerDay = 600000000; // 600M per special holiday
+  const year = endDateObj ? endDateObj.getFullYear() : new Date().getFullYear();
+  const month = endDateObj ? endDateObj.getMonth() : new Date().getMonth();
+  const holidayDaysSet = new Set<number>(specialHolidays.map((d) => Math.max(1, Math.min(d, daysInMonth))));
+  // Count holidays that fall on weekend to avoid double counting
+  let holidayDaysCount = 0;
+  let weekendDaysCount = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dow = new Date(year, month, day).getDay();
+    const isHoliday = holidayDaysSet.has(day);
+    const isWeekend = dow === 0 || dow === 6;
+    if (isHoliday) holidayDaysCount++;
+    if (isWeekend && !isHoliday) weekendDaysCount++; // weekend but not holiday
+  }
+  const totalFixedTarget = holidayDaysCount * holidayTargetPerDay + weekendDaysCount * weekendTargetPerDay;
+  const weekdayDaysCount = Math.max(0, daysInMonth - holidayDaysCount - weekendDaysCount);
+  const weekdayTargetPerDay = weekdayDaysCount > 0 
+    ? Math.max(0, (COMPANY_MONTH_TARGET - totalFixedTarget) / weekdayDaysCount) 
+    : 0;
+  
+  // Get target for a specific day
+  const getDailyTargetForDay = (day: number): number => {
+    if (daysInMonth === 0 || !endDateObj) return 0;
+    const date = new Date(year, month, day);
+    const dayOfWeek = date.getDay();
+    if (holidayDaysSet.has(day)) {
+      return holidayTargetPerDay;
+    }
+    if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+      return weekendTargetPerDay;
+    }
+    return weekdayTargetPerDay;
+  };
+  
+  const dailyTargetForCurrentDay = todayDay > 0 ? getDailyTargetForDay(todayDay) : 0;
+  
+  // Calculate target until now (cumulative from day 1 to lastDay)
+  const targetUntilNow = React.useMemo(() => {
+    if (daysInMonth === 0 || lastDay === 0 || !endDateObj) return 0;
+    let sum = 0;
+    for (let day = 1; day <= lastDay; day++) {
+      const date = new Date(year, month, day);
+      const dayOfWeek = date.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+        sum += weekendTargetPerDay;
+      } else {
+        sum += weekdayTargetPerDay;
+      }
+    }
+    return sum;
+  }, [daysInMonth, lastDay, year, month, weekendTargetPerDay, weekdayTargetPerDay, endDateObj]);
+
+  // Get selected day from date picker (toDate) or use today
+  const selectedDay = endDateObj ? endDateObj.getDate() : todayDay;
+  const selectedDateStr = toDateStr || todayDateStr;
+  
+  // Calculate target for selected day (for daily mode)
+  const selectedDayTarget = selectedDay > 0 ? getDailyTargetForDay(selectedDay) : 0;
+  
+  // Khi ở chế độ "Ngày", dùng ngày được chọn từ date picker; khi ở chế độ "Tháng", dùng ngày cuối range
+  const dailyKpiDateStr = selectedDateStr;
+  const dailyKpiRevenue = actualRevenueToday ?? (
+    kpiDailySeries && dailyKpiDateStr
+      ? kpiDailySeries.find((e) => e.isoDate === dailyKpiDateStr)?.total || 0
+      : 0
+  );
+  
+  // Use selected day target for daily mode, or today's target as fallback
+  const dailyTargetForSelectedDay = selectedDayTarget || dailyTargetForCurrentDay;
+  
+ 
+
+  // ---------- KPI Tháng: sum từ ngày 1 đến ngày cuối range ----------
+  const currentRevenue = actualRevenueMTD ?? (() => {
+    if (!kpiDailySeries || !toDate || !endDateObj) return 0;
+    const monthKey = `${endDateObj.getFullYear()}-${String(
+      endDateObj.getMonth() + 1
+    ).padStart(2, "0")}`;
+    let sum = 0;
+    for (const e of kpiDailySeries || []) {
+      if (e.isoDate.startsWith(monthKey)) {
+        const eDay = Number(e.isoDate.split("-")[2]);
+        if (eDay <= lastDay) sum += e.total;
+      }
+    }
+    return sum;
+  })();
+  
+  
+
+  // -------- Render tách riêng cho Ngày và Tháng --------
+  React.useEffect(() => {
+    // If navigated here with ?q=, trigger search once
+    if (searchParamQuery) {
+      const event = new CustomEvent("global-search", {
+        detail: { query: searchParamQuery },
+      });
+      window.dispatchEvent(event);
+      // Clean URL param without reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete("q");
+      window.history.replaceState({}, "", url.toString());
+    }
+
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { query?: string };
+      const q = normalize(detail?.query || "");
+      if (!q) return;
+      const map = SEARCH_TARGETS.map((t) => ({
+        keys: [
+          normalizeKey(t.label),
+          ...t.keywords.map((k) => normalizeKey(k)),
+        ],
+        refKey: t.refKey,
+      }));
+      const found = map.find((m) =>
+        m.keys.some((k) => normalizeKey(q).includes(k))
+      );
+      const allowed = [
+        "dashboard_total_sale_table",
+        "dashboard_foxie_balance",
+        "dashboard_sales_by_hour",
+        "dashboard_sale_detail",
+        "dashboard_kpi",
+        "dashboard_customer_section",
+        "dashboard_booking_section",
+        "dashboard_service_section",
+      ] as const;
+      const ref =
+        found && (allowed as readonly string[]).includes(found.refKey)
+          ? (
+              sectionRefs.current as Record<
+                string,
+                React.RefObject<HTMLDivElement>
+              >
+            )[found.refKey]
+          : null;
+      if (ref?.current) {
+        ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        setHighlightKey(found!.refKey);
+        window.setTimeout(() => setHighlightKey(null), 1200);
+      }
+    };
+    const jumpHandler = (ev: Event) => {
+      const refKey = (ev as CustomEvent).detail?.refKey as string | undefined;
+      if (!refKey) return;
+      const target = (
+        sectionRefs.current as Record<string, React.RefObject<HTMLDivElement>>
+      )[refKey];
+      if (target?.current)
+        target.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("global-search", handler as EventListener);
+      // Support anchor hash direct navigation: #refKey
+      const hash = window.location.hash.replace("#", "");
+      if (hash) {
+        const target = (
+          sectionRefs.current as Record<string, React.RefObject<HTMLDivElement>>
+        )[hash];
+        if (target?.current) {
+          setTimeout(
+            () =>
+              target.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              }),
+            0
+          );
+        }
+      }
+      window.addEventListener("jump-to-ref", jumpHandler as EventListener);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("global-search", handler as EventListener);
+        window.removeEventListener("jump-to-ref", jumpHandler as EventListener);
+      }
+    };
+  }, [searchParamQuery]);
+
+  // Monitor API success notifications
+  useEffect(() => {
+    if (apiSuccesses.length > 0 && !hasShownSuccess.current) {
+      const successMessage =
+        apiSuccesses.length === 1
+          ? apiSuccesses[0]
+          : `${apiSuccesses.length} data sources loaded successfully`;
+
+      showSuccess(successMessage);
+      hasShownSuccess.current = true;
+      reportDataLoadSuccess("dashboard", apiSuccesses.length);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiSuccesses]); // Functions are stable, no need in deps
+
+  // Monitor sales summary success
+  useEffect(() => {
+    if (
+      !salesLoading &&
+      !salesError &&
+      salesSummaryData &&
+      !notifiedDataRef.current.has("sales-summary")
+    ) {
+      showSuccess("✅ Dữ liệu tổng doanh số đã được tải thành công!");
+      notifiedDataRef.current.add("sales-summary");
+      reportDataLoadSuccess("sales-summary", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesLoading, salesError, salesSummaryData]); // Functions are stable
+
+  // Monitor API error notifications
+  useEffect(() => {
+    if (apiErrors.length > 0 && !hasShownError.current) {
+      const errorMessage =
+        apiErrors.length === 1
+          ? apiErrors[0]
+          : `${apiErrors.length} data sources failed to load`;
+
+      showError(errorMessage);
+      hasShownError.current = true;
+      reportDataLoadError("dashboard", errorMessage);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiErrors]); // Functions are stable
+
+  // Monitor general error
+  useEffect(() => {
+    if (error && !hasShownError.current) {
+      showError(error);
+      hasShownError.current = true;
+      reportPageError(error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error]); // Functions are stable
+
+  // Monitor sales summary error
+  useEffect(() => {
+    if (salesError && !hasShownError.current) {
+      showError(`Sales data error: ${salesError}`);
+      hasShownError.current = true;
+      reportPageError(`Lỗi tải dữ liệu sales summary: ${salesError}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesError]); // Functions are stable
+
+  // Watch for auth expiration across all API errors
+  useEffect(() => {
+    const authErrorTexts = [
+      "Authentication failed - please login again",
+      "No valid token",
+    ];
+    const anyAuthError = [
+      salesError,
+      serviceError,
+      bookingError,
+      dailyRevenueError,
+      kpiMonthlyRevenueError,
+      newCustomerError,
+    ].some((e) => e && authErrorTexts.some((t) => String(e).includes(t)));
+    if (anyAuthError) setAuthExpired(true);
+  }, [
+    salesError,
+    serviceError,
+    bookingError,
+    dailyRevenueError,
+    kpiMonthlyRevenueError,
+    newCustomerError,
+  ]);
+
+  // Listen to global auth expired event from ApiService
+  useEffect(() => {
+    const handler = () => setAuthExpired(true);
+    if (typeof window !== "undefined") {
+      window.addEventListener("auth-expired", handler);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("auth-expired", handler);
+      }
+    };
+  }, []);
+
+  // Monitor booking data success
+  useEffect(() => {
+    if (
+      !bookingLoading &&
+      !bookingError &&
+      bookingData &&
+      !notifiedDataRef.current.has("booking")
+    ) {
+      showSuccess("✅ Dữ liệu đặt lịch đã được tải thành công!");
+      notifiedDataRef.current.add("booking");
+      reportDataLoadSuccess("booking", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingLoading, bookingError, bookingData]); // Functions are stable
+
+  // Monitor KPI data success
+  useEffect(() => {
+    if (
+      !kpiDailySeriesLoading &&
+      !kpiMonthlyRevenueLoading &&
+      !kpiDailySeriesError &&
+      kpiDailySeries &&
+      !notifiedDataRef.current.has("kpi")
+    ) {
+      showSuccess("✅ Dữ liệu KPI đã được tải thành công!");
+      notifiedDataRef.current.add("kpi");
+      reportDataLoadSuccess("kpi", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    kpiDailySeriesLoading,
+    kpiMonthlyRevenueLoading,
+    kpiDailySeriesError,
+    kpiDailySeries,
+  ]); // Functions are stable
+
+  // Monitor customer data success
+  useEffect(() => {
+    if (
+      !newCustomerLoading &&
+      !oldCustomerLoading &&
+      !newCustomerError &&
+      !oldCustomerError &&
+      (newCustomerData || oldCustomerData) &&
+      !notifiedDataRef.current.has("customer")
+    ) {
+      showSuccess("✅ Dữ liệu khách hàng đã được tải thành công!");
+      notifiedDataRef.current.add("customer");
+      reportDataLoadSuccess("customer", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    newCustomerLoading,
+    oldCustomerLoading,
+    newCustomerError,
+    oldCustomerError,
+    newCustomerData,
+    oldCustomerData,
+  ]); // Functions are stable
+
+  // Monitor service data success
+  useEffect(() => {
+    if (
+      !bookingLoading &&
+      !serviceError &&
+      serviceSummaryData &&
+      !notifiedDataRef.current.has("service")
+    ) {
+      showSuccess("✅ Dữ liệu dịch vụ đã được tải thành công!");
+      notifiedDataRef.current.add("service");
+      reportDataLoadSuccess("service", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingLoading, serviceError, serviceSummaryData]); // Functions are stable
+
+  // Monitor foxie balance success
+  useEffect(() => {
+    if (
+      !foxieBalanceLoading &&
+      !foxieBalanceError &&
+      foxieBalanceData &&
+      !notifiedDataRef.current.has("foxie-balance")
+    ) {
+      showSuccess("✅ Dữ liệu số dư Foxie đã được tải thành công!");
+      notifiedDataRef.current.add("foxie-balance");
+      reportDataLoadSuccess("foxie-balance", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foxieBalanceLoading, foxieBalanceError, foxieBalanceData]); // Functions are stable
+
+  // Monitor sales by hour success
+  useEffect(() => {
+    if (
+      !salesByHourLoading &&
+      !salesByHourError &&
+      salesByHourData &&
+      !notifiedDataRef.current.has("sales-by-hour")
+    ) {
+      showSuccess("✅ Dữ liệu doanh số theo giờ đã được tải thành công!");
+      notifiedDataRef.current.add("sales-by-hour");
+      reportDataLoadSuccess("sales-by-hour", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesByHourLoading, salesByHourError, salesByHourData]); // Functions are stable
+
+  // Monitor sales detail success
+  useEffect(() => {
+    if (
+      !salesDetailLoading &&
+      !salesDetailError &&
+      salesDetailData &&
+      !notifiedDataRef.current.has("sales-detail")
+    ) {
+      showSuccess("✅ Dữ liệu chi tiết doanh số đã được tải thành công!");
+      notifiedDataRef.current.add("sales-detail");
+      reportDataLoadSuccess("sales-detail", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesDetailLoading, salesDetailError, salesDetailData]); // Functions are stable
+
+  // Monitor booking by hour success
+  useEffect(() => {
+    if (
+      !bookingByHourLoading &&
+      !bookingByHourError &&
+      bookingByHourData &&
+      !notifiedDataRef.current.has("booking-by-hour")
+    ) {
+      showSuccess("✅ Dữ liệu đặt lịch theo giờ đã được tải thành công!");
+      notifiedDataRef.current.add("booking-by-hour");
+      reportDataLoadSuccess("booking-by-hour", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingByHourLoading, bookingByHourError, bookingByHourData]); // Functions are stable
+
+  // Monitor booking data error
+  useEffect(() => {
+    if (bookingError && !hasShownError.current) {
+      showError(`Booking data error: ${bookingError}`);
+      hasShownError.current = true;
+      reportPageError(`Lỗi tải dữ liệu booking: ${bookingError}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingError]); // Functions are stable
+
+  // Report page performance
+  useEffect(() => {
+    if (!loading) {
+      reportPagePerformance({ loadTime: 2000 });
+    }
+  }, [loading, reportPagePerformance]);
+
+  
+
+  // Sample aggregation ( giả lập, bạn cần thay bằng logic thực tế hoặc gọi API tổng hợp từng tháng )
+  const [paymentGrowthByMonth, setPaymentGrowthByMonth] = React.useState<
+    Array<{ month: string; tmckqt: number; foxie: number; vi: number }>
+  >([]);
+  const [loadingGrowth, setLoadingGrowth] = React.useState(true);
+  const [, ] = React.useState(1);
+  const [, ] = React.useState(31);
+  const [, setCompareMonth] = React.useState("");
+  
+  // New mode: 2 separate months with individual day ranges
+  const [, ] = React.useState<string>("");
+  const [, ] = React.useState<string>("");
+  const [, ] = React.useState(1);
+  const [, ] = React.useState(31);
+  const [, ] = React.useState(1);
+  const [, ] = React.useState(31);
+
+  // Cache for individual months to avoid re-fetching
+  const monthCacheRef = React.useRef<Map<string, {
+    data: { month: string; tmckqt: number; foxie: number; vi: number };
+    timestamp: number;
+  }>>(new Map());
+
+  React.useEffect(() => {
+    monthCacheRef.current.clear();
+    setPaymentGrowthByMonth([]);
+  }, [selectedStockId]);
+
+  // Monitor growth by payment success (placed after state declarations)
+  useEffect(() => {
+    if (
+      !loadingGrowth &&
+      paymentGrowthByMonth.length > 0 &&
+      !notifiedDataRef.current.has("growth-by-payment")
+    ) {
+      showSuccess("✅ Dữ liệu tăng trưởng thanh toán đã được tải thành công!");
+      notifiedDataRef.current.add("growth-by-payment");
+      reportDataLoadSuccess("growth-by-payment", 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingGrowth, paymentGrowthByMonth]); // Functions are stable
+
+  // Helper function to fetch a single month's data and update state
+  const fetchSingleMonth = React.useCallback(async (
+    monthKey: string,
+    month: string,
+    year: number
+  ): Promise<{ month: string; tmckqt: number; foxie: number; vi: number }> => {
+    // Check cache first
+    const cached = monthCacheRef.current.get(monthKey);
+    const now = Date.now();
+    const cacheDuration = 10 * 60 * 1000; // 10 minutes
+    if (cached && now - cached.timestamp < cacheDuration) {
+      // Still update state if not already present
+      setPaymentGrowthByMonth(prev => {
+        if (prev.some(d => d.month === monthKey)) {
+          return prev;
+        }
+        const updated = [...prev, cached.data].sort((a, b) => {
+          const [mA, yA] = a.month.split("/").map(Number);
+          const [mB, yB] = b.month.split("/").map(Number);
+          if (yA !== yB) return yA - yB;
+          return mA - mB;
+        });
+        return updated;
+      });
+      return cached.data;
+    }
+
+    // Fetch from API
+    const lastDayOfMonth = new Date(year, Number(month), 0).getDate();
+    const startDate = `01/${month}/${year}`;
+    const endDate = `${lastDayOfMonth}/${month}/${year}`;
+
+    const parse = (v: string | number | undefined) => {
+      if (typeof v === "string") {
+        return Number((v || "").replace(/[^\d.-]/g, "")) || 0;
+      }
+      return Number(v) || 0;
+    };
+
+    try {
+      console.log(`[Dashboard] Fetching sales data for ${monthKey}:`, { startDate, endDate })
+      const res = await ApiService.getDirect(
+        `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
+      );
+      console.log(`[Dashboard] Successfully fetched sales data for ${monthKey}`)
+      const parsed = res as {
+        cash?: string | number;
+        transfer?: string | number;
+        card?: string | number;
+        foxieUsageRevenue?: string | number;
+        walletUsageRevenue?: string | number;
+      };
+      const data = {
+        month: monthKey,
+        tmckqt: parse(parsed.cash) + parse(parsed.transfer) + parse(parsed.card),
+        foxie: Math.abs(parse(parsed.foxieUsageRevenue)),
+        vi: Math.abs(parse(parsed.walletUsageRevenue)),
+      };
+
+      // Cache the data
+      monthCacheRef.current.set(monthKey, {
+        data,
+        timestamp: Date.now(),
+      });
+
+      // Update state if month not already in paymentGrowthByMonth
+      setPaymentGrowthByMonth(prev => {
+        if (prev.some(d => d.month === monthKey)) {
+          return prev; // Already exists
+        }
+        const updated = [...prev, data].sort((a, b) => {
+          const [mA, yA] = a.month.split("/").map(Number);
+          const [mB, yB] = b.month.split("/").map(Number);
+          if (yA !== yB) return yA - yB;
+          return mA - mB;
+        });
+        return updated;
+      });
+
+      return data;
+    } catch (err) {
+      console.error(`Failed to fetch sales data for ${monthKey}:`, err);
+      return {
+        month: monthKey,
+        tmckqt: 0,
+        foxie: 0,
+        vi: 0,
+      };
+    }
+  }, [stockQueryParam]);
+
+  // Fetch only current month and previous month (lazy loading)
+  React.useEffect(() => {
+    let isSubscribed = true;
+    async function fetchInitialMonths() {
+      setLoadingGrowth(true);
+      const dateNow = new Date();
+      
+      // Get current month
+      const currentMonth = String(dateNow.getMonth() + 1).padStart(2, "0");
+      const currentYear = dateNow.getFullYear();
+      const currentMonthKey = `${currentMonth}/${currentYear}`;
+
+      // Get previous month
+      const prevDate = new Date(dateNow.getFullYear(), dateNow.getMonth() - 1, 1);
+      const prevMonth = String(prevDate.getMonth() + 1).padStart(2, "0");
+      const prevYear = prevDate.getFullYear();
+      const prevMonthKey = `${prevMonth}/${prevYear}`;
+
+      try {
+        // Fetch only 2 months in parallel
+        const [currentData, prevData] = await Promise.all([
+          fetchSingleMonth(currentMonthKey, currentMonth, currentYear),
+          fetchSingleMonth(prevMonthKey, prevMonth, prevYear),
+        ]);
+
+        if (isSubscribed) {
+          const initialData = [prevData, currentData].sort((a, b) => {
+            const [mA, yA] = a.month.split("/").map(Number);
+            const [mB, yB] = b.month.split("/").map(Number);
+            if (yA !== yB) return yA - yB;
+            return mA - mB;
+          });
+          
+          setPaymentGrowthByMonth(initialData);
+          setCompareMonth(prevMonthKey); // Set default compare month to previous month
+          setLoadingGrowth(false);
+        }
+      } catch (err) {
+        console.error("Failed to fetch initial months:", err);
+        if (isSubscribed) setLoadingGrowth(false);
+      }
+    }
+    fetchInitialMonths();
+    return () => {
+      isSubscribed = false;
+    };
+  }, [fetchSingleMonth]);
+
+  return (
+    <div className="p-3 sm:p-6">
+      {/* Notification Component */}
+      <Notification
+        type={notification.type}
+        message={notification.message}
+        isVisible={notification.isVisible}
+        onClose={hideNotification}
+      />
+
+      {authExpired && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-[90%] max-w-md text-center">
+            <div className="text-xl font-semibold text-[#334862] mb-2">
+              Hết phiên đăng nhập
+            </div>
+            <div className="text-sm text-gray-600 mb-6">
+              Cần đăng nhập lại để tiếp tục sử dụng hệ thống.
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                className="px-4 py-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
+                onClick={() => setAuthExpired(false)}
+              >
+                Để sau
+              </button>
+              <a
+                href="/login"
+                className="px-4 py-2 rounded-md bg-[#f16a3f] hover:bg-[#e55a2b] text-white"
+              >
+                Đăng nhập lại
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div
+        className="mb-3 sm:mb-6"
+        ref={sectionRefs.current.dashboard_total_sale_table}
+      >
+        <h1 className="text-lg sm:text-2xl font-semibold text-gray-900 mb-2">
+          Dashboard
+        </h1>
+
+        <p className="text-gray-600 flex flex-wrap items-center gap-[3px] text-sm sm:text-base">
+          Welcome back! Here&apos;s what&apos;s happening with{" "}
+          <span className="text-orange-500 flex">Face Wash Fox</span> today.
+        </p>
+      </div>
+
+      <Suspense
+        fallback={
+          <div className="bg-white rounded-lg shadow p-4 mb-6">
+            <div className="h-6 bg-gray-200 rounded animate-pulse mb-4 w-32"></div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-20 bg-gray-200 rounded animate-pulse"
+                ></div>
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <QuickActions />
+      </Suspense>
+
+      {/* Top Sale Chart */}
+
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-balance ">
+              Dashboard Quản Lý Kinh Doanh
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Dữ liệu cập nhật đến ngày {todayLabel}
+            </p>
+          </div>
+        </div>
+
+        {/* DOANH SỐ SECTION */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-6 w-6 text-[#f16a3f]" />
+            <h2 className="text-2xl font-bold text-[#334862]">Doanh Số</h2>
+          </div>
+          {/* Bảng Tổng Doanh Số */}
+          <LazyLoadingWrapper type="table" minHeight="300px">
+            <ConditionalRender
+              loading={salesLoading}
+              error={salesError}
+              data={salesSummaryData}
+              fallback={
+                <div className="border-[#f16a3f]/20 shadow-lg bg-gradient-to-r from-white to-[#f16a3f]/5 rounded-lg p-4 sm:p-6">
+                  <div className="h-6 w-48 bg-gray-200 rounded animate-pulse mb-4" />
+                  <div className="hidden sm:grid grid-cols-12 gap-4 p-3 bg-gradient-to-r from-[#7bdcb5]/20 to-[#00d084]/20 rounded-lg font-semibold text-sm mb-3">
+                    <div className="col-span-4 h-4 bg-gray-200 rounded" />
+                    <div className="col-span-3 h-4 bg-gray-200 rounded" />
+                    <div className="col-span-3 h-4 bg-gray-200 rounded" />
+                    <div className="col-span-2 h-4 bg-gray-200 rounded" />
+                  </div>
+                  <div className="space-y-2">
+                    {[...Array(3)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="border border-[#f16a3f]/10 rounded-lg p-3"
+                      >
+                        <div className="hidden sm:grid grid-cols-12 gap-4">
+                          <div className="col-span-4 h-4 bg-gray-200 rounded" />
+                          <div className="col-span-3 h-4 bg-gray-200 rounded" />
+                          <div className="col-span-3 h-4 bg-gray-200 rounded" />
+                          <div className="col-span-2 h-4 bg-gray-200 rounded" />
+                        </div>
+                        <div className="sm:hidden space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 w-28 bg-gray-200 rounded" />
+                            <div className="h-4 w-10 bg-gray-200 rounded" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 w-12 bg-gray-200 rounded" />
+                            <div className="h-4 w-24 bg-gray-200 rounded" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bg-[#f16a3f] rounded-lg mt-3">
+                    <div className="hidden sm:grid grid-cols-12 gap-4 p-3">
+                      <div className="col-span-4 h-5 bg-white/40 rounded" />
+                      <div className="col-span-3 h-5 bg-white/40 rounded" />
+                      <div className="col-span-3 h-5 bg-white/40 rounded" />
+                      <div className="col-span-2 h-5 bg-white/40 rounded" />
+                    </div>
+                    <div className="sm:hidden p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="h-4 w-28 bg-white/40 rounded" />
+                        <div className="h-4 w-12 bg-white/40 rounded" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="h-4 w-10 bg-white/40 rounded" />
+                        <div className="h-4 w-24 bg-white/40 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+            >
+              <TotalSaleTable
+                allPaymentMethods={paymentMethods}
+                totalRevenue={totalRevenue}
+              />
+            </ConditionalRender>
+          </LazyLoadingWrapper>
+
+          {/* Growth By Payment Chart */}
+          {/* <LazyLoadingWrapper type="chart" minHeight="450px">
+            {loadingGrowth ? (
+              <div className="w-full flex justify-center items-center min-h-[450px] rounded-lg bg-gray-50 text-[#41d1d9] text-lg font-semibold">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#41d1d9]"></div>
+                  <span>Đang tải dữ liệu tăng trưởng...</span>
+                </div>
+              </div>
+            ) : paymentGrowthByMonth.length === 0 ? (
+              <div className="w-full flex justify-center items-center min-h-[450px] rounded-lg bg-gray-50 text-gray-600">
+                Không có dữ liệu để hiển thị
+              </div>
+            ) : (
+              <GrowthByPaymentChart
+                data={paymentGrowthByMonth}
+                compareFromDay={compareFromDay}
+                compareToDay={compareToDay}
+                compareMonth={compareMonth}
+                setCompareFromDay={setCompareFromDay}
+                setCompareToDay={setCompareToDay}
+                setCompareMonth={setCompareMonth}
+                onMonthSelect={fetchSingleMonth}
+                // New mode props
+                month1={month1}
+                month2={month2}
+                month1FromDay={month1FromDay}
+                month1ToDay={month1ToDay}
+                month2FromDay={month2FromDay}
+                month2ToDay={month2ToDay}
+                setMonth1={setMonth1}
+                setMonth2={setMonth2}
+                setMonth1FromDay={setMonth1FromDay}
+                setMonth1ToDay={setMonth1ToDay}
+                setMonth2FromDay={setMonth2FromDay}
+                setMonth2ToDay={setMonth2ToDay}
+              />
+            )}
+          </LazyLoadingWrapper> */}
+        </div>
+
+          {/* FOXIE BALANCE SECTION */}
+          <div
+            ref={sectionRefs.current.dashboard_foxie_balance}
+            className={
+              highlightKey === "dashboard_foxie_balance"
+                ? "ring-2 ring-[#41d1d9] rounded-lg"
+                : ""
+            }
+          >
+            <LazyLoadingWrapper type="table" minHeight="200px">
+              <ConditionalRender
+                loading={foxieBalanceLoading}
+                error={foxieBalanceError}
+                data={foxieBalanceData}
+              >
+                <FoxieBalanceTable
+                  foxieBalanceLoading={foxieBalanceLoading}
+                  foxieBalanceError={foxieBalanceError}
+                  foxieBalanceData={foxieBalanceData}
+                />
+              </ConditionalRender>
+            </LazyLoadingWrapper>
+          </div>
+
+          {/* CHI TIẾT DOANH THU SECTION */}
+          <div
+            ref={sectionRefs.current.dashboard_sale_detail}
+            className={
+              highlightKey === "dashboard_sale_detail"
+                ? "ring-2 ring-[#41d1d9] rounded-lg"
+                : ""
+            }
+          >
+            <LazyLoadingWrapper type="table" minHeight="300px">
+              <ConditionalRender
+                loading={salesDetailLoading}
+                error={salesDetailError}
+                data={salesDetailData}
+              >
+                <SaleDetail
+                  salesDetailLoading={salesDetailLoading}
+                  salesDetailError={salesDetailError}
+                  salesDetailData={salesDetailData}
+                />
+              </ConditionalRender>
+            </LazyLoadingWrapper>
+          </div>
+
+          {/* SALES BY HOUR SECTION */}
+          <div
+            ref={sectionRefs.current.dashboard_sales_by_hour}
+            className={
+              highlightKey === "dashboard_sales_by_hour"
+                ? "ring-2 ring-[#41d1d9] rounded-lg"
+                : ""
+            }
+          >
+            <LazyLoadingWrapper type="table" minHeight="300px">
+              <ConditionalRender
+                loading={salesByHourLoading}
+                error={salesByHourError}
+                data={salesByHourData}
+              >
+                <SalesByHourTable
+                  salesByHourLoading={salesByHourLoading}
+                  salesByHourError={salesByHourError}
+                  salesByHourData={salesByHourData}
+                />
+              </ConditionalRender>
+            </LazyLoadingWrapper>
+          </div>
+
+          {/* Revenue Charts */}
+          {/* <RevenueChart
+            showTopRanking={showTopRanking}
+            setShowTopRanking={setShowTopRanking}
+            rankingData={getRankingChartData()}
+            showTopFoxieRanking={showTopFoxieRanking}
+            setShowTopFoxieRanking={setShowTopFoxieRanking}
+            foxieRankingData={getFoxieRankingChartData()}
+          /> */}
+
+          {/* Service & Foxie Cards */}
+          {/* <PercentChart
+            productDataByDistrict={productDataByDistrict}
+            foxieCardDataByDistrict={foxieCardDataByDistrict}
+            serviceDataByDistrict={serviceDataByDistrict}
+          /> */}
+
+
+        {/* KHÁCH HÀNG SECTION */}
+        <div
+          ref={sectionRefs.current.dashboard_customer_section}
+          className={
+            highlightKey === "dashboard_customer_section"
+              ? "ring-2 ring-[#41d1d9] rounded-lg"
+              : ""
+          }
+        >
+          <LazyLoadingWrapper type="section" minHeight="400px">
+            <ConditionalRender
+              loading={newCustomerLoading || oldCustomerLoading}
+              error={newCustomerError || oldCustomerError}
+              data={(newCustomerData || oldCustomerData) ? { newCustomerData, oldCustomerData } : null}
+            >
+              <CustomerSection
+                newCustomerLoading={newCustomerLoading}
+                newCustomerError={newCustomerError}
+                newCustomerTotal={newCustomerTotal}
+                newCustomerPieData={newCustomerPieData}
+                oldCustomerLoading={oldCustomerLoading}
+                oldCustomerError={oldCustomerError}
+                oldCustomerTotal={oldCustomerTotal}
+                oldCustomerPieData={oldCustomerPieData}
+              />
+            </ConditionalRender>
+          </LazyLoadingWrapper>
+        </div>
+
+        {/* ĐẶT LỊCH SECTION */}
+        <div
+          ref={sectionRefs.current.dashboard_booking_section}
+          className={
+            highlightKey === "dashboard_booking_section"
+              ? "ring-2 ring-[#41d1d9] rounded-lg"
+              : ""
+          }
+        >
+          <LazyLoadingWrapper type="section" minHeight="300px">
+            <ConditionalRender
+              loading={bookingLoading}
+              error={bookingError}
+              data={bookingData}
+            >
+              <BookingSection
+                bookingLoading={bookingLoading}
+                bookingError={bookingError}
+                bookingData={bookingData}
+              />
+            </ConditionalRender>
+          </LazyLoadingWrapper>
+        </div>
+
+         {/* BOOKING BY HOUR CHART */}
+         <LazyLoadingWrapper type="chart" minHeight="300px">
+           <ConditionalRender
+             loading={bookingByHourLoading}
+             error={bookingByHourError}
+             data={bookingByHourData}
+           >
+             <BookingByHourChart loading={bookingByHourLoading} error={bookingByHourError} data={bookingByHourData} />
+           </ConditionalRender>
+         </LazyLoadingWrapper>
+
+        {/* DỊCH VỤ SECTION */}
+        <div
+          ref={sectionRefs.current.dashboard_service_section}
+          className={
+            highlightKey === "dashboard_service_section"
+              ? "ring-2 ring-[#41d1d9] rounded-lg"
+              : ""
+          }
+        >
+          <LazyLoadingWrapper type="section" minHeight="400px">
+            <ConditionalRender
+              loading={bookingLoading || !serviceSummaryData || topServicesLoading}
+              error={bookingError || serviceError || topServicesError}
+              data={serviceSummaryData || topServicesData}
+            >
+              <ServiceSection
+                bookingLoading={bookingLoading}
+                bookingError={bookingError}
+                bookingData={bookingData}
+                serviceSummaryData={serviceSummaryData}
+                topServiceItems={topServicesData}
+              />
+            </ConditionalRender>
+          </LazyLoadingWrapper>
+        </div>
+
+       
+      </div>
+    </div>
+  );
+}
