@@ -22,11 +22,9 @@ type PaymentLineKey =
 type CustomerGroupKey = "newCustomer" | "oldCustomer" | "unknownCustomer";
 
 const PAYMENT_LINES: Array<{ key: PaymentLineKey; label: string; color: string }> = [
-  { key: "foxie", label: "Foxie", color: "#8d6e63" },
-  { key: "cash", label: "Ti\u1ec1n m\u1eb7t", color: "#b6d47a" },
-  { key: "transfer", label: "Chuy\u1ec3n kho\u1ea3n", color: "#81d4fa" },
-  { key: "creditCard", label: "Qu\u1eb9t th\u1ebb", color: "#ff7f7f" },
-  { key: "wallet", label: "V\u00ed", color: "#f0bf4c" },
+  { key: "foxie", label: "Foxie", color: "#8b5cf6" },
+  { key: "cash", label: "Thực thu", color: "#0ea5e9" },
+  { key: "wallet", label: "Ví", color: "#f59e0b" },
 ];
 
 const CUSTOMER_GROUPS: Array<{
@@ -36,17 +34,17 @@ const CUSTOMER_GROUPS: Array<{
 }> = [
   {
     key: "newCustomer",
-    title: "Kh\u00e1ch m\u1edbi",
+    title: "Khách mới",
     accentColor: "#8d6e63",
   },
   {
     key: "oldCustomer",
-    title: "Kh\u00e1ch c\u0169",
+    title: "Khách cũ",
     accentColor: "#81d4fa",
   },
   {
     key: "unknownCustomer",
-    title: "Kh\u00e1ch ch\u01b0a x\u00e1c \u0111\u1ecbnh",
+    title: "Khách chưa xác định",
     accentColor: "#f0bf4c",
   },
 ];
@@ -57,11 +55,15 @@ function normalizeMoney(value: number | null | undefined): number {
 }
 
 function formatMoney(value: number | null | undefined): string {
-  return `${normalizeMoney(value).toLocaleString("vi-VN")}\u0111`;
+  return `${normalizeMoney(value).toLocaleString("vi-VN")}đ`;
 }
 
 function getCardTotal(source: PaymentRevenueCustomerStatusItem | null | undefined): number {
   return PAYMENT_LINES.reduce((sum, line) => {
+    if (line.key === "cash") {
+      // For "Thực thu", sum cash + transfer + creditCard
+      return sum + normalizeMoney(source?.cash) + normalizeMoney(source?.transfer) + normalizeMoney(source?.creditCard);
+    }
     return sum + normalizeMoney(source?.[line.key]);
   }, 0);
 }
@@ -82,6 +84,11 @@ function PaymentCard({
 }) {
   const total = getCardTotal(source);
   const nonFoxieTotal = normalizeMoney(source?.tmCkQt);
+  const [showTooltip, setShowTooltip] = React.useState(false);
+
+  const cash = normalizeMoney(source?.cash);
+  const transfer = normalizeMoney(source?.transfer);
+  const creditCard = normalizeMoney(source?.creditCard);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
@@ -91,12 +98,12 @@ function PaymentCard({
           <div>
             <div className="text-sm sm:text-base font-semibold text-gray-800">{title}</div>
             <div className="text-xs text-gray-500 mt-0.5">
-              {"5 h\u00ecnh th\u1ee9c thanh to\u00e1n"}
+              3 hình thức thanh toán
             </div>
           </div>
           <div className="text-right">
             <div className="text-[11px] uppercase tracking-wide text-gray-500">
-              {"T\u1ed5ng doanh thu"}
+              Tổng doanh thu
             </div>
             <div className="text-base sm:text-lg font-bold" style={{ color: accentColor }}>
               {formatMoney(total)}
@@ -104,26 +111,45 @@ function PaymentCard({
           </div>
         </div>
 
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600">
-          TM/CK/QT:
-          <span className="font-semibold text-gray-800">{formatMoney(nonFoxieTotal)}</span>
-        </div>
-
         <div className="mt-4 space-y-3">
           {PAYMENT_LINES.map((line) => {
-            const value = normalizeMoney(source?.[line.key]);
+            let value = 0;
+            if (line.key === "cash") {
+              // For "Thực thu", sum cash + transfer + creditCard
+              value = cash + transfer + creditCard;
+            } else {
+              value = normalizeMoney(source?.[line.key]);
+            }
             const percent = getLinePercent(value, total);
 
             return (
               <div key={line.key}>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="flex items-center gap-2">
                     <span
                       className="inline-block h-2 w-2 rounded-full"
                       style={{ backgroundColor: line.color }}
                     />
-                    {line.label}
-                  </span>
+                    <span className="text-sm text-gray-600">{line.label}</span>
+                    {line.key === "cash" && (
+                      <div className="relative">
+                        <button
+                          onMouseEnter={() => setShowTooltip(true)}
+                          onMouseLeave={() => setShowTooltip(false)}
+                          className="ml-1 text-gray-400 hover:text-gray-600 text-xs w-4 h-4 flex items-center justify-center border border-gray-300 rounded-full hover:border-gray-500 transition-colors"
+                        >
+                          ?
+                        </button>
+                        {showTooltip && (
+                          <div className="absolute bottom-full mb-2 left-0 z-10 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap">
+                            <div>Tiền mặt: {formatMoney(cash)}</div>
+                            <div>Chuyển khoản: {formatMoney(transfer)}</div>
+                            <div>Quẹt thẻ: {formatMoney(creditCard)}</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <span className="text-sm font-semibold text-gray-900">{formatMoney(value)}</span>
                 </div>
                 <div className="mt-1.5 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
