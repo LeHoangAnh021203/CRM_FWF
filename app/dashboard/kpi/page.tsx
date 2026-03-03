@@ -47,6 +47,7 @@ const formatCurrency = (value: number) => currencyFormatter.format(value);
 const formatIsoToDdMm = (iso: string) => (iso ? iso.split("-").reverse().join("/") : iso);
 
 const DEFAULT_MONTH_TARGET = 9750000000;
+const KPI_POLL_INTERVAL_MS = 10_000;
 
 async function mapWithConcurrency<T, R>(
   items: T[],
@@ -83,6 +84,7 @@ export default function KpiDashboardPage() {
 
   const fromDateStr = useMemo(() => (fromDate ? fromDate.split("T")[0] : ""), [fromDate]);
   const toDateStr = useMemo(() => (toDate ? toDate.split("T")[0] : ""), [toDate]);
+  const [todayKey, setTodayKey] = useState(() => toIsoYyyyMmDd(new Date()));
   const rangeText = useMemo(() => {
     if (!fromDateStr || !toDateStr) return undefined;
     return `từ ${formatIsoToDdMm(fromDateStr)} đến ${formatIsoToDdMm(toDateStr)}`;
@@ -104,9 +106,10 @@ export default function KpiDashboardPage() {
   const [kpiMonthlyRevenueLoading, setKpiMonthlyRevenueLoading] = useState(true);
 
   const currentMonthKeyForHoliday = useMemo(() => {
-    const now = toDate ? new Date(toDate.split("T")[0]) : new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }, [toDate]);
+    const [year, month] = todayKey.split("-").map(Number);
+    if (!year || !month) return "";
+    return `${year}-${String(month).padStart(2, "0")}`;
+  }, [todayKey]);
 
   const [specialHolidays, setSpecialHolidays] = useState<number[]>(() => {
     if (typeof window === "undefined") return [];
@@ -161,21 +164,17 @@ export default function KpiDashboardPage() {
     localStorage.setItem("kpi_monthly_target", target.toString());
   }, []);
 
-  const today = useMemo(() => new Date(), []);
-  const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
-    today.getDate()
-  ).padStart(2, "0")}`;
+  const today = useMemo(() => {
+    const [year, month, day] = todayKey.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }, [todayKey]);
+  const todayDateStr = todayKey;
   const todayDay = today.getDate();
-  const endDateObj = useMemo(() => {
-    if (!toDateStr) return null;
-    return new Date(toDateStr);
-  }, [toDateStr]);
-  const daysInMonth = endDateObj
-    ? new Date(endDateObj.getFullYear(), endDateObj.getMonth() + 1, 0).getDate()
-    : 0;
-  const lastDay = endDateObj ? endDateObj.getDate() : 0;
-  const year = endDateObj ? endDateObj.getFullYear() : today.getFullYear();
-  const month = endDateObj ? endDateObj.getMonth() : today.getMonth();
+  const endDateObj = today;
+  const daysInMonth = new Date(endDateObj.getFullYear(), endDateObj.getMonth() + 1, 0).getDate();
+  const lastDay = endDateObj.getDate();
+  const year = endDateObj.getFullYear();
+  const month = endDateObj.getMonth();
   const holidayDaysSet = useMemo(
     () =>
       new Set<number>(
@@ -205,7 +204,7 @@ export default function KpiDashboardPage() {
 
   const getDailyTargetForDay = useCallback(
     (day: number) => {
-      if (daysInMonth === 0 || !endDateObj) return 0;
+      if (daysInMonth === 0) return 0;
       const date = new Date(year, month, day);
       const dayOfWeek = date.getDay();
       if (holidayDaysSet.has(day)) return holidayTargetPerDay;
@@ -214,7 +213,6 @@ export default function KpiDashboardPage() {
     },
     [
       daysInMonth,
-      endDateObj,
       holidayDaysSet,
       month,
       weekdayTargetPerDay,
@@ -227,7 +225,7 @@ export default function KpiDashboardPage() {
   const dailyTargetForCurrentDay = todayDay > 0 ? getDailyTargetForDay(todayDay) : 0;
 
   const targetUntilNow = useMemo(() => {
-    if (daysInMonth === 0 || lastDay === 0 || !endDateObj) return 0;
+    if (daysInMonth === 0 || lastDay === 0) return 0;
     let sum = 0;
     for (let day = 1; day <= lastDay; day++) {
       const date = new Date(year, month, day);
@@ -241,10 +239,10 @@ export default function KpiDashboardPage() {
       }
     }
     return sum;
-  }, [daysInMonth, endDateObj, holidayDaysSet, lastDay, month, weekdayTargetPerDay, weekendTargetPerDay, year]);
+  }, [daysInMonth, holidayDaysSet, holidayTargetPerDay, lastDay, month, weekdayTargetPerDay, weekendTargetPerDay, year]);
 
-  const selectedDay = endDateObj ? endDateObj.getDate() : todayDay;
-  const selectedDateStr = toDateStr || todayDateStr;
+  const selectedDay = todayDay;
+  const selectedDateStr = todayDateStr;
   const selectedDayTarget = selectedDay > 0 ? getDailyTargetForDay(selectedDay) : 0;
   const dailyTargetForSelectedDay = selectedDayTarget || dailyTargetForCurrentDay;
   const dailyKpiDateStr = selectedDateStr;
@@ -258,7 +256,7 @@ export default function KpiDashboardPage() {
   const dailyKpiLeft = Math.max(0, dailyTargetForSelectedDay - dailyKpiRevenue);
 
   const currentRevenue = actualRevenueMTD ?? (() => {
-    if (!kpiDailySeries || !toDate || !endDateObj) return 0;
+    if (!kpiDailySeries) return 0;
     const monthKey = `${endDateObj.getFullYear()}-${String(
       endDateObj.getMonth() + 1
     ).padStart(2, "0")}`;
@@ -554,98 +552,86 @@ export default function KpiDashboardPage() {
   }, [fromDateStr, toDateStr, stockQueryParam, actualStockIds]);
 
   useEffect(() => {
-    const run = async () => {
+    let isCancelled = false;
+    let isFetching = false;
+
+    const fetchActualRevenue = async (startDate: string, endDate: string) => {
+      if (actualStockIds.length > 1) {
+        const results = await mapWithConcurrency(
+          actualStockIds,
+          3,
+          async (sid) =>
+            (await ApiService.getDirect(
+              `real-time/get-actual-revenue?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`,
+              undefined,
+              { forceRefresh: true, cacheTtlMs: 0 }
+            )) as number | string | null | undefined
+        );
+        let total = 0;
+        for (const value of results) {
+          total += parseNumericValue(value);
+        }
+        return total;
+      }
+
+      const value = (await ApiService.getDirect(
+        `real-time/get-actual-revenue?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`,
+        undefined,
+        { forceRefresh: true, cacheTtlMs: 0 }
+      )) as number | string | null | undefined;
+      return parseNumericValue(value);
+    };
+
+    const pollKpiTargetRevenue = async () => {
+      if (isFetching) return;
+      isFetching = true;
+
+      const now = new Date();
+      const nowIso = toIsoYyyyMmDd(now);
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startDate = toDdMmYyyy(firstDay);
+      const endDate = toDdMmYyyy(now);
+
+      if (!isCancelled) {
+        setTodayKey((prev) => (prev === nowIso ? prev : nowIso));
+      }
+
       try {
-        const today = toDateStr ? new Date(toDateStr) : new Date();
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        const dayStr = toDdMmYyyy(today);
-        const startMonthStr = toDdMmYyyy(firstDay);
-
-        const fetchActualRevenue = async (startDate: string, endDate: string) => {
-          if (actualStockIds.length > 1) {
-            const results = await mapWithConcurrency(
-              actualStockIds,
-              3,
-              async (sid) =>
-                (await ApiService.getDirect(
-                  `real-time/get-actual-revenue?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
-                )) as number | string | null | undefined
-            );
-            let total = 0;
-            for (const value of results) {
-              total += parseNumericValue(value);
-            }
-            return total;
-          }
-          const value = (await ApiService.getDirect(
-            `real-time/get-actual-revenue?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
-          )) as number | string | null | undefined;
-          return parseNumericValue(value);
-        };
-
         const [dayValue, mtdValue] = await Promise.all([
-          fetchActualRevenue(dayStr, dayStr),
-          fetchActualRevenue(startMonthStr, dayStr),
+          fetchActualRevenue(endDate, endDate),
+          fetchActualRevenue(startDate, endDate),
         ]);
 
-        setActualRevenueToday(dayValue ?? null);
-        setActualRevenueMTD(mtdValue ?? null);
-      } catch {
-
-      }
-    };
-    run();
-  }, [fromDateStr, toDateStr, stockQueryParam, actualStockIds]);
-
-  useEffect(() => {
-    const fetchDailyRevenue = async () => {
-      setDailyRevenueLoading(true);
-      const todayStr = toDdMmYyyy(new Date());
-      try {
-        await ApiService.getDirect(
-          `real-time/sales-summary?dateStart=${todayStr}&dateEnd=${todayStr}${stockQueryParam}`
-        );
-      } catch (err) {
-        console.error("Daily revenue fetch error:", err);
-      } finally {
-        setDailyRevenueLoading(false);
-      }
-    };
-    fetchDailyRevenue();
-  }, [stockQueryParam]);
-
-  useEffect(() => {
-    const fetchKpiMonthlyRevenue = async () => {
-      setKpiMonthlyRevenueLoading(true);
-      const today = new Date();
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      const startDate = toDdMmYyyy(firstDay);
-      const endDate = toDdMmYyyy(today);
-
-      try {
-        if (actualStockIds.length > 1) {
-          await mapWithConcurrency(actualStockIds, 3, async (sid) => {
-            await ApiService.getDirect(
-              `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}&stockId=${sid}`
-            );
-            return null;
-          });
-        } else {
-          await ApiService.getDirect(
-            `real-time/sales-summary?dateStart=${startDate}&dateEnd=${endDate}${stockQueryParam}`
-          );
+        if (!isCancelled) {
+          setActualRevenueToday(dayValue ?? null);
+          setActualRevenueMTD(mtdValue ?? null);
         }
       } catch (err) {
-        console.error("KPI monthly revenue error:", err);
+        console.error("KPI target polling error:", err);
       } finally {
-        setKpiMonthlyRevenueLoading(false);
+        if (!isCancelled) {
+          setDailyRevenueLoading(false);
+          setKpiMonthlyRevenueLoading(false);
+        }
+        isFetching = false;
       }
     };
-    fetchKpiMonthlyRevenue();
+
+    setDailyRevenueLoading(true);
+    setKpiMonthlyRevenueLoading(true);
+    void pollKpiTargetRevenue();
+    const intervalId = window.setInterval(() => {
+      void pollKpiTargetRevenue();
+    }, KPI_POLL_INTERVAL_MS);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, [stockQueryParam, actualStockIds]);
 
   useEffect(() => {
-    const currentKey = `${selectedStockId}-${stockQueryParam}-${actualStockIds.join(",")}`;
+    const currentKey = `${selectedStockId}-${stockQueryParam}-${actualStockIds.join(",")}-${todayKey}`;
     if (kpiSeriesStockRef.current === currentKey) return;
     kpiSeriesStockRef.current = currentKey;
     let isCancelled = false;
@@ -654,7 +640,7 @@ export default function KpiDashboardPage() {
       setKpiDailySeriesLoading(true);
       setKpiDailySeriesError(null);
       try {
-        const todayDate = new Date();
+        const todayDate = new Date(`${todayKey}T00:00:00`);
         const firstDayOfMonth = new Date(
           todayDate.getFullYear(),
           todayDate.getMonth(),
@@ -755,7 +741,7 @@ export default function KpiDashboardPage() {
     return () => {
       isCancelled = true;
     };
-  }, [selectedStockId, stockQueryParam, actualStockIds]);
+  }, [selectedStockId, stockQueryParam, actualStockIds, todayKey]);
   const isDaily = kpiViewMode === "daily";
   const currentStatus = isDaily ? dailyStatus : monthlyStatus;
   const currentDayForDaily = isDaily ? selectedDay : lastDay;
@@ -766,7 +752,7 @@ export default function KpiDashboardPage() {
   const remainingValue = isDaily ? dailyKpiLeft : remainingTarget;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 pb-10">
+    <div className="w-full space-y-6 px-3 sm:px-6 lg:px-8 pb-10">
       <header className="space-y-1">
         <p className="text-sm text-gray-500">Tổng hợp KPI và doanh thu theo cài đặt hiện tại.</p>
         <h1 className="text-3xl font-semibold text-gray-900">Báo cáo KPI</h1>

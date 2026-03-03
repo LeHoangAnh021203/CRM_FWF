@@ -138,7 +138,8 @@ export default function KPIChart(props: KPIChartProps) {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+    <div className="grid grid-cols-1 gap-4 sm:gap-6">
+      {/* 
       <Card className="border-[#fcb900]/20 shadow-lg bg-gradient-to-br from-white to-[#fcb900]/10">
         <CardHeader className="bg-[#d97706] text-white rounded-t-lg p-3 sm:p-4">
           <CardTitle className="text-white font-bold text-base sm:text-lg">
@@ -344,6 +345,7 @@ export default function KPIChart(props: KPIChartProps) {
           </div>
         </CardContent>
       </Card>
+      */}
 
       <Card className="border-[#7bdcb5]/20 shadow-lg bg-gradient-to-br from-[#7bdcb5]/20 via-[#41d1d9]/20 to-[#0693e3]/20 relative overflow-hidden">
         <CardHeader className="bg-[#00b894] text-white rounded-t-lg p-3 sm:p-4">

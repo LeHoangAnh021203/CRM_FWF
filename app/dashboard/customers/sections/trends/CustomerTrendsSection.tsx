@@ -61,13 +61,16 @@ export function CustomerTrendsSection({
         COLORS={COLORS}
       />
 
+      {/* 
       <CustomerNewChart
         data-search-ref="customers_new_chart"
         loadingCustomerSummary={customerSummaryLoading}
         errorCustomerSummary={customerSummaryError}
         customerSummaryRaw={customerSummaryRaw}
       />
+      */}
 
+      {/* 
       <div className="mt-5">
         {(() => {
           if (customerOldTypeLoading) {
@@ -113,6 +116,7 @@ export function CustomerTrendsSection({
           );
         })()}
       </div>
+      */}
 
       <CustomerTypeTrendChart
         data-search-ref="customers_type_trend"

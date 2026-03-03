@@ -27,11 +27,11 @@ const menuItems = [
     href: "/",
   },
 
-  // {
-  //   icon: ChartNoAxesCombined,
-  //   label: "KPI",
-  //   href: "/dashboard/kpi",
-  // },
+  {
+    icon: ChartNoAxesCombined,
+    label: "KPI",
+    href: "/dashboard/kpi",
+  },
   {
     icon: Users,
     label: "Customer",

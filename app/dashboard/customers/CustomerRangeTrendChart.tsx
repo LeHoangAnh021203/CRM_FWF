@@ -85,29 +85,24 @@ const CustomerRangeTrendChart: React.FC<CustomerRangeTrendChartProps> = ({
 
   return (
     <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 mt-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <div>
-          <p className="text-base font-semibold text-gray-900">
-            Tổng số khách tồn tại trong khoảng ngày đã chọn
-          </p>
-          <p className="text-sm text-gray-500">
-            {new Date(fromDate).toLocaleDateString("vi-VN")} →{" "}
-            {new Date(toDate).toLocaleDateString("vi-VN")}
-          </p>
-        </div>
-        <div className="text-3xl font-bold text-gray-900">
-          {loading
-            ? "…"
-            : totalCustomersInRange.toLocaleString("vi-VN")}
+      <div className="grid grid-cols-1 gap-6">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 p-6 sm:p-8">
+          <div className="flex flex-col items-center justify-center text-center">
+            <p className="text-sm font-medium text-blue-600 mb-3">Tổng số khách trong hệ thống</p>
+            <div className="text-5xl sm:text-6xl font-bold text-blue-900">
+              {loading ? "…" : totalExistingCustomers.toLocaleString("vi-VN")}
+            </div>
+          </div>
         </div>
       </div>
 
       {error && (
-        <p className="mt-2 text-sm text-red-500 mb-4">
+        <p className="mt-4 text-sm text-red-500">
           Lỗi tải dữ liệu: {error}
         </p>
       )}
 
+      {/* 
       {!loading && !error && (
         <>
           <div className="mb-4 grid grid-cols-2 gap-4">
@@ -208,9 +203,10 @@ const CustomerRangeTrendChart: React.FC<CustomerRangeTrendChartProps> = ({
           </div>
         </>
       )}
+      */}
 
       {loading && (
-        <div className="flex justify-center items-center h-64">
+        <div className="flex justify-center items-center h-32">
           <div className="text-gray-500">Đang tải dữ liệu...</div>
         </div>
       )}
